@@ -1,0 +1,8 @@
+{
+  "name": "Alwajar ERP Hub - AI Studio",
+  "description": "A luxury Saffron & Gold themed ERP dashboard for Alwajar Pharmaceuticals, featuring AI-driven production tracking, inventory management, and operational logic by the AI-COO.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
