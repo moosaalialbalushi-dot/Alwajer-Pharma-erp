@@ -26,18 +26,15 @@ const INITIAL_BATCHES: Batch[] = [
 ];
 
 const INITIAL_INVENTORY: InventoryItem[] = [
-  { id: 'RM-001', name: 'Omeprazole Powder', category: 'API', stock: 15, requiredForOrders: 1105, balanceToPurchase: 1090, safetyStock: 200, unit: 'kg' },
-  { id: 'RM-002', name: 'Esomeprazole', category: 'API', stock: 55, requiredForOrders: 1600, balanceToPurchase: 1545, safetyStock: 100, unit: 'kg' },
-  { id: 'RM-026', name: 'HPMC E-5', category: 'Excipient', stock: 8642, requiredForOrders: 3000, balanceToPurchase: -5642, safetyStock: 1000, unit: 'kg' },
-  { id: 'RM-030', name: 'Talcum', category: 'Excipient', stock: 500, requiredForOrders: 1000, balanceToPurchase: 500, safetyStock: 200, unit: 'kg' },
-  { id: 'PM-001', name: '35 LIT HDPE DRUMS', category: 'Packing', stock: 300, requiredForOrders: 2520, balanceToPurchase: 2220, safetyStock: 500, unit: 'nos' },
-  { id: 'FG-101', name: 'Omeprazole 20mg Capsules', category: 'Finished', stock: 50000, safetyStock: 10000, unit: 'packs' },
-  { id: 'FG-102', name: 'Esomeprazole 40mg Tablets', category: 'Finished', stock: 25000, safetyStock: 5000, unit: 'packs' },
+  { id: 'RM-001', sNo: '1', name: 'OMEPRAZOLE POWDER', category: 'API', requiredForOrders: 1105, stock: 15, balanceToPurchase: 1090, unit: 'kg', stockDate: '31.12.25' },
+  { id: 'RM-002', sNo: '2', name: 'Esomeprazole', category: 'API', requiredForOrders: 1600, stock: 55, balanceToPurchase: 1545, unit: 'kg', stockDate: '31.12.25' },
+  { id: 'RM-003', sNo: '3', name: 'Lansoprazole', category: 'API', requiredForOrders: 0, stock: 84, balanceToPurchase: 0, unit: 'kg', stockDate: '31.12.25' },
+  { id: 'RM-026', sNo: '26', name: 'HPMC E-5', category: 'Excipient', requiredForOrders: 3000, stock: 8642, balanceToPurchase: -5642, unit: 'kg', stockDate: '31.12.25' },
+  { id: 'RM-030', sNo: '30', name: 'TALCUM', category: 'Excipient', requiredForOrders: 1000, stock: 500, balanceToPurchase: 500, unit: 'kg', stockDate: '31.12.25' },
 ];
 
 const INITIAL_ORDERS: Order[] = [
-  { id: 'ORD-FER-01', customer: 'FEROZSONS', product: 'Esomeprazole EC Pellets 22.5%', quantity: 5000, amount: 120000, status: 'Pending', indentDate: '2025-11-10' },
-  { id: 'ORD-INT-05', customer: 'International Pharma', product: 'Omeprazole 20%', quantity: 2000, amount: 45000, status: 'Shipped', indentDate: '2025-10-22' },
+  { id: 'ORD-01', sNo: '1', date: '2025-01-19', invoiceNo: 'AWP/INV-01-25', customer: 'FEROZSONS', lcNo: '-', country: 'Pakistan', product: 'Esomeprazole EC Pellets 22.5%', quantity: 5000, rateUSD: 24, amountUSD: 120000, amountOMR: 46200, status: 'Pending' },
 ];
 
 const INITIAL_EXPENSES: Expense[] = [
@@ -55,23 +52,20 @@ const INITIAL_EMPLOYEES: Employee[] = [
 const INITIAL_RD: RDProject[] = [
   {
     id: 'RD-001',
-    title: 'Pantoprazole EC Pellets 20%',
+    title: 'Esomeprazole Magnesium Trihydrate Formulation',
     status: 'Formulation',
-    optimizationScore: 84,
-    lastUpdated: '2024-03-20',
+    optimizationScore: 95,
+    lastUpdated: '2025-02-12',
+    batchSize: 100,
+    batchUnit: 'Kg',
+    totalRMC: 1684.868,
+    loss: 0.02,
+    totalFinalRMC: 16.869,
     ingredients: [
-      { name: 'Pantoprazole Sodium', quantity: 20, unit: 'kg', role: 'API' },
-      { name: 'Sugar Spheres', quantity: 60, unit: 'kg', role: 'Filler' },
-      { name: 'HPMC', quantity: 5, unit: 'kg', role: 'Binder' }
+      { sNo: '1', name: 'Esomeprazole Magnesium Trihydrate', quantity: 28.5, unit: 'Kg', rateUSD: 46, cost: 1311.00, role: 'API' },
+      { sNo: '2', name: 'NPS 20/24', quantity: 43.637, unit: 'Kg', rateUSD: 2.05, cost: 89.46, role: 'Filler' },
+      { sNo: '3', name: 'HPMC E5', quantity: 13.12, unit: 'Kg', rateUSD: 7.25, cost: 95.12, role: 'Binder' },
     ]
-  },
-  {
-    id: 'RD-002',
-    title: 'Lansoprazole 30mg DR',
-    status: 'Stability',
-    optimizationScore: 92,
-    lastUpdated: '2024-04-15',
-    ingredients: []
   }
 ];
 
@@ -613,9 +607,9 @@ const App: React.FC = () => {
       setIsAiLoading(true);
       try {
         let prompt = "Analyze this file.";
-        if (context === 'procurement') prompt = "Analyze this Purchase Order/Indent file. Extract Item Names, Quantities, and Vendor details.";
-        if (context === 'rd') prompt = "Analyze this formulation document. Identify active ingredients, excipients, and suggest optimization.";
-        if (context === 'bd') prompt = "Import this business data. Extract leads, market info, and opportunities.";
+        if (context === 'procurement') prompt = "Analyze this inventory requirement or PO file. Extract: S.No, Material Name, Required Quantity, Present Stock. Return JSON: { \"items\": [ { \"sNo\": \"string\", \"name\": \"string\", \"required\": number, \"stock\": number } ] }";
+        if (context === 'rd') prompt = "Analyze this pharmaceutical formulation/costing sheet. Extract: Raw Material, Unit, Per B. Qty, Rate USD. Also identify Batch Size (Output). Return JSON: { \"batchSize\": number, \"ingredients\": [ { \"name\": \"string\", \"unit\": \"string\", \"quantity\": number, \"rateUSD\": number } ] }";
+        if (context === 'bd') prompt = "Analyze this Sales Excel file. Extract: Party, Product, Qty (KG), Rate $, Amount $, Status. Return JSON: { \"orders\": [ { \"customer\": \"string\", \"product\": \"string\", \"quantity\": number, \"rateUSD\": number, \"amountUSD\": number, \"status\": \"string\" } ] }";
 
         // Update progress during analysis
         setUploadProgress(prev => ({
@@ -639,23 +633,65 @@ const App: React.FC = () => {
             const jsonData = JSON.parse(analysis.substring(analysis.indexOf('{'), analysis.lastIndexOf('}') + 1));
             
             if (context === 'procurement' && jsonData.items) {
-              // Auto-update inventory or vendors based on PO/Indent
               const newItems = jsonData.items.map((item: any) => ({
                 id: `AI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                sNo: item.sNo || '',
                 name: item.name || 'Unknown Item',
-                category: item.category || 'API',
-                stock: 0,
-                requiredForOrders: item.quantity || 0,
-                balanceToPurchase: item.quantity || 0,
-                safetyStock: 100,
-                unit: item.unit || 'kg'
+                category: 'API',
+                stock: item.stock || 0,
+                requiredForOrders: item.required || 0,
+                balanceToPurchase: (item.required || 0) - (item.stock || 0),
+                unit: 'kg',
+                stockDate: new Date().toLocaleDateString()
               }));
               setInventory(prev => [...prev, ...newItems]);
               await logAction('IMPORT', `AI imported ${newItems.length} items from ${file.name}`);
             }
             
-            if (context === 'bd' && jsonData.leads) {
-              // Logic to update BD leads could go here
+            if (context === 'rd' && jsonData.ingredients) {
+              const newProject: RDProject = calculateCosting({
+                id: `RD-${Date.now()}`,
+                title: `Imported: ${file.name}`,
+                status: 'Formulation',
+                optimizationScore: 85,
+                lastUpdated: new Date().toISOString(),
+                batchSize: jsonData.batchSize || 100,
+                batchUnit: 'Kg',
+                totalRMC: 0,
+                loss: 0.02,
+                totalFinalRMC: 0,
+                ingredients: jsonData.ingredients.map((ing: any) => ({
+                  name: ing.name,
+                  quantity: ing.quantity,
+                  unit: ing.unit || 'Kg',
+                  rateUSD: ing.rateUSD || 0,
+                  cost: 0,
+                  role: 'Other'
+                }))
+              });
+              setRdProjects(prev => [newProject, ...prev]);
+              setSelectedRD(newProject);
+              await logAction('IMPORT', `AI imported formulation from ${file.name}`);
+            }
+
+            if (context === 'global' && jsonData.orders) {
+              const newOrders = jsonData.orders.map((order: any) => ({
+                id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                sNo: '',
+                date: new Date().toISOString().split('T')[0],
+                invoiceNo: 'AUTO-GEN',
+                customer: order.customer,
+                lcNo: '-',
+                country: '-',
+                product: order.product,
+                quantity: order.quantity,
+                rateUSD: order.rateUSD,
+                amountUSD: order.amountUSD,
+                amountOMR: order.amountUSD * 0.385,
+                status: order.status || 'Pending'
+              }));
+              setOrders(prev => [...prev, ...newOrders]);
+              await logAction('IMPORT', `AI imported ${newOrders.length} orders from ${file.name}`);
             }
           } catch (e) {
             console.warn("Could not parse AI response as JSON for state update", e);
@@ -829,13 +865,31 @@ const App: React.FC = () => {
     setIsAiLoading(false);
   };
   
+  const calculateCosting = (project: RDProject) => {
+    const ingredients = project.ingredients.map(ing => ({
+      ...ing,
+      cost: Number((ing.quantity * ing.rateUSD).toFixed(3))
+    }));
+    
+    const totalRMC = ingredients.reduce((sum, ing) => sum + ing.cost, 0);
+    const totalFinalRMC = Number(((totalRMC / project.batchSize) + project.loss).toFixed(3));
+    
+    return {
+      ...project,
+      ingredients,
+      totalRMC: Number(totalRMC.toFixed(3)),
+      totalFinalRMC
+    };
+  };
+
   const handleOptimizeFormulation = async () => {
     if (!selectedRD) return;
     setIsAiLoading(true);
     try {
       const result = await optimizeFormulation(selectedRD);
       if (result.optimizedIngredients && result.optimizedIngredients.length > 0) {
-        const updated = { ...selectedRD, ingredients: result.optimizedIngredients, optimizationScore: 98 };
+        let updated = { ...selectedRD, ingredients: result.optimizedIngredients, optimizationScore: 98 };
+        updated = calculateCosting(updated);
         setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
         setSelectedRD(updated);
       }
@@ -1428,12 +1482,11 @@ const App: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-white/5 text-slate-500 text-xs uppercase">
+                  <th className="pb-4 px-4 font-bold">S.No</th>
                   <th className="pb-4 px-4 font-bold">Material Name</th>
-                  <th className="pb-4 px-4 font-bold">Category</th>
-                  <th className="pb-4 px-4 font-bold">Current Stock</th>
+                  <th className="pb-4 px-4 font-bold">Present Stock</th>
                   {inventoryTab === 'raw' && <th className="pb-4 px-4 font-bold">Required</th>}
                   {inventoryTab === 'raw' && <th className="pb-4 px-4 font-bold">Balance</th>}
-                  <th className="pb-4 px-4 font-bold">Min Stock</th>
                   <th className="pb-4 px-4 font-bold">Status</th>
                   <th className="pb-4 px-4 font-bold text-right">Actions</th>
                 </tr>
@@ -1450,14 +1503,11 @@ const App: React.FC = () => {
                     const isCritical = (item.balanceToPurchase && item.balanceToPurchase > 0) || item.stock < item.safetyStock;
                     return (
                       <tr key={item.id} className="hover:bg-white/5 transition-all">
+                        <td className="py-3 px-4 text-slate-500 font-mono text-xs">{item.sNo}</td>
                         <td className="py-3 px-4 text-white font-bold text-sm">{item.name}</td>
-                        <td className="py-3 px-4">
-                          <span className="text-[10px] uppercase bg-slate-700 text-slate-300 px-2 py-1 rounded font-bold">
-                            {item.category}
-                          </span>
-                        </td>
                         <td className="py-3 px-4 text-white font-mono font-bold">
                           {item.stock.toLocaleString()} <span className="text-xs text-slate-500">{item.unit}</span>
+                          {item.stockDate && <div className="text-[8px] text-slate-500 uppercase">DT: {item.stockDate}</div>}
                         </td>
                         {inventoryTab === 'raw' && (
                           <td className="py-3 px-4 text-slate-300 font-mono">
@@ -1471,14 +1521,11 @@ const App: React.FC = () => {
                             </span>
                           </td>
                         )}
-                        <td className="py-3 px-4 text-slate-300 font-mono">
-                          {item.safetyStock.toLocaleString()} <span className="text-xs text-slate-500">{item.unit}</span>
-                        </td>
                         <td className="py-3 px-4">
                           <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${
                             isCritical ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-green-500/20 text-green-500 border border-green-500/30'
                           }`}>
-                            {isCritical ? 'SHORTAGE' : 'GOOD'}
+                            {isCritical ? 'BALANCE TO PURCHASE' : 'GOOD'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -1530,9 +1577,10 @@ const App: React.FC = () => {
         <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/5 text-slate-500 text-xs uppercase">
-                <th className="pb-4 px-4 font-bold">Customer</th>
-                <th className="pb-4 px-4 font-bold">Product</th>
-                <th className="pb-4 px-4 font-bold">Qty</th>
+                <th className="pb-4 px-4 font-bold">Invoice / Date</th>
+                <th className="pb-4 px-4 font-bold">Party / Country</th>
+                <th className="pb-4 px-4 font-bold">Product / Qty</th>
+                <th className="pb-4 px-4 font-bold">Amount (USD/OMR)</th>
                 <th className="pb-4 px-4 font-bold">Status</th>
                 <th className="pb-4 px-4 font-bold text-right">Action</th>
               </tr>
@@ -1540,9 +1588,22 @@ const App: React.FC = () => {
             <tbody className="divide-y divide-white/5">
               {orders.map(order => (
                 <tr key={order.id} className="hover:bg-white/5">
-                  <td className="p-4 font-bold text-white">{order.customer}</td>
-                  <td className="p-4 text-sm text-slate-300">{order.product}</td>
-                  <td className="p-4 font-bold text-white font-mono">{order.quantity.toLocaleString()}</td>
+                  <td className="p-4">
+                    <div className="font-bold text-white text-sm">{order.invoiceNo}</div>
+                    <div className="text-[10px] text-slate-500">{order.date}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-bold text-white text-sm">{order.customer}</div>
+                    <div className="text-[10px] text-slate-500">{order.country}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm text-slate-300">{order.product}</div>
+                    <div className="text-xs font-bold text-white font-mono">{order.quantity.toLocaleString()} KG</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm font-bold text-white font-mono">${order.amountUSD?.toLocaleString()}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">{order.amountOMR?.toLocaleString()} OMR</div>
+                  </td>
                   <td className="p-4">
                     <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
                       order.status === 'Shipped' ? 'bg-blue-500/10 text-blue-500' : 'bg-yellow-500/10 text-yellow-500'
@@ -2066,13 +2127,37 @@ const App: React.FC = () => {
                                     {isAiLoading ? <Loader2 className="animate-spin" size={14}/> : <Zap size={14}/>} AI OPTIMIZE
                                 </button>
                             </div>
-                            <div className="space-y-2 mb-6">
-                                {selectedRD.ingredients.length === 0 ? <p className="text-sm text-slate-500 italic">No ingredients listed.</p> : selectedRD.ingredients.map((ing, idx) => (
-                                    <div key={idx} className="flex justify-between text-sm py-1 border-b border-white/5">
-                                        <span className="text-slate-300">{ing.name} <span className="text-[10px] text-slate-500">({ing.role})</span></span>
-                                        <span className="font-mono text-[#D4AF37]">{ing.quantity} {ing.unit}</span>
-                                    </div>
-                                ))}
+                            <div className="overflow-x-auto mb-6">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-white/5 text-slate-500 uppercase">
+                                            <th className="pb-2">Material</th>
+                                            <th className="pb-2">Qty</th>
+                                            <th className="pb-2">Rate</th>
+                                            <th className="pb-2 text-right">Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {selectedRD.ingredients.map((ing, idx) => (
+                                            <tr key={idx} className="hover:bg-white/5">
+                                                <td className="py-2 text-slate-300">{ing.name}</td>
+                                                <td className="py-2 font-mono text-white">{ing.quantity} {ing.unit}</td>
+                                                <td className="py-2 font-mono text-slate-400">${ing.rateUSD}</td>
+                                                <td className="py-2 font-mono text-[#D4AF37] text-right">${ing.cost?.toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr className="border-t border-[#D4AF37]/30 font-bold">
+                                            <td colSpan={3} className="py-2 text-white">Total RMC</td>
+                                            <td className="py-2 text-[#D4AF37] text-right font-mono">${selectedRD.totalRMC?.toLocaleString()}</td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={3} className="py-1 text-slate-500 text-[10px]">Batch Size: {selectedRD.batchSize} {selectedRD.batchUnit} | Loss: {selectedRD.loss}</td>
+                                            <td className="py-1 text-green-400 text-right font-mono text-sm">${selectedRD.totalFinalRMC}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
                             <div className="p-4 bg-slate-800/30 rounded border border-white/5">
                                 <h4 className="text-xs font-bold text-[#D4AF37] mb-2 uppercase">AI Optimization Report</h4>
@@ -2423,7 +2508,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-full flex bg-[#020617] text-slate-200 overflow-hidden font-inter">
+    <div className="h-screen w-full flex bg-[#020617] text-slate-200 overflow-y-auto font-inter">
       {renderModal()}
       {renderCustomizeModal()}
       {renderSettingsModal()}
@@ -2494,7 +2579,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#020617] h-screen">
+      <main className="flex-1 flex flex-col bg-[#020617] min-h-screen">
         {/* RESPONSIVE HEADER */}
         <header className="sticky top-0 h-16 sm:h-20 bg-slate-950/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-8 flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">

@@ -12,25 +12,35 @@ export interface Batch {
 
 export interface InventoryItem {
   id: string;
+  sNo: string;
   name: string;
-  category: 'API' | 'Excipient' | 'Packing' | 'Finished' | 'R&D';
-  stock: number;
-  requiredForOrders?: number;
-  balanceToPurchase?: number;
-  safetyStock: number;
+  category: 'API' | 'Excipient' | 'Packing' | 'Finished' | 'R&D' | 'Other';
+  requiredForOrders: number;
+  stock: number; // Present Stock
+  balanceToPurchase: number;
   unit: string;
+  stockDate?: string;
 }
 
 export interface Order {
   id: string;
-  customer: string;
-  quantity: number;
+  sNo: string;
+  date: string;
+  invoiceNo: string;
+  customer: string; // Party
+  lcNo: string; // LC No / BIC No
+  country: string;
   product: string;
-  amount: number;
-  status: 'Pending' | 'LC Verified' | 'Shipped' | 'Cancelled' | 'In Production';
-  piNumber?: string;
-  indentDate?: string;
-  bank?: string;
+  quantity: number; // Qty (KG)
+  rateUSD: number;
+  amountUSD: number;
+  amountOMR: number;
+  status: string;
+  materialDispatched?: string;
+  paymentTerms?: string;
+  receivedAmountOMR?: number;
+  pendingAmountOMR?: number;
+  remarks?: string;
 }
 
 export interface Expense {
@@ -93,13 +103,21 @@ export interface RDProject {
   ingredients: Ingredient[];
   optimizationScore: number;
   lastUpdated: string;
+  batchSize: number; // Output
+  batchUnit: string;
+  totalRMC: number;
+  loss: number;
+  totalFinalRMC: number;
 }
 
 export interface Ingredient {
+  sNo?: string;
   name: string;
-  quantity: number;
+  quantity: number; // Per B. Qty
   unit: string;
-  role: 'API' | 'Filler' | 'Binder' | 'Coating' | 'Disintegrant';
+  rateUSD: number;
+  cost: number;
+  role: 'API' | 'Filler' | 'Binder' | 'Coating' | 'Disintegrant' | 'Other';
 }
 
 export interface FileAnalysisResult {
