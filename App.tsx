@@ -17,6 +17,7 @@ import {
   brainstormSession, generateIndustrialDesign, editImage, transcribeAudio, quickInsight
 } from './geminiService';
 import { supabase } from './supabaseClient';
+import { exportToCSV } from './exportUtils';
 
 // --- INITIAL DATA ---
 
@@ -632,19 +633,40 @@ const App: React.FC = () => {
           message: 'Analysis complete!'
         }));
 
-        if (context === 'rd' || context === 'bd') {
-             setFileAnalysisLog(prev => [{
-              fileName: file.name,
-              analysis: analysis || "Analysis complete.",
-              timestamp: new Date().toLocaleTimeString()
-            }, ...prev]);
-        } else {
-             setFileAnalysisLog(prev => [{
-              fileName: file.name,
-              analysis: analysis || "Analysis complete.",
-              timestamp: new Date().toLocaleTimeString()
-            }, ...prev]);
+        // Process AI analysis into system state if applicable
+        if (analysis && analysis.includes('{')) {
+          try {
+            const jsonData = JSON.parse(analysis.substring(analysis.indexOf('{'), analysis.lastIndexOf('}') + 1));
+            
+            if (context === 'procurement' && jsonData.items) {
+              // Auto-update inventory or vendors based on PO/Indent
+              const newItems = jsonData.items.map((item: any) => ({
+                id: `AI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: item.name || 'Unknown Item',
+                category: item.category || 'API',
+                stock: 0,
+                requiredForOrders: item.quantity || 0,
+                balanceToPurchase: item.quantity || 0,
+                safetyStock: 100,
+                unit: item.unit || 'kg'
+              }));
+              setInventory(prev => [...prev, ...newItems]);
+              await logAction('IMPORT', `AI imported ${newItems.length} items from ${file.name}`);
+            }
+            
+            if (context === 'bd' && jsonData.leads) {
+              // Logic to update BD leads could go here
+            }
+          } catch (e) {
+            console.warn("Could not parse AI response as JSON for state update", e);
+          }
         }
+
+        setFileAnalysisLog(prev => [{
+          fileName: file.name,
+          analysis: analysis || "Analysis complete.",
+          timestamp: new Date().toLocaleTimeString()
+        }, ...prev]);
 
         // Hide progress after 2 seconds
         setTimeout(() => {
@@ -1363,9 +1385,14 @@ const App: React.FC = () => {
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <Boxes className="text-[#F4C430]" size={20} /> Inventory Control
             </h2>
-            <button onClick={() => openModal('add', 'inventory', {id: '', name: '', category: 'API', stock: 0, safetyStock: 100})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
-                <Plus size={16} /> Add Item
+    <div className="flex gap-2">
+            <button onClick={() => exportToCSV(inventory, 'inventory_report')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+              <Download size={14}/> Export
             </button>
+            <button onClick={() => openModal('add', 'inventory', {id: '', name: '', category: 'API', stock: 0, safetyStock: 0, unit: 'kg'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
+              <Plus size={16} /> Add Material
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher */}
@@ -1490,9 +1517,14 @@ const App: React.FC = () => {
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <BadgeDollarSign className="text-[#F4C430]" size={20} /> Sales & Orders
           </h2>
-          <button onClick={() => openModal('add', 'sales', {id: '', customer: '', product: '', quantity: 0, status: 'Pending'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
-            <Plus size={16} /> Update Orders
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => exportToCSV(orders, 'sales_report')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+              <Download size={14}/> Export
+            </button>
+            <button onClick={() => openModal('add', 'sales', {id: '', customer: '', product: '', quantity: 0, status: 'Pending'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
+              <Plus size={16} /> Update Orders
+            </button>
+          </div>
       </div>
       <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-6 gold-glow">
         <table className="w-full text-left">
@@ -1909,7 +1941,7 @@ const App: React.FC = () => {
   );
 
   const renderAIOps = () => (
-    <div className="space-y-6 animate-fadeIn h-[calc(100vh-140px)] flex flex-col">
+    <div className="space-y-6 animate-fadeIn flex flex-col pb-10">
        <div className="flex justify-between items-center shrink-0">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <MessageSquare className="text-[#F4C430]" size={20} /> AI Operational Assistant
@@ -2061,7 +2093,7 @@ const App: React.FC = () => {
   };
 
   const renderIndustrialStudio = () => (
-      <div className="space-y-6 animate-fadeIn h-[calc(100vh-140px)] flex flex-col">
+      <div className="space-y-6 animate-fadeIn flex flex-col pb-10">
           <div className="flex justify-between items-center shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <DraftingCompass className="text-[#F4C430]" size={20} /> Industrial Design Chat
@@ -2189,7 +2221,7 @@ const App: React.FC = () => {
       const currentSession = brainstormSessions.find(s => s.id === currentBrainstormId);
 
       return (
-      <div className="space-y-6 animate-fadeIn h-[calc(100vh-140px)] flex flex-col">
+      <div className="space-y-6 animate-fadeIn flex flex-col pb-10">
            <div className="flex justify-between items-center shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                   <BrainCircuit className="text-[#F4C430]" size={20} /> Strategic Brainstorming
@@ -2462,7 +2494,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#020617] h-full">
+      <main className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#020617] h-screen">
         {/* RESPONSIVE HEADER */}
         <header className="sticky top-0 h-16 sm:h-20 bg-slate-950/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-8 flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">

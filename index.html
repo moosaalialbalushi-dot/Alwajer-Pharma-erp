@@ -13,7 +13,7 @@
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Prevent body scroll, let React app handle internal scrolling */
+            overflow: auto; /* Allow scrolling if needed */
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -42,6 +42,7 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
+    "./exportUtils": "./exportUtils.ts",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0"

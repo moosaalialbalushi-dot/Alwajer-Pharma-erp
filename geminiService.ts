@@ -36,7 +36,7 @@ Output JSON format: Array<{ type: string, message: string, severity: 'info' | 'w
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -56,7 +56,7 @@ export const quickInsight = async (dataSummary: string): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite-preview-02-05", 
+      model: "gemini-2.0-flash", 
       contents: `Quickly summarize status: ${dataSummary}`,
       config: { systemInstruction: "You are a fast, efficient ERP assistant. Be brief." }
     });
@@ -71,7 +71,7 @@ Return JSON: { "suggestion": "string", "optimizedIngredients": "Array<Ingredient
 
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     contents: prompt,
     config: {
       systemInstruction: "You are an expert Pharmaceutical Formulation Scientist.",
@@ -85,7 +85,7 @@ Return JSON: { "suggestion": "string", "optimizedIngredients": "Array<Ingredient
 export const chatWithCOO = async (message: string, history: any[]) => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.0-flash',
     contents: message,
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
@@ -99,7 +99,7 @@ export const analyzeImageOrFile = async (base64Data: string, mimeType: string, p
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
+      model: 'gemini-2.0-flash', 
       contents: {
         parts: [
           { inlineData: { mimeType: mimeType, data: base64Data } },
@@ -128,7 +128,7 @@ export const brainstormSession = async (topic: string, persona: 'logic' | 'creat
 
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.0-flash',
     contents: topic,
     config: {
       systemInstruction: systemInstruction,
@@ -148,7 +148,7 @@ export const generateIndustrialDesign = async (
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-2.0-flash',
       contents: { parts: [{ text: enhancedPrompt }] },
       config: { imageConfig: { aspectRatio: aspectRatio, imageSize: imageSize } }
     });
@@ -165,7 +165,7 @@ export const editImage = async (base64Data: string, mimeType: string, promptText
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', 
+      model: 'gemini-2.0-flash', 
       contents: {
         parts: [
           { inlineData: { mimeType: mimeType, data: base64Data } },
@@ -186,7 +186,7 @@ export const transcribeAudio = async (base64Audio: string, mimeType: string): Pr
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.0-flash",
         contents: {
             parts: [
                 { inlineData: { mimeType: mimeType, data: base64Audio } },
