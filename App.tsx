@@ -1,5 +1,6 @@
 
 // ... (imports remain the same)
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Activity, Package, ShoppingCart, Truck, MessageSquare, Upload, AlertTriangle, ChevronRight, 
@@ -2542,6 +2543,7 @@ const App: React.FC = () => {
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
+      <SpeedInsights />
     </div>
   );
 };
