@@ -1,6 +1,6 @@
 
-// ... (imports remain the same)
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Activity, Package, ShoppingCart, Truck, MessageSquare, Upload, AlertTriangle, ChevronRight, 
   Send, Loader2, Search, CheckCircle2, Beaker, Zap, ChevronDown, LineChart, Calendar, 
