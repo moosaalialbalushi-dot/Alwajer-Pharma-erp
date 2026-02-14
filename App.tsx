@@ -295,7 +295,7 @@ const App: React.FC = () => {
 
   const fetchSupabaseData = async () => {
     try {
-      // 1. Fetch Production Yields (mapped to Batches)
+      // 1. Fetch Production Yields
       const { data: bData } = await supabase.from('production_yields').select('*');
       if (bData && bData.length > 0) {
           setBatches(bData.map((b: any) => ({ 
@@ -303,8 +303,6 @@ const App: React.FC = () => {
               actualYield: b.actual_yield, 
               expectedYield: b.expected_yield 
           })));
-      } else {
-          // Keep initial mocked data if table is empty (for demo)
       }
       
       // 2. Fetch Orders
@@ -312,26 +310,37 @@ const App: React.FC = () => {
       if (oData && oData.length > 0) {
           setOrders(oData.map((o: any) => ({ 
               ...o, 
-              piNumber: o.pi_number, 
+              sNo: o.s_no,
+              invoiceNo: o.invoice_no,
+              amountUSD: o.amount_usd,
+              amountOMR: o.amount_omr,
               indentDate: o.indent_date 
           })));
       }
 
-      // 3. Fetch Markets
-      const { data: mData } = await supabase.from('markets').select('*');
-      if (mData && mData.length > 0) {
-          setMarkets(mData);
+      // 3. Fetch Inventory
+      const { data: iData } = await supabase.from('inventory').select('*');
+      if (iData && iData.length > 0) {
+          setInventory(iData.map((i: any) => ({
+              ...i,
+              sNo: i.s_no,
+              requiredForOrders: i.required_for_orders,
+              balanceToPurchase: i.balance_to_purchase,
+              stockDate: i.stock_date
+          })));
       }
 
-      // 4. Fetch Audit Logs
+      // 4. Fetch Markets
+      const { data: mData } = await supabase.from('markets').select('*');
+      if (mData && mData.length > 0) setMarkets(mData);
+
+      // 5. Fetch Audit Logs
       const { data: lData } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(50);
-      if (lData && lData.length > 0) {
-          setAuditLogs(lData);
-      }
+      if (lData && lData.length > 0) setAuditLogs(lData);
 
       setDbStatus('connected');
     } catch (e) {
-      console.warn("Supabase fetch error, using local/mock data", e);
+      console.warn("Supabase fetch error:", e);
       setDbStatus('disconnected');
     }
   };
@@ -480,11 +489,11 @@ const App: React.FC = () => {
         case 'inventory':
           setInventory(prev => prev.filter(item => item.id !== id));
           await logAction('DELETE', `Deleted inventory item: ${name}`);
+          await supabase.from('inventory').delete().eq('id', id);
           break;
         case 'production':
           setBatches(prev => prev.filter(item => item.id !== id));
           await logAction('DELETE', `Deleted batch: ${name}`);
-          // Delete from Supabase
           await supabase.from('production_yields').delete().eq('id', id);
           break;
         case 'sales':
@@ -644,7 +653,24 @@ const App: React.FC = () => {
                 unit: 'kg',
                 stockDate: new Date().toLocaleDateString()
               }));
-              setInventory(prev => [...prev, ...newItems]);
+              setInventory(prev => {
+                const updated = [...prev, ...newItems];
+                // Sync with DB
+                newItems.forEach(async (item: any) => {
+                  await supabase.from('inventory').insert({
+                    id: item.id,
+                    s_no: item.sNo,
+                    name: item.name,
+                    category: item.category,
+                    stock: item.stock,
+                    required_for_orders: item.requiredForOrders,
+                    balance_to_purchase: item.balanceToPurchase,
+                    unit: item.unit,
+                    stock_date: item.stockDate
+                  });
+                });
+                return updated;
+              });
               await logAction('IMPORT', `AI imported ${newItems.length} items from ${file.name}`);
             }
             
@@ -671,6 +697,7 @@ const App: React.FC = () => {
               });
               setRdProjects(prev => [newProject, ...prev]);
               setSelectedRD(newProject);
+              // RD projects are currently local only in this mock, but we log it
               await logAction('IMPORT', `AI imported formulation from ${file.name}`);
             }
 
@@ -690,7 +717,22 @@ const App: React.FC = () => {
                 amountOMR: order.amountUSD * 0.385,
                 status: order.status || 'Pending'
               }));
-              setOrders(prev => [...prev, ...newOrders]);
+              setOrders(prev => {
+                const updated = [...prev, ...newOrders];
+                newOrders.forEach(async (order: any) => {
+                  await supabase.from('orders').insert({
+                    id: order.id,
+                    invoice_no: order.invoiceNo,
+                    customer: order.customer,
+                    product: order.product,
+                    quantity: order.quantity,
+                    amount_usd: order.amountUSD,
+                    status: order.status,
+                    date: order.date
+                  });
+                });
+                return updated;
+              });
               await logAction('IMPORT', `AI imported ${newOrders.length} orders from ${file.name}`);
             }
           } catch (e) {
@@ -924,73 +966,110 @@ const App: React.FC = () => {
 
   // Actual save logic extracted to separate function
   const performSave = async () => {
-    // Basic mock save implementation + SUPABASE Writes
     let newItem = { ...modalData };
     const tempId = `${currentSection.substring(0,3).toUpperCase()}-${Math.floor(Math.random()*1000)}`;
-    if (modalType === 'add') {
-         newItem.id = newItem.id || tempId;
-         
-         // 1. Production (Yields)
-         if (currentSection === 'production') {
-             const payload = {
-                 id: newItem.id,
-                 product: newItem.product,
-                 quantity: Number(newItem.quantity),
-                 actual_yield: Number(newItem.actualYield),
-                 expected_yield: Number(newItem.expectedYield),
-                 status: newItem.status,
-                 timestamp: new Date().toISOString()
-             };
-             // Optimistic Update
-             setBatches([...batches, newItem]);
-             // DB Write
-             await supabase.from('production_yields').insert(payload);
-             // Log Action
-             await supabase.from('audit_logs').insert({ action: 'CREATE_BATCH', user: 'Admin', details: `Created ${newItem.id}`, timestamp: new Date().toISOString() });
-         }
-
-         // 2. Sales (Orders)
-         if (currentSection === 'sales') {
-             const payload = {
-                 id: newItem.id,
-                 customer: newItem.customer,
-                 product: newItem.product,
-                 quantity: Number(newItem.quantity),
-                 amount: Number(newItem.amount || 0),
-                 status: newItem.status,
-                 indent_date: new Date().toISOString()
-             };
-             setOrders([...orders, newItem]);
-             await supabase.from('orders').insert(payload);
-             await supabase.from('audit_logs').insert({ action: 'CREATE_ORDER', user: 'Admin', details: `Created ${newItem.id}`, timestamp: new Date().toISOString() });
-         }
-
-         // Local State Fallbacks for other sections
-         if (currentSection === 'inventory') {
-           setInventory([...inventory, newItem]);
-           await supabase.from('audit_logs').insert({ action: 'CREATE_ITEM', user: 'Admin', details: `Added ${newItem.name}`, timestamp: new Date().toISOString() });
-         }
-         if (currentSection === 'accounting') {
-           setExpenses([...expenses, newItem]);
-           await supabase.from('audit_logs').insert({ action: 'CREATE_EXPENSE', user: 'Admin', details: `Added ${newItem.description}`, timestamp: new Date().toISOString() });
-         }
-         if (currentSection === 'hr') {
-           setEmployees([...employees, newItem]);
-           await supabase.from('audit_logs').insert({ action: 'CREATE_EMPLOYEE', user: 'Admin', details: `Added ${newItem.name}`, timestamp: new Date().toISOString() });
-         }
-
-    } else if (modalType === 'edit') {
-        // ... (Edit logic similarly can be expanded to update Supabase)
-        if (currentSection === 'production') setBatches(batches.map(b => b.id === modalData.id ? modalData : b));
-        if (currentSection === 'inventory') setInventory(inventory.map(i => i.id === modalData.id ? modalData : i));
-        if (currentSection === 'sales') setOrders(orders.map(o => o.id === modalData.id ? modalData : o));
-        if (currentSection === 'accounting') setExpenses(expenses.map(e => e.id === modalData.id ? modalData : e));
-        if (currentSection === 'hr') setEmployees(employees.map(e => e.id === modalData.id ? modalData : e));
-    }
     
-    // Refresh History after action
-    const { data: logs } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(50);
-    if(logs) setAuditLogs(logs);
+    try {
+      if (modalType === 'add') {
+        newItem.id = newItem.id || tempId;
+        
+        if (currentSection === 'production') {
+          const payload = {
+            id: newItem.id,
+            product: newItem.product,
+            quantity: Number(newItem.quantity),
+            actual_yield: Number(newItem.actualYield),
+            expected_yield: Number(newItem.expectedYield),
+            status: newItem.status,
+            timestamp: new Date().toISOString()
+          };
+          setBatches(prev => [...prev, newItem]);
+          await supabase.from('production_yields').insert(payload);
+          await logAction('CREATE', `Created batch: ${newItem.id}`);
+        } else if (currentSection === 'sales') {
+          const payload = {
+            id: newItem.id,
+            s_no: newItem.sNo,
+            invoice_no: newItem.invoiceNo,
+            customer: newItem.customer,
+            country: newItem.country,
+            product: newItem.product,
+            quantity: Number(newItem.quantity),
+            amount_usd: Number(newItem.amountUSD),
+            amount_omr: Number(newItem.amountOMR),
+            status: newItem.status,
+            date: newItem.date || new Date().toISOString().split('T')[0]
+          };
+          setOrders(prev => [...prev, newItem]);
+          await supabase.from('orders').insert(payload);
+          await logAction('CREATE', `Created order: ${newItem.id}`);
+        } else if (currentSection === 'inventory') {
+          const payload = {
+            id: newItem.id,
+            s_no: newItem.sNo,
+            name: newItem.name,
+            category: newItem.category,
+            stock: Number(newItem.stock),
+            required_for_orders: Number(newItem.requiredForOrders),
+            balance_to_purchase: Number(newItem.balanceToPurchase),
+            unit: newItem.unit,
+            stock_date: newItem.stockDate
+          };
+          setInventory(prev => [...prev, newItem]);
+          await supabase.from('inventory').insert(payload);
+          await logAction('CREATE', `Added item: ${newItem.name}`);
+        } else if (currentSection === 'accounting') {
+          setExpenses(prev => [...prev, newItem]);
+          await supabase.from('expenses').insert(newItem);
+          await logAction('CREATE', `Added expense: ${newItem.description}`);
+        } else if (currentSection === 'hr') {
+          setEmployees(prev => [...prev, newItem]);
+          await supabase.from('employees').insert(newItem);
+          await logAction('CREATE', `Added employee: ${newItem.name}`);
+        }
+      } else if (modalType === 'edit') {
+        if (currentSection === 'production') {
+          setBatches(prev => prev.map(b => b.id === newItem.id ? newItem : b));
+          await supabase.from('production_yields').update({
+            product: newItem.product,
+            quantity: Number(newItem.quantity),
+            actual_yield: Number(newItem.actualYield),
+            expected_yield: Number(newItem.expectedYield),
+            status: newItem.status
+          }).eq('id', newItem.id);
+          await logAction('UPDATE', `Updated batch: ${newItem.id}`);
+        } else if (currentSection === 'sales') {
+          setOrders(prev => prev.map(o => o.id === newItem.id ? newItem : o));
+          await supabase.from('orders').update({
+            invoice_no: newItem.invoiceNo,
+            customer: newItem.customer,
+            product: newItem.product,
+            quantity: Number(newItem.quantity),
+            amount_usd: Number(newItem.amountUSD),
+            status: newItem.status
+          }).eq('id', newItem.id);
+          await logAction('UPDATE', `Updated order: ${newItem.id}`);
+        } else if (currentSection === 'inventory') {
+          setInventory(prev => prev.map(i => i.id === newItem.id ? newItem : i));
+          await supabase.from('inventory').update({
+            name: newItem.name,
+            stock: Number(newItem.stock),
+            required_for_orders: Number(newItem.requiredForOrders),
+            balance_to_purchase: Number(newItem.balanceToPurchase)
+          }).eq('id', newItem.id);
+          await logAction('UPDATE', `Updated item: ${newItem.name}`);
+        } else if (currentSection === 'accounting') {
+          setExpenses(prev => prev.map(e => e.id === newItem.id ? newItem : e));
+          await supabase.from('expenses').update(newItem).eq('id', newItem.id);
+        } else if (currentSection === 'hr') {
+          setEmployees(prev => prev.map(e => e.id === newItem.id ? newItem : e));
+          await supabase.from('employees').update(newItem).eq('id', newItem.id);
+        }
+      }
+    } catch (err) {
+      console.error("Save failed:", err);
+      alert("Database error: Check your Supabase configuration.");
+    }
 
     setIsModalOpen(false);
   };
@@ -2592,6 +2671,12 @@ const App: React.FC = () => {
             <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight truncate">
               {activeTab === 'history' ? 'AUDIT HISTORY' : activeTab.toUpperCase() + ' HUB'}
             </h1>
+            <div className="hidden sm:flex items-center gap-1.5 ml-4 px-2 py-1 rounded-full bg-slate-900 border border-white/5">
+              <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                {dbStatus === 'connected' ? 'Live DB' : 'Offline'}
+              </span>
+            </div>
           </div>
           <button onClick={handleGlobalAction} className="luxury-gradient px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-950 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shrink-0 ml-2">
             <Upload size={16} className="sm:w-[18px] sm:h-[18px]" />
