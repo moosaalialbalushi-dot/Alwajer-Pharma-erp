@@ -1333,34 +1333,103 @@ const App: React.FC = () => {
 
   const renderModal = () => {
     if (!isModalOpen) return null;
+    const renderField = (label: string, key: string, type: 'text' | 'number' | 'select' | 'date' = 'text', options?: string[]) => {
+      const value = modalData[key] === undefined ? '' : modalData[key];
+      
+      return (
+        <div key={key} className="space-y-1">
+          <label className="text-[10px] uppercase font-bold text-[#D4AF37] tracking-wider">{label}</label>
+          {type === 'select' ? (
+            <select
+              disabled={modalType === 'view'}
+              value={value}
+              onChange={(e) => setModalData({ ...modalData, [key]: e.target.value })}
+              className="w-full bg-slate-950 border border-white/10 rounded p-2 text-sm text-white focus:border-[#D4AF37] focus:outline-none appearance-none"
+            >
+              {options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          ) : (
+            <input
+              type={type}
+              disabled={modalType === 'view'}
+              value={value}
+              onChange={(e) => setModalData({ ...modalData, [key]: type === 'number' ? Number(e.target.value) : e.target.value })}
+              className="w-full bg-slate-950 border border-white/10 rounded p-2 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
+            />
+          )}
+        </div>
+      );
+    };
+
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-        <div className="bg-slate-900 border border-[#D4AF37] rounded-xl w-full max-w-lg shadow-2xl gold-glow flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="bg-slate-900 border border-[#D4AF37] rounded-xl w-full max-w-lg shadow-2xl gold-glow flex flex-col max-h-[85vh]">
           <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#D4AF37]/10">
-            <h3 className="text-xl font-bold text-white uppercase tracking-widest">
-              {modalType} {currentSection}
+            <h3 className="text-xl font-bold text-white uppercase tracking-widest flex items-center gap-2">
+              {modalType === 'view' ? <Eye size={20}/> : modalType === 'edit' ? <Edit2 size={20}/> : <Plus size={20}/>}
+              {modalType === 'view' ? 'View Details' : modalType === 'edit' ? 'Edit Details' : 'Add New Entry'}
             </h3>
-            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white">
-              <X size={24} />
-            </button>
+            <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white"><X size={24}/></button>
           </div>
           <div className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-            {Object.keys(modalData).map((key) => {
-              if (key === 'id' && modalType !== 'add') return null;
-              return (
-                <div key={key} className="space-y-1">
-                  <label className="text-xs uppercase font-bold text-[#D4AF37]">{key}</label>
-                  <input
-                    type="text"
-                    disabled={modalType === 'view'}
-                    value={modalData[key]}
-                    onChange={(e) => setModalData({ ...modalData, [key]: e.target.value })}
-                    className="w-full bg-slate-950 border border-white/10 rounded p-2 text-white focus:border-[#D4AF37] focus:outline-none"
-                  />
+            {currentSection === 'inventory' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('S.No', 'sNo')}
+                  {renderField('Category', 'category', 'select', ['API', 'Excipient', 'Packing', 'Finished'])}
                 </div>
-              );
-            })}
-          </div>
+                {renderField('Material Name', 'name')}
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Present Stock', 'stock', 'number')}
+                  {renderField('Unit', 'unit', 'select', ['kg', 'L', 'Units', 'Rolls'])}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Required Qty', 'requiredForOrders', 'number')}
+                  {renderField('Stock Date', 'stockDate', 'text')}
+                </div>
+                {renderField('Balance to Purchase', 'balanceToPurchase', 'number')}
+              </>
+            )}
+
+            {currentSection === 'sales' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Invoice No', 'invoiceNo')}
+                  {renderField('Date', 'date', 'text')}
+                </div>
+                {renderField('Party / Customer', 'customer')}
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Country', 'country')}
+                  {renderField('Status', 'status', 'select', ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'])}
+                </div>
+                {renderField('Product Name', 'product')}
+                <div className="grid grid-cols-3 gap-4">
+                  {renderField('Qty (KG)', 'quantity', 'number')}
+                  {renderField('Amt (USD)', 'amountUSD', 'number')}
+                  {renderField('Amt (OMR)', 'amountOMR', 'number')}
+                </div>
+              </>
+            )}
+
+            {currentSection === 'production' && (
+              <>
+                {renderField('Batch ID', 'id')}
+                {renderField('Product', 'product')}
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Quantity (Kg)', 'quantity', 'number')}
+                  {renderField('Status', 'status', 'select', ['Scheduled', 'In-Progress', 'Completed', 'Quarantined'])}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Actual Yield %', 'actualYield', 'number')}
+                  {renderField('Expected Yield %', 'expectedYield', 'number')}
+                </div>
+                {renderField('Dispatch Date', 'dispatchDate', 'text')}
+              </>
+            )}
+
+            {/* Fallback for other sections */}
+            {!['inventory', 'sales', 'production'].includes(currentSection) && Object.keys(modalData).filter(k => k !== 'id').map(key => renderField(key, key))}
+          </div></div>
           <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-slate-950">
             <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-white font-bold text-sm">Close</button>
             {modalType !== 'view' && (
@@ -1423,7 +1492,7 @@ const App: React.FC = () => {
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Factory className="text-[#F4C430]" size={20} /> Manufacturing Operations
           </h2>
-          <button onClick={() => openModal('add', 'production', {id: '', product: '', quantity: 0, actualYield: 0, expectedYield: 100, status: 'In-Progress'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
+          <button onClick={() => openModal('add', 'production', {id: `B-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(Math.random()*900)+100}`, product: '', quantity: 0, actualYield: 0, expectedYield: 100, status: 'Scheduled', dispatchDate: ''})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
             <Plus size={16} /> Log New Batch
           </button>
       </div>
@@ -1522,7 +1591,7 @@ const App: React.FC = () => {
             <button onClick={() => exportToCSV(inventory, 'inventory_report')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
               <Download size={14}/> Export
             </button>
-            <button onClick={() => openModal('add', 'inventory', {id: '', name: '', category: 'API', stock: 0, safetyStock: 0, unit: 'kg'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
+            <button onClick={() => openModal('add', 'inventory', {id: `RM-${Math.floor(Math.random()*900)+100}`, sNo: '', name: '', category: 'API', stock: 0, requiredForOrders: 0, balanceToPurchase: 0, unit: 'kg', stockDate: new Date().toLocaleDateString()})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
               <Plus size={16} /> Add Material
             </button>
           </div>
@@ -1647,7 +1716,7 @@ const App: React.FC = () => {
             <button onClick={() => exportToCSV(orders, 'sales_report')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
               <Download size={14}/> Export
             </button>
-            <button onClick={() => openModal('add', 'sales', {id: '', customer: '', product: '', quantity: 0, status: 'Pending'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
+            <button onClick={() => openModal('add', 'sales', {id: `ORD-${Date.now()}`, invoiceNo: '', date: new Date().toISOString().split('T')[0], customer: '', country: '', product: '', quantity: 0, amountUSD: 0, amountOMR: 0, status: 'Pending'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
               <Plus size={16} /> Update Orders
             </button>
           </div>
