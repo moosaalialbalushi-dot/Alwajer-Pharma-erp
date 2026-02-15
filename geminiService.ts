@@ -105,10 +105,14 @@ export const analyzeImageOrFile = async (base64Data: string, mimeType: string, p
           { inlineData: { mimeType: mimeType, data: base64Data } },
           { text: promptText }
         ]
+      },
+      config: {
+        responseMimeType: promptText.toLowerCase().includes("json") ? "application/json" : "text/plain"
       }
     });
     return response.text;
   } catch (error) {
+    console.error("Gemini File Analysis Error:", error);
     return "Error analyzing file.";
   }
 };

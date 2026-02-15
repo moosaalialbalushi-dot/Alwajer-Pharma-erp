@@ -14,7 +14,7 @@ export interface InventoryItem {
   id: string;
   sNo: string;
   name: string;
-  category: 'API' | 'Excipient' | 'Packing' | 'Finished' | 'R&D' | 'Other';
+  category: 'API' | 'Excipient' | 'Packing' | 'Finished' | 'R&D' | 'Spare' | 'Other';
   requiredForOrders: number;
   stock: number; // Present Stock
   balanceToPurchase: number;

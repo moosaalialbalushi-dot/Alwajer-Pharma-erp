@@ -615,8 +615,23 @@ const App: React.FC = () => {
 
       setIsAiLoading(true);
       try {
-        let prompt = "Analyze this file.";
-        if (context === 'procurement') prompt = "Analyze this inventory requirement or PO file. Extract: S.No, Material Name, Required Quantity, Present Stock. Return JSON: { \"items\": [ { \"sNo\": \"string\", \"name\": \"string\", \"required\": number, \"stock\": number } ] }";
+        let prompt = "Analyze this file for pharmaceutical ERP data.";
+        if (context === 'global') {
+          prompt = `Analyze this pharmaceutical document (could be an image or spreadsheet). 
+          It may contain multiple sections like Raw Materials, Packing Materials, R&D items, and Spare Parts.
+          Extract all items found into the following JSON structure:
+          {
+            "inventory": [
+              { "sNo": "string", "name": "string", "category": "API" | "Excipient" | "Packing" | "Finished" | "Spare", "required": number, "stock": number, "unit": "string", "date": "string" }
+            ],
+            "orders": [
+              { "customer": "string", "product": "string", "quantity": number, "amountUSD": number, "status": "string", "invoiceNo": "string", "date": "string" }
+            ]
+          }
+          Note: If an item is in "Purchase For :- Spare", categorize it as "Spare". If in "PACKING MATERIALS", use "Packing". Default to "API" for raw materials.
+          Be extremely precise with numbers. Return ONLY valid JSON.`;
+        }
+        if (context === 'procurement') prompt = "Analyze this inventory requirement or PO file. Extract: S.No, Material Name, Required Quantity, Present Stock. Return JSON: { \"inventory\": [ { \"sNo\": \"string\", \"name\": \"string\", \"required\": number, \"stock\": number, \"unit\": \"string\" } ] }";
         if (context === 'rd') prompt = "Analyze this pharmaceutical formulation/costing sheet. Extract: Raw Material, Unit, Per B. Qty, Rate USD. Also identify Batch Size (Output). Return JSON: { \"batchSize\": number, \"ingredients\": [ { \"name\": \"string\", \"unit\": \"string\", \"quantity\": number, \"rateUSD\": number } ] }";
         if (context === 'bd') prompt = "Analyze this Sales Excel file. Extract: Party, Product, Qty (KG), Rate $, Amount $, Status. Return JSON: { \"orders\": [ { \"customer\": \"string\", \"product\": \"string\", \"quantity\": number, \"rateUSD\": number, \"amountUSD\": number, \"status\": \"string\" } ] }";
 
@@ -624,39 +639,42 @@ const App: React.FC = () => {
         setUploadProgress(prev => ({
           ...prev,
           progress: 75,
-          message: 'Analyzing content...'
+          message: 'AI analyzing content...'
         }));
 
         const analysis = await analyzeImageOrFile(base64Content, mimeType, prompt);
         
         setUploadProgress(prev => ({
           ...prev,
-          progress: 100,
-          status: 'complete',
-          message: 'Analysis complete!'
+          progress: 90,
+          status: 'processing',
+          message: 'Updating database...'
         }));
 
         // Process AI analysis into system state if applicable
         if (analysis && analysis.includes('{')) {
           try {
-            const jsonData = JSON.parse(analysis.substring(analysis.indexOf('{'), analysis.lastIndexOf('}') + 1));
+            const cleanJson = analysis.substring(analysis.indexOf('{'), analysis.lastIndexOf('}') + 1);
+            const jsonData = JSON.parse(cleanJson);
             
-            if (context === 'procurement' && jsonData.items) {
-              const newItems = jsonData.items.map((item: any) => ({
-                id: `AI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            // 1. Handle Inventory (Raw Materials, Packing, Spares)
+            if (jsonData.inventory && Array.isArray(jsonData.inventory)) {
+              const newItems = jsonData.inventory.map((item: any) => ({
+                id: `AI-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
                 sNo: item.sNo || '',
                 name: item.name || 'Unknown Item',
-                category: 'API',
-                stock: item.stock || 0,
-                requiredForOrders: item.required || 0,
-                balanceToPurchase: (item.required || 0) - (item.stock || 0),
-                unit: 'kg',
-                stockDate: new Date().toLocaleDateString()
+                category: item.category || 'API',
+                stock: Number(item.stock) || 0,
+                requiredForOrders: Number(item.required) || 0,
+                balanceToPurchase: Math.max(0, (Number(item.required) || 0) - (Number(item.stock) || 0)),
+                unit: item.unit || 'kg',
+                stockDate: item.date || new Date().toLocaleDateString()
               }));
-              setInventory(prev => {
-                const updated = [...prev, ...newItems];
-                // Sync with DB
-                newItems.forEach(async (item: any) => {
+
+              if (newItems.length > 0) {
+                setInventory(prev => [...prev, ...newItems]);
+                // Batch sync to Supabase
+                for (const item of newItems) {
                   await supabase.from('inventory').insert({
                     id: item.id,
                     s_no: item.sNo,
@@ -668,58 +686,29 @@ const App: React.FC = () => {
                     unit: item.unit,
                     stock_date: item.stockDate
                   });
-                });
-                return updated;
-              });
-              await logAction('IMPORT', `AI imported ${newItems.length} items from ${file.name}`);
+                }
+                await logAction('IMPORT', `AI imported ${newItems.length} inventory items from ${file.name}`);
+              }
             }
             
-            if (context === 'rd' && jsonData.ingredients) {
-              const newProject: RDProject = calculateCosting({
-                id: `RD-${Date.now()}`,
-                title: `Imported: ${file.name}`,
-                status: 'Formulation',
-                optimizationScore: 85,
-                lastUpdated: new Date().toISOString(),
-                batchSize: jsonData.batchSize || 100,
-                batchUnit: 'Kg',
-                totalRMC: 0,
-                loss: 0.02,
-                totalFinalRMC: 0,
-                ingredients: jsonData.ingredients.map((ing: any) => ({
-                  name: ing.name,
-                  quantity: ing.quantity,
-                  unit: ing.unit || 'Kg',
-                  rateUSD: ing.rateUSD || 0,
-                  cost: 0,
-                  role: 'Other'
-                }))
-              });
-              setRdProjects(prev => [newProject, ...prev]);
-              setSelectedRD(newProject);
-              // RD projects are currently local only in this mock, but we log it
-              await logAction('IMPORT', `AI imported formulation from ${file.name}`);
-            }
-
-            if (context === 'global' && jsonData.orders) {
+            // 2. Handle Orders (Sales)
+            if (jsonData.orders && Array.isArray(jsonData.orders)) {
               const newOrders = jsonData.orders.map((order: any) => ({
-                id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                sNo: '',
-                date: new Date().toISOString().split('T')[0],
-                invoiceNo: 'AUTO-GEN',
+                id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                date: order.date || new Date().toISOString().split('T')[0],
+                invoiceNo: order.invoiceNo || `AI-${Math.floor(Math.random()*1000)}`,
                 customer: order.customer,
-                lcNo: '-',
-                country: '-',
+                country: order.country || '-',
                 product: order.product,
-                quantity: order.quantity,
-                rateUSD: order.rateUSD,
-                amountUSD: order.amountUSD,
-                amountOMR: order.amountUSD * 0.385,
+                quantity: Number(order.quantity) || 0,
+                amountUSD: Number(order.amountUSD) || 0,
+                amountOMR: (Number(order.amountUSD) || 0) * 0.385,
                 status: order.status || 'Pending'
               }));
-              setOrders(prev => {
-                const updated = [...prev, ...newOrders];
-                newOrders.forEach(async (order: any) => {
+
+              if (newOrders.length > 0) {
+                setOrders(prev => [...prev, ...newOrders]);
+                for (const order of newOrders) {
                   await supabase.from('orders').insert({
                     id: order.id,
                     invoice_no: order.invoiceNo,
@@ -730,15 +719,48 @@ const App: React.FC = () => {
                     status: order.status,
                     date: order.date
                   });
-                });
-                return updated;
+                }
+                await logAction('IMPORT', `AI imported ${newOrders.length} orders`);
+              }
+            }
+            
+            // 3. Handle R&D (Formulation)
+            if (context === 'rd' && jsonData.ingredients) {
+              const newProject: RDProject = calculateCosting({
+                id: `RD-${Date.now()}`,
+                title: `Imported: ${file.name}`,
+                status: 'Formulation',
+                optimizationScore: 85,
+                lastUpdated: new Date().toISOString(),
+                batchSize: Number(jsonData.batchSize) || 100,
+                batchUnit: 'Kg',
+                totalRMC: 0,
+                loss: 0.02,
+                totalFinalRMC: 0,
+                ingredients: jsonData.ingredients.map((ing: any) => ({
+                  name: ing.name,
+                  quantity: Number(ing.quantity) || 0,
+                  unit: ing.unit || 'Kg',
+                  rateUSD: Number(ing.rateUSD) || 0,
+                  cost: 0,
+                  role: 'Other'
+                }))
               });
-              await logAction('IMPORT', `AI imported ${newOrders.length} orders from ${file.name}`);
+              setRdProjects(prev => [newProject, ...prev]);
+              setSelectedRD(newProject);
+              await logAction('IMPORT', `AI imported formulation`);
             }
           } catch (e) {
-            console.warn("Could not parse AI response as JSON for state update", e);
+            console.error("JSON parsing or sync failed:", e);
           }
         }
+
+        setUploadProgress(prev => ({
+          ...prev,
+          progress: 100,
+          status: 'complete',
+          message: 'System Synced Successfully!'
+        }));
 
         setFileAnalysisLog(prev => [{
           fileName: file.name,
@@ -1575,10 +1597,15 @@ const App: React.FC = () => {
 
   const renderInventory = () => {
     // Filter Inventory Based on Tabs
-    const rawMaterials = inventory.filter(i => i.category !== 'Finished');
+    const rawMaterials = inventory.filter(i => i.category === 'API' || i.category === 'Excipient');
+    const packingMaterials = inventory.filter(i => i.category === 'Packing');
+    const spareParts = inventory.filter(i => i.category === 'Spare');
     const finishedGoods = inventory.filter(i => i.category === 'Finished');
     
-    const displayItems = inventoryTab === 'raw' ? rawMaterials : finishedGoods;
+    const displayItems = 
+      inventoryTab === 'raw' ? rawMaterials : 
+      inventoryTab === 'packing' ? packingMaterials :
+      inventoryTab === 'spares' ? spareParts : finishedGoods;
     const criticalItems = displayItems.filter(i => (i.balanceToPurchase && i.balanceToPurchase > 0) || i.stock <= i.safetyStock * 0.2);
 
     return (
@@ -1598,16 +1625,28 @@ const App: React.FC = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-4 border-b border-white/5">
+        <div className="flex gap-4 border-b border-white/5 overflow-x-auto custom-scrollbar">
             <button 
                 onClick={() => setInventoryTab('raw')}
-                className={`pb-2 px-4 text-sm font-bold transition-all ${inventoryTab === 'raw' ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}
+                className={`pb-2 px-4 text-sm font-bold whitespace-nowrap transition-all ${inventoryTab === 'raw' ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}
             >
                 Raw Materials
             </button>
             <button 
+                onClick={() => setInventoryTab('packing')}
+                className={`pb-2 px-4 text-sm font-bold whitespace-nowrap transition-all ${inventoryTab === 'packing' ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}
+            >
+                Packing Materials
+            </button>
+            <button 
+                onClick={() => setInventoryTab('spares')}
+                className={`pb-2 px-4 text-sm font-bold whitespace-nowrap transition-all ${inventoryTab === 'spares' ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}
+            >
+                Equipment Spares
+            </button>
+            <button 
                 onClick={() => setInventoryTab('finished')}
-                className={`pb-2 px-4 text-sm font-bold transition-all ${inventoryTab === 'finished' ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}
+                className={`pb-2 px-4 text-sm font-bold whitespace-nowrap transition-all ${inventoryTab === 'finished' ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}
             >
                 Finished Goods
             </button>
