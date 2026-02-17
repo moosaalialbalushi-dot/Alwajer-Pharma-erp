@@ -1451,7 +1451,7 @@ const App: React.FC = () => {
 
             {/* Fallback for other sections */}
             {!['inventory', 'sales', 'production'].includes(currentSection) && Object.keys(modalData).filter(k => k !== 'id').map(key => renderField(key, key))}
-          </div></div>
+          </div>
           <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-slate-950">
             <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-white font-bold text-sm">Close</button>
             {modalType !== 'view' && (
