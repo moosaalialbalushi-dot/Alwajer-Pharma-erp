@@ -2,8 +2,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { Batch, InventoryItem, Order, COOInsight, RDProject, Expense, Employee } from "./types";
 
-// Helper to get key safely
-const getApiKey = () => process.env.NEXT_PUBLIC_API_KEY || process.env.API_KEY;
+// Helper to get key safely - works in Vite (import.meta.env) and via process.env define
+const getApiKey = () =>
+  (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+  process.env.API_KEY ||
+  process.env.GEMINI_API_KEY ||
+  process.env.NEXT_PUBLIC_API_KEY;
 
 const SYSTEM_INSTRUCTION = `You are the Alwajar Solo-ERP Brain. Your goal is to ensure 100% accuracy in our 20 MT Sohar facility.
 

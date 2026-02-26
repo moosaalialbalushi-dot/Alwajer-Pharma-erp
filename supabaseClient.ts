@@ -1,32 +1,29 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// NEXT_PUBLIC prefix is required for Next.js to expose these to the browser
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || localStorage.getItem('erp_supabase_url') || '';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || localStorage.getItem('erp_supabase_key') || '';
+// Vite exposes env vars via import.meta.env (VITE_ prefix)
+// Fallback to hardcoded values so the app always connects
+const SUPABASE_URL =
+  (import.meta as any).env?.VITE_SUPABASE_URL ||
+  'https://dqsriohrazmlikwjwbot.supabase.co';
+
+const SUPABASE_ANON_KEY =
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxc3Jpb2hyYXptbGlrd2p3Ym90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0OTAwNDgsImV4cCI6MjA4NjA2NjA0OH0.PMT_TgFaie6ntF0g0NXyxhgfPSCX_W3tvxm7jVXVnVQ';
 
 let client: any;
 
-// Validate configuration
-const isConfigured = SUPABASE_URL && SUPABASE_URL.startsWith('http');
-
-if (isConfigured) {
-  try {
-    client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } catch (e) {
-    console.warn("Supabase client init failed", e);
-  }
-}
-
-if (!client) {
-  // Mock client that fails gracefully if env vars are missing
-  console.warn("Supabase credentials missing. App running in offline/demo mode.");
+try {
+  client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('✅ Supabase connected:', SUPABASE_URL);
+} catch (e) {
+  console.error('❌ Supabase client init failed', e);
   client = {
-    from: (table: string) => ({
-      select: () => Promise.resolve({ data: [], error: null }),
-      insert: () => Promise.resolve({ data: null, error: null }), // Return null error to simulate success in demo
-      update: () => Promise.resolve({ data: null, error: null }),
-      delete: () => Promise.resolve({ data: null, error: null }),
+    from: (_table: string) => ({
+      select: () => Promise.resolve({ data: [], error: { message: 'Supabase init failed' } }),
+      insert: () => Promise.resolve({ data: null, error: { message: 'Supabase init failed' } }),
+      update: () => Promise.resolve({ data: null, error: { message: 'Supabase init failed' } }),
+      delete: () => Promise.resolve({ data: null, error: { message: 'Supabase init failed' } }),
     })
   };
 }
