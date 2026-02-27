@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { 
@@ -55,16 +54,25 @@ const INITIAL_RD: RDProject[] = [
     title: 'Esomeprazole Magnesium Trihydrate Formulation',
     status: 'Formulation',
     optimizationScore: 95,
-    lastUpdated: '2025-02-12',
+    lastUpdated: '2026-02-27',
     batchSize: 100,
     batchUnit: 'Kg',
-    totalRMC: 1684.868,
+    totalRMC: 0,
     loss: 0.02,
-    totalFinalRMC: 16.869,
+    totalFinalRMC: 0,
     ingredients: [
-      { sNo: '1', name: 'Esomeprazole Magnesium Trihydrate', quantity: 28.5, unit: 'Kg', rateUSD: 46, cost: 1311.00, role: 'API' },
-      { sNo: '2', name: 'NPS 20/24', quantity: 43.637, unit: 'Kg', rateUSD: 2.05, cost: 89.46, role: 'Filler' },
-      { sNo: '3', name: 'HPMC E5', quantity: 13.12, unit: 'Kg', rateUSD: 7.25, cost: 95.12, role: 'Binder' },
+      { sNo: '1',  name: 'Esomeprazole Magnesium Trihydrate', quantity: 28.5,   unit: 'Kg', rateUSD: 48,   cost: 0, role: 'API' },
+      { sNo: '2',  name: 'NPS 20/24',                         quantity: 43.637, unit: 'Kg', rateUSD: 2.05, cost: 0, role: 'Filler' },
+      { sNo: '3',  name: 'HPMC E5 (Layer 1)',                 quantity: 13.12,  unit: 'Kg', rateUSD: 7.25, cost: 0, role: 'Binder' },
+      { sNo: '4',  name: 'Sodium Hydroxide Pellets (NaOH)',   quantity: 2.63,   unit: 'Kg', rateUSD: 1.80, cost: 0, role: 'Excipient' },
+      { sNo: '5',  name: 'TiO2 (Layer 1)',                    quantity: 1.75,   unit: 'Kg', rateUSD: 3.50, cost: 0, role: 'Coating' },
+      { sNo: '6',  name: 'HPMC E5 (Layer 2)',                 quantity: 7.98,   unit: 'Kg', rateUSD: 7.25, cost: 0, role: 'Binder' },
+      { sNo: '7',  name: 'Drug Coat L30 D',                   quantity: 86.66,  unit: 'Kg', rateUSD: 4.20, cost: 0, role: 'Coating' },
+      { sNo: '8',  name: 'DEP / PEG 6000',                    quantity: 0.95,   unit: 'Kg', rateUSD: 2.80, cost: 0, role: 'Plasticizer' },
+      { sNo: '9',  name: 'TiO2 (Layer 2)',                    quantity: 0.25,   unit: 'Kg', rateUSD: 3.50, cost: 0, role: 'Coating' },
+      { sNo: '10', name: 'Talcum',                             quantity: 0.42,   unit: 'Kg', rateUSD: 1.20, cost: 0, role: 'Lubricant' },
+      { sNo: '11', name: 'Tween 80',                           quantity: 0.04,   unit: 'Kg', rateUSD: 3.00, cost: 0, role: 'Surfactant' },
+      { sNo: '12', name: 'Sodium Hydroxide Pellets (NaOH) 2',  quantity: 0.02,   unit: 'Kg', rateUSD: 1.80, cost: 0, role: 'Excipient' },
     ]
   }
 ];
@@ -166,7 +174,14 @@ const App: React.FC = () => {
   const [vendors] = useState<Vendor[]>(INITIAL_VENDORS);
   const [bdLeads] = useState<BDLead[]>(INITIAL_BD);
   const [samples] = useState<SampleStatus[]>(INITIAL_SAMPLES);
-  const [rdProjects, setRdProjects] = useState<RDProject[]>(INITIAL_RD);
+  const calcInitialRD = (projects: any[]) => projects.map(p => {
+    const ings = p.ingredients.map((i: any) => ({ ...i, cost: Number((i.quantity * i.rateUSD).toFixed(3)) }));
+    const totalRMC = Number(ings.reduce((s: number, i: any) => s + i.cost, 0).toFixed(3));
+    const totalFinalRMC = Number(((totalRMC / p.batchSize) + p.loss).toFixed(3));
+    return { ...p, ingredients: ings, totalRMC, totalFinalRMC };
+  });
+  const CALC_RD = calcInitialRD(INITIAL_RD);
+  const [rdProjects, setRdProjects] = useState<RDProject[]>(CALC_RD);
   const [markets, setMarkets] = useState<Market[]>(INITIAL_MARKETS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   
@@ -200,7 +215,7 @@ const App: React.FC = () => {
   const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'NotebookLM'>('Gemini');
 
   // App State
-  const [selectedRD, setSelectedRD] = useState<RDProject | null>(INITIAL_RD[0]);
+  const [selectedRD, setSelectedRD] = useState<RDProject | null>(CALC_RD[0]);
   const [insights, setInsights] = useState<COOInsight[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [dbStatus, setDbStatus] = useState<'connected' | 'disconnected'>('disconnected');
@@ -254,6 +269,20 @@ const App: React.FC = () => {
 
   // R&D State
   const [rdSearch, setRdSearch] = useState('');
+  const [rdActiveTab, setRdActiveTab] = useState<'formulation'|'process'|'compare'|'spec'>('formulation');
+  const [compareRD, setCompareRD] = useState<RDProject | null>(null);
+  const [rdAiReport, setRdAiReport] = useState<string>('');
+  const [isRdModalOpen, setIsRdModalOpen] = useState(false);
+  const [rdModalMode, setRdModalMode] = useState<'addProduct'|'addIngredient'|'editIngredient'>('addProduct');
+  const [newProductData, setNewProductData] = useState<any>({
+    title: '', productCode: '', dosageForm: 'Capsule', strength: '', therapeuticCategory: '',
+    batchSize: 100, batchUnit: 'Kg', loss: 0.02, status: 'Formulation',
+    shelfLife: '24 Months', storageCondition: 'Below 25°C', qualityStandards: 'BP/USP',
+    regulatoryStatus: 'Dossier Prep', manufacturingProcess: ''
+  });
+  const [newIngData, setNewIngData] = useState<any>({ name: '', quantity: 0, unit: 'Kg', rateUSD: 0, role: 'API', supplier: '', grade: '', notes: '' });
+  const [editIngIdx, setEditIngIdx] = useState<number>(-1);
+  const [rdSpecLoading, setRdSpecLoading] = useState(false);
 
   // File Analysis State
   const [fileAnalysisLog, setFileAnalysisLog] = useState<FileAnalysisResult[]>([]);
@@ -263,6 +292,16 @@ const App: React.FC = () => {
   const [modalType, setModalType] = useState<'view' | 'edit' | 'add'>('view');
   const [modalData, setModalData] = useState<any>({});
   const [currentSection, setCurrentSection] = useState('');
+
+  // PO Generation State
+  const [isPOModalOpen, setIsPOModalOpen] = useState(false);
+  const [poItem, setPOItem] = useState<any>(null);
+  const [poVendor, setPOVendor] = useState('');
+  const [poQty, setPOQty] = useState('');
+  const [poUnitPrice, setPOUnitPrice] = useState('');
+  const [poPayment, setPOPayment] = useState('LC at Sight');
+  const [poShipping, setPOShipping] = useState('CIF by Air - Muscat Airport');
+  const [poETA, setPOETA] = useState('ASAP');
   
   // Expansion State
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
@@ -537,6 +576,206 @@ const App: React.FC = () => {
   };
 
   const handleGlobalAction = () => fileInputRef.current?.click();
+
+  const generatePODocument = (item: any, vendor: string, qty: string, unitPrice: string, paymentTerm: string, shippingMethod: string, eta: string) => {
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '.');
+    const poNumber = `AWP/PO/${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getFullYear()).slice(-2)}`;
+    const totalUSD = (Number(qty) * Number(unitPrice)).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const totalWords = numberToWords(Number(qty) * Number(unitPrice));
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11pt; margin: 40px; color: #000; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #003087; padding-bottom: 10px; margin-bottom: 20px; }
+  .logo-text { font-size: 9pt; color: #003087; font-weight: bold; }
+  .company-name { font-size: 14pt; font-weight: bold; color: #003087; }
+  .po-title { text-align: center; font-size: 14pt; font-weight: bold; text-decoration: underline; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+  th, td { border: 1px solid #000; padding: 6px 8px; font-size: 10pt; }
+  th { background: #e8f0fe; font-weight: bold; }
+  .info-table td { border: 1px solid #000; padding: 5px 8px; }
+  .bold { font-weight: bold; }
+  .footer { border-top: 1px solid #003087; margin-top: 30px; padding-top: 8px; font-size: 9pt; text-align: center; color: #444; }
+  .signature-box { border: 1px solid #000; padding: 15px; text-align: center; margin-top: 10px; min-height: 80px; }
+  .annexure { page-break-before: always; }
+  .annexure-title { text-align: center; font-size: 13pt; font-weight: bold; text-decoration: underline; margin: 20px 0; }
+  .terms-title { font-weight: bold; margin-bottom: 8px; }
+  ol li { margin-bottom: 6px; }
+  @media print { body { margin: 20px; } }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="logo-text">الـوجـر لصنـاعـة الأدويـة ش.م.م</div>
+    <div class="company-name">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div>
+  </div>
+</div>
+
+<div class="po-title">PURCHASE ORDER</div>
+
+<!-- SUPPLIER + PO INFO -->
+<table class="info-table">
+  <tr>
+    <td style="width:55%; vertical-align:top;">
+      <div class="bold">Supplier,</div>
+      <div>${vendor}</div>
+    </td>
+    <td style="width:45%; vertical-align:top;">
+      <div><span class="bold">Purchase Order No:</span> ${poNumber}</div>
+      <div><span class="bold">Purchase Order Date:</span> ${dateStr}</div>
+    </td>
+  </tr>
+</table>
+
+<!-- SHIP TO -->
+<table class="info-table">
+  <tr>
+    <td colspan="2">
+      <div class="bold">Ship To: AL WAJER PHARMACEUTICALS INDUSTRY LLC,</div>
+      <div>Po Box: 98, Postal Code: 327, Sohar Industrial Area, Sohar, Sultanate Of Oman.</div>
+      <div>Email: moosa.ali@alwajerpharma.com, ahmed.idris@alwajerpharma.com</div>
+      <div>Office: 22372677, Mobile: 00968-99354545, 00968-91248158</div>
+    </td>
+  </tr>
+</table>
+
+<p>Please furnish the merchandise specified below subject to the conditions on the face hereon and as attached</p>
+
+<!-- ITEMS TABLE -->
+<table>
+  <thead>
+    <tr>
+      <th style="width:5%">No</th>
+      <th style="width:40%">Description</th>
+      <th style="width:12%">Qty (kgs)</th>
+      <th style="width:13%">Unit Price (USD)</th>
+      <th style="width:13%">Total Price (USD)</th>
+      <th style="width:17%">Supplier/Manufacturer & Country of origin</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align:center">1</td>
+      <td class="bold">${item.name}</td>
+      <td style="text-align:center">${Number(qty).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+      <td style="text-align:center">${Number(unitPrice).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+      <td style="text-align:center">${totalUSD}</td>
+      <td style="text-align:center">${vendor}</td>
+    </tr>
+    <tr>
+      <td colspan="4" class="bold" style="text-align:right">TOTAL AMOUNT IN USD</td>
+      <td class="bold" style="text-align:center">${totalUSD}</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="bold">IN WORDS: - USD – ${totalWords} Only/-</p>
+
+<!-- SHIPPING TABLE -->
+<table>
+  <thead>
+    <tr>
+      <th>ETA: MCT</th>
+      <th>Ship Via</th>
+      <th>Destination</th>
+      <th>Payment Terms</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align:center">${eta}</td>
+      <td style="text-align:center">${shippingMethod}</td>
+      <td>Po Box: 98, Postal Code: 327,<br/>Sohar Industrial Area, Sohar.<br/><span class="bold">SULTANATE OF OMAN</span></td>
+      <td style="text-align:center">${paymentTerm}</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <tr>
+    <td style="width:50%"><span class="bold">Requested By:</span></td>
+    <td style="width:50%">
+      <div class="bold">Approved by: PURCHASE MANAGER</div>
+      <div class="signature-box">[Official Stamp & Signature]</div>
+    </td>
+  </tr>
+</table>
+
+<div class="footer">
+  س.ت: ١١٤٥٠٢٦, هـاتـف: ٢٢٣٧٢٦٧٧, ص.ب: ٩٨, الـرمـز الـبـريـدي: ٣٢٧, الـمـنـطـقـة الصنـاعية صحـار, صحـار, سلطنـة عمـان<br/>
+  C.R. No: 1145026, Tel.: 22372677, P.O. Box: 98, Postal Code: 327, Sohar Industrial Area, Sohar, Sultanate of Oman
+</div>
+
+<!-- ANNEXURE I -->
+<div class="annexure">
+  <div style="text-align:right; margin-bottom:20px;">
+    <div class="logo-text">الـوجـر لصنـاعـة الأدويـة ش.م.م</div>
+    <div class="company-name">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div>
+  </div>
+  
+  <div class="annexure-title">ANNEXURE-I</div>
+  
+  <div class="terms-title">Terms &amp; Conditions as given below:-</div>
+  <ol>
+    <li>Required Original Invoice &amp; Packing list.</li>
+    <li>Required COA (certificate of analysis).</li>
+    <li>Required MSDS (Material Safety Data Sheet).</li>
+    <li>Required Non Hazardous Certificate.</li>
+    <li>Required Original COO (Certificate of origin).</li>
+    <li>Required 4 BL/AWB (1 Original &amp; 3 Copies) must require company Stamp backside of the BL.</li>
+    <li>All required documents should be courier immediately after the Shipment to avoid demurrage charges.</li>
+  </ol>
+  
+  <p class="bold">*** All Necessary documents must be attested by Chamber of Commerce.</p>
+  
+  <div class="footer">
+    س.ت: ١١٤٥٠٢٦, هـاتـف: ٢٢٣٧٢٦٧٧, ص.ب: ٩٨, الـرمـز الـبـريـدي: ٣٢٧, الـمـنـطـقـة الصنـاعية صحـار, صحـار, سلطنـة عمـان<br/>
+    C.R. No: 1145026, Tel.: 22372677, P.O. Box: 98, Postal Code: 327, Sohar Industrial Area, Sohar, Sultanate of Oman
+  </div>
+</div>
+
+</body>
+</html>`;
+
+    // Download as HTML file (opens in browser, printable as Word)
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${poNumber.replace(/\//g, '-')}_${(item.name || 'PO').replace(/\s+/g, '_').substring(0,30)}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    logAction('PO_GENERATED', `Generated PO for ${item.name} - ${qty} kg @ $${unitPrice}`);
+    setIsPOModalOpen(false);
+  };
+
+  const numberToWords = (num: number): string => {
+    if (num === 0) return 'Zero';
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const convert = (n: number): string => {
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
+      if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + convert(n%100) : '');
+      if (n < 1000000) return convert(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' ' + convert(n%1000) : '');
+      return convert(Math.floor(n/1000000)) + ' Million' + (n%1000000 ? ' ' + convert(n%1000000) : '');
+    };
+    return convert(Math.floor(num));
+  };
+
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, context: 'global' | 'procurement' | 'industrial' | 'brainstorm' | 'rd' | 'bd' = 'global') => {
     const file = e.target.files?.[0];
@@ -934,16 +1173,167 @@ const App: React.FC = () => {
       ...ing,
       cost: Number((ing.quantity * ing.rateUSD).toFixed(3))
     }));
-    
     const totalRMC = ingredients.reduce((sum, ing) => sum + ing.cost, 0);
     const totalFinalRMC = Number(((totalRMC / project.batchSize) + project.loss).toFixed(3));
-    
-    return {
-      ...project,
-      ingredients,
-      totalRMC: Number(totalRMC.toFixed(3)),
-      totalFinalRMC
+    return { ...project, ingredients, totalRMC: Number(totalRMC.toFixed(3)), totalFinalRMC };
+  };
+
+  const saveRDVersion = (project: RDProject, summary: string): RDProject => {
+    const versionNum = `v${((project.versions?.length || 0) + 1).toString().padStart(2,'0')}`;
+    const newVersion = {
+      version: versionNum, date: new Date().toISOString(), summary,
+      snapshot: { ingredients: [...project.ingredients], totalRMC: project.totalRMC, totalFinalRMC: project.totalFinalRMC, batchSize: project.batchSize }
     };
+    return { ...project, versions: [...(project.versions || []), newVersion], lastUpdated: new Date().toISOString().split('T')[0] };
+  };
+
+  const handleRDFullAnalysis = async () => {
+    if (!selectedRD) return;
+    setIsAiLoading(true);
+    setRdAiReport('');
+    const ai = (await import('@google/genai')).GoogleGenAI;
+    try {
+      const { analyzeImageOrFile } = await import('./geminiService');
+      const prompt = `You are a Senior Pharmaceutical R&D Scientist and Formulation Expert for Al Wajer Pharmaceuticals, Oman.
+
+Analyze this complete pharmaceutical formulation and provide a comprehensive technical report:
+
+PRODUCT: ${selectedRD.title}
+Dosage Form: ${selectedRD.dosageForm || 'Not specified'}
+Strength: ${selectedRD.strength || 'Not specified'}
+Batch Size: ${selectedRD.batchSize} ${selectedRD.batchUnit}
+Quality Standard: ${selectedRD.qualityStandards || 'BP/USP'}
+Regulatory Status: ${selectedRD.regulatoryStatus || 'Not specified'}
+
+FORMULATION (Ingredients per batch):
+${selectedRD.ingredients.map((i,idx) => `${idx+1}. ${i.name} (${i.role}) - ${i.quantity} ${i.unit} @ $${i.rateUSD}/kg = $${i.cost}`).join('\n')}
+
+Total RMC: $${selectedRD.totalRMC} | Cost per kg: $${selectedRD.totalFinalRMC}
+
+Manufacturing Process Notes: ${selectedRD.manufacturingProcess || 'Not provided'}
+
+Provide your expert report as JSON with this exact structure:
+{
+  "optimizationScore": number (0-100),
+  "formulationAssessment": "string (2-3 sentences on overall quality)",
+  "apiAnalysis": "string (assessment of API concentration, bioavailability considerations)",
+  "excipientCompatibility": "string (compatibility analysis between ingredients)",
+  "costOptimizations": ["string array of 3-5 specific cost reduction suggestions with estimated savings"],
+  "ingredientSubstitutions": [{"ingredient": "string", "alternative": "string", "reason": "string", "estimatedSavingPct": number}],
+  "manufacturingRisks": ["string array of process risks to watch"],
+  "qualityParameters": ["string array of key quality tests required: dissolution, hardness, etc"],
+  "regulatoryNotes": "string (BP/USP compliance notes for Oman/GCC market)",
+  "stabilityRecommendations": "string",
+  "overallRecommendation": "string (clear summary of what to do next)"
+}`;
+      const response = await (await import('./geminiService')).quickInsight(prompt);
+      const clean = response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
+      const parsed = JSON.parse(clean);
+      setRdAiReport(JSON.stringify(parsed));
+      const updated = { ...selectedRD, optimizationScore: parsed.optimizationScore, aiOptimizationNotes: parsed.overallRecommendation };
+      setSelectedRD(updated);
+      setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+    } catch(e) {
+      setRdAiReport(JSON.stringify({ error: 'Analysis failed. Check your Gemini API key.' }));
+    }
+    setIsAiLoading(false);
+  };
+
+  const generateSpecSheet = async () => {
+    if (!selectedRD) return;
+    setRdSpecLoading(true);
+    const today = new Date().toLocaleDateString('en-GB');
+    const ingredientRows = selectedRD.ingredients.map((i, idx) =>
+      `<tr><td>${idx+1}</td><td><b>${i.name}</b>${i.grade ? ` (${i.grade})` : ''}</td><td>${i.role}</td><td>${i.quantity}</td><td>${i.unit}</td><td>$${i.rateUSD}</td><td>$${i.cost?.toFixed(2)}</td>${i.supplier ? `<td>${i.supplier}</td>` : '<td>-</td>'}</tr>`
+    ).join('');
+    const totalIngQty = selectedRD.ingredients.reduce((s,i) => s + i.quantity, 0).toFixed(3);
+    let aiProcess = selectedRD.manufacturingProcess || '';
+    if (!aiProcess) {
+      try {
+        aiProcess = await (await import('./geminiService')).quickInsight(
+          `Write a concise step-by-step manufacturing process for ${selectedRD.title} (${selectedRD.dosageForm || 'pharmaceutical product'}) with batch size ${selectedRD.batchSize}${selectedRD.batchUnit}. Format as numbered steps, max 10 steps. Be specific and technical.`
+        );
+      } catch(e) { aiProcess = 'Manufacturing process to be defined.'; }
+    }
+    const aiReport = rdAiReport ? JSON.parse(rdAiReport) : null;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;font-size:10pt;margin:30px;color:#000}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #003087;padding-bottom:10px;margin-bottom:15px}
+  .co-name{font-size:13pt;font-weight:bold;color:#003087}
+  .co-arabic{font-size:9pt;color:#003087}
+  .doc-title{text-align:center;font-size:14pt;font-weight:bold;color:#003087;margin:10px 0;text-decoration:underline}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px}
+  th,td{border:1px solid #999;padding:5px 7px;font-size:9pt}
+  th{background:#e8f0fe;font-weight:bold;text-align:left}
+  .section-title{font-size:11pt;font-weight:bold;color:#003087;margin:14px 0 6px 0;border-bottom:1px solid #003087;padding-bottom:2px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .info-cell{border:1px solid #999;padding:5px 8px;font-size:9pt}
+  .info-label{font-weight:bold;color:#333}
+  .highlight{background:#fffde7}
+  .footer{border-top:1px solid #003087;margin-top:20px;padding-top:6px;font-size:8pt;text-align:center;color:#555}
+  .score-box{display:inline-block;padding:4px 12px;border-radius:4px;font-weight:bold;font-size:11pt}
+  .opt-list li{margin-bottom:4px}
+  @media print{body{margin:15px}}
+</style></head><body>
+<div class="header">
+  <div><div class="co-arabic">الـوجـر لصنـاعـة الأدويـة ش.م.م</div><div class="co-name">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div><div style="font-size:8pt;color:#555">Sohar Industrial Area, Sultanate of Oman | C.R: 1145026</div></div>
+  <div style="text-align:right;font-size:8pt"><b>Doc No:</b> RD-SPEC-${selectedRD.id}<br/><b>Date:</b> ${today}<br/><b>Version:</b> ${selectedRD.versions?.length ? 'v' + selectedRD.versions.length : 'v01'}<br/><b>Status:</b> ${selectedRD.status}</div>
+</div>
+<div class="doc-title">FORMULATION SPECIFICATION & COSTING SHEET</div>
+<div class="section-title">1. Product Identification</div>
+<div class="info-grid">
+  <div class="info-cell"><span class="info-label">Product Name:</span> ${selectedRD.title}</div>
+  <div class="info-cell"><span class="info-label">Product Code:</span> ${selectedRD.productCode || '-'}</div>
+  <div class="info-cell"><span class="info-label">Dosage Form:</span> ${selectedRD.dosageForm || '-'}</div>
+  <div class="info-cell"><span class="info-label">Strength:</span> ${selectedRD.strength || '-'}</div>
+  <div class="info-cell"><span class="info-label">Therapeutic Category:</span> ${selectedRD.therapeuticCategory || '-'}</div>
+  <div class="info-cell"><span class="info-label">Quality Standard:</span> ${selectedRD.qualityStandards || 'BP/USP'}</div>
+  <div class="info-cell"><span class="info-label">Shelf Life:</span> ${selectedRD.shelfLife || '24 Months'}</div>
+  <div class="info-cell"><span class="info-label">Storage Condition:</span> ${selectedRD.storageCondition || 'Below 25°C'}</div>
+  <div class="info-cell"><span class="info-label">Regulatory Status:</span> ${selectedRD.regulatoryStatus || '-'}</div>
+  <div class="info-cell"><span class="info-label">Last Updated:</span> ${selectedRD.lastUpdated}</div>
+</div>
+<div class="section-title">2. Formulation — Batch Size: ${selectedRD.batchSize} ${selectedRD.batchUnit}</div>
+<table>
+  <thead><tr><th>#</th><th>Raw Material</th><th>Role</th><th>Qty/Batch</th><th>Unit</th><th>Rate (USD)</th><th>Cost (USD)</th><th>Supplier</th></tr></thead>
+  <tbody>${ingredientRows}</tbody>
+  <tfoot>
+    <tr style="background:#f5f5f5"><td colspan="3"><b>TOTAL</b></td><td><b>${totalIngQty}</b></td><td>Kg</td><td>—</td><td><b>$${selectedRD.totalRMC?.toFixed(2)}</b></td><td></td></tr>
+    <tr class="highlight"><td colspan="6"><b>RAW MATERIAL COST PER KG (including ${(selectedRD.loss*100).toFixed(1)}% loss)</b></td><td colspan="2"><b>$${selectedRD.totalFinalRMC} / Kg</b></td></tr>
+  </tfoot>
+</table>
+<div class="section-title">3. Manufacturing Process</div>
+<p style="white-space:pre-wrap;font-size:9pt;line-height:1.6">${aiProcess}</p>
+${aiReport ? `
+<div class="section-title">4. AI Formulation Analysis (Score: <span class="score-box" style="background:${aiReport.optimizationScore>=90?'#e8f5e9':'#fff9c4'};color:${aiReport.optimizationScore>=90?'#2e7d32':'#f57f17'}">${aiReport.optimizationScore}/100</span>)</div>
+<table><tr><th>Assessment</th><td>${aiReport.formulationAssessment || '-'}</td></tr>
+<tr><th>API Analysis</th><td>${aiReport.apiAnalysis || '-'}</td></tr>
+<tr><th>Excipient Compatibility</th><td>${aiReport.excipientCompatibility || '-'}</td></tr>
+<tr><th>Stability</th><td>${aiReport.stabilityRecommendations || '-'}</td></tr>
+<tr><th>Regulatory Notes</th><td>${aiReport.regulatoryNotes || '-'}</td></tr>
+<tr><th>Overall Recommendation</th><td><b>${aiReport.overallRecommendation || '-'}</b></td></tr></table>
+${aiReport.costOptimizations?.length ? `<div class="section-title">5. Cost Optimization Suggestions</div><ol class="opt-list">${aiReport.costOptimizations.map((c:string)=>`<li>${c}</li>`).join('')}</ol>` : ''}
+${aiReport.ingredientSubstitutions?.length ? `<div class="section-title">6. Ingredient Substitution Options</div><table><thead><tr><th>Current Ingredient</th><th>Suggested Alternative</th><th>Reason</th><th>Est. Saving</th></tr></thead><tbody>${aiReport.ingredientSubstitutions.map((s:any)=>`<tr><td>${s.ingredient}</td><td>${s.alternative}</td><td>${s.reason}</td><td>${s.estimatedSavingPct}%</td></tr>`).join('')}</tbody></table>` : ''}
+${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Control Parameters</div><ul class="opt-list">${aiReport.qualityParameters.map((q:string)=>`<li>${q}</li>`).join('')}</ul>` : ''}
+` : '<div class="section-title">4. AI Analysis</div><p style="color:#888;font-size:9pt">Click "AI FULL ANALYSIS" in the app to generate AI insights, then regenerate this spec sheet.</p>'}
+<div class="section-title">${aiReport ? '8' : '4'}. Version History</div>
+<table><thead><tr><th>Version</th><th>Date</th><th>Summary</th></tr></thead>
+<tbody>${(selectedRD.versions || [{version:'v01', date: selectedRD.lastUpdated, summary:'Initial formulation'}]).map(v=>`<tr><td>${v.version}</td><td>${v.date?.split('T')[0]}</td><td>${v.summary}</td></tr>`).join('')}</tbody></table>
+<div class="footer">
+  Prepared by: R&D Department — AL WAJER PHARMACEUTICALS INDUSTRY LLC, Sohar, Oman &nbsp;|&nbsp; This document is confidential and for internal use only.
+</div>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `SpecSheet_${selectedRD.id}_${selectedRD.title.replace(/\s+/g,'_').substring(0,30)}.html`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    logAction('SPEC_GENERATED', `Generated spec sheet for ${selectedRD.title}`);
+    setRdSpecLoading(false);
   };
 
   const handleOptimizeFormulation = async () => {
@@ -1020,6 +1410,8 @@ const App: React.FC = () => {
             amount_usd: Number(newItem.amountUSD),
             amount_omr: Number(newItem.amountOMR),
             status: newItem.status,
+            payment_method: newItem.paymentMethod || 'LC at Sight',
+            shipping_method: newItem.shippingMethod || 'By Sea',
             date: newItem.date || new Date().toISOString().split('T')[0]
           };
           setOrders(prev => [...prev, newItem]);
@@ -1422,13 +1814,17 @@ const App: React.FC = () => {
                 {renderField('Party / Customer', 'customer')}
                 <div className="grid grid-cols-2 gap-4">
                   {renderField('Country', 'country')}
-                  {renderField('Status', 'status', 'select', ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'])}
+                  {renderField('Status', 'status', 'select', ['Pending', 'Going to Dispatch', 'Existing Orders', 'New Expected', 'Processing', 'Shipped', 'Delivered', 'Cancelled'])}
                 </div>
                 {renderField('Product Name', 'product')}
                 <div className="grid grid-cols-3 gap-4">
                   {renderField('Qty (KG)', 'quantity', 'number')}
                   {renderField('Amt (USD)', 'amountUSD', 'number')}
                   {renderField('Amt (OMR)', 'amountOMR', 'number')}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {renderField('Payment Method', 'paymentMethod', 'select', ['LC at Sight', 'LC 30 Days', 'LC 60 Days', 'Advance', 'TT in Advance', 'Open Account'])}
+                  {renderField('Shipping Method', 'shippingMethod', 'select', ['By Air', 'By Sea', 'CIF by Air', 'CIF by Sea', 'FOB', 'Ex-Works'])}
                 </div>
               </>
             )}
@@ -1755,7 +2151,7 @@ const App: React.FC = () => {
             <button onClick={() => exportToCSV(orders, 'sales_report')} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
               <Download size={14}/> Export
             </button>
-            <button onClick={() => openModal('add', 'sales', {id: `ORD-${Date.now()}`, invoiceNo: '', date: new Date().toISOString().split('T')[0], customer: '', country: '', product: '', quantity: 0, amountUSD: 0, amountOMR: 0, status: 'Pending'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
+            <button onClick={() => openModal('add', 'sales', {id: `ORD-${Date.now()}`, invoiceNo: '', date: new Date().toISOString().split('T')[0], customer: '', country: '', product: '', quantity: 0, amountUSD: 0, amountOMR: 0, status: 'Pending', paymentMethod: 'LC at Sight', shippingMethod: 'By Sea'})} className="bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37] px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold transition-all">
               <Plus size={16} /> Update Orders
             </button>
           </div>
@@ -1847,7 +2243,10 @@ const App: React.FC = () => {
                                  <h4 className="text-white font-bold text-sm">{item.name}</h4>
                                  <p className="text-[10px] text-red-300">Required: {item.balanceToPurchase} {item.unit}</p>
                              </div>
-                             <button className="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded font-bold">
+                             <button 
+                               className="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded font-bold"
+                               onClick={() => { setPOItem(item); setPOQty(String(item.balanceToPurchase)); setIsPOModalOpen(true); }}
+                             >
                                  Generate PO
                              </button>
                          </div>
@@ -2257,111 +2656,567 @@ const App: React.FC = () => {
   );
 
   const renderRDLab = () => {
-      // Filter R&D Projects
-      const filteredRD = rdProjects.filter(p => p.title.toLowerCase().includes(rdSearch.toLowerCase()) || p.id.toLowerCase().includes(rdSearch.toLowerCase()));
+    const filteredRD = rdProjects.filter(p =>
+      p.title.toLowerCase().includes(rdSearch.toLowerCase()) ||
+      p.id.toLowerCase().includes(rdSearch.toLowerCase()) ||
+      (p.productCode || '').toLowerCase().includes(rdSearch.toLowerCase())
+    );
+    const aiData = rdAiReport ? (() => { try { return JSON.parse(rdAiReport); } catch { return null; }})() : null;
 
-      return (
-        <div className="space-y-6 animate-fadeIn">
-          <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Beaker className="text-[#F4C430]" size={20} /> R&D Formulation Lab
-              </h2>
-              <div className="flex gap-2">
-                  <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={14} />
-                      <input 
-                          type="text" 
-                          value={rdSearch}
-                          onChange={(e) => setRdSearch(e.target.value)}
-                          placeholder="Search formulations..."
-                          className="bg-slate-900 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
-                      />
-                  </div>
-                  <button onClick={() => rdFileRef.current?.click()} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                      <Upload size={14}/> Upload Formula
-                  </button>
-                  <input type="file" ref={rdFileRef} className="hidden" onChange={(e) => handleFileUpload(e, 'rd')} />
-              </div>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-6 gold-glow">
-                  <h3 className="text-lg font-bold text-white mb-4">Current Projects</h3>
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
-                      {filteredRD.length === 0 ? <p className="text-slate-500 text-sm">No formulations found.</p> : filteredRD.map(project => (
-                          <div key={project.id} 
-                               className={`p-4 rounded border transition-all group relative ${selectedRD?.id === project.id ? 'bg-[#D4AF37]/10 border-[#D4AF37]' : 'bg-slate-800/30 border-white/5 hover:bg-slate-800/50'}`}>
-                              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => { e.stopPropagation(); handleDelete('rd', project.id, project.title); }} className="p-1 rounded bg-slate-900 text-red-500 hover:bg-red-900" title="Delete"><Trash2 size={12}/></button>
-                              </div>
-                              <div className="flex justify-between items-start cursor-pointer" onClick={() => setSelectedRD(project)}>
-                                  <h4 className="font-bold text-white">{project.title}</h4>
-                                  <span className="text-[10px] bg-slate-950 text-slate-300 px-2 py-0.5 rounded">{project.status}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-500 mt-1 cursor-pointer" onClick={() => setSelectedRD(project)}>ID: {project.id} • Score: {project.optimizationScore}</p>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-              <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-6 gold-glow relative min-h-[400px]">
-                   {selectedRD ? (
-                       <>
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white">Formulation Analysis</h3>
-                                    <p className="text-xs text-slate-500">{selectedRD.title}</p>
-                                </div>
-                                <button onClick={handleOptimizeFormulation} disabled={isAiLoading} className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">
-                                    {isAiLoading ? <Loader2 className="animate-spin" size={14}/> : <Zap size={14}/>} AI OPTIMIZE
-                                </button>
-                            </div>
-                            <div className="overflow-x-auto mb-6">
-                                <table className="w-full text-left text-xs">
-                                    <thead>
-                                        <tr className="border-b border-white/5 text-slate-500 uppercase">
-                                            <th className="pb-2">Material</th>
-                                            <th className="pb-2">Qty</th>
-                                            <th className="pb-2">Rate</th>
-                                            <th className="pb-2 text-right">Cost</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {selectedRD.ingredients.map((ing, idx) => (
-                                            <tr key={idx} className="hover:bg-white/5">
-                                                <td className="py-2 text-slate-300">{ing.name}</td>
-                                                <td className="py-2 font-mono text-white">{ing.quantity} {ing.unit}</td>
-                                                <td className="py-2 font-mono text-slate-400">${ing.rateUSD}</td>
-                                                <td className="py-2 font-mono text-[#D4AF37] text-right">${ing.cost?.toLocaleString()}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr className="border-t border-[#D4AF37]/30 font-bold">
-                                            <td colSpan={3} className="py-2 text-white">Total RMC</td>
-                                            <td className="py-2 text-[#D4AF37] text-right font-mono">${selectedRD.totalRMC?.toLocaleString()}</td>
-                                        </tr>
-                                        <tr>
-                                            <td colSpan={3} className="py-1 text-slate-500 text-[10px]">Batch Size: {selectedRD.batchSize} {selectedRD.batchUnit} | Loss: {selectedRD.loss}</td>
-                                            <td className="py-1 text-green-400 text-right font-mono text-sm">${selectedRD.totalFinalRMC}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                            <div className="p-4 bg-slate-800/30 rounded border border-white/5">
-                                <h4 className="text-xs font-bold text-[#D4AF37] mb-2 uppercase">AI Optimization Report</h4>
-                                <p className="text-sm text-slate-300 leading-relaxed">
-                                    {selectedRD.optimizationScore > 90 
-                                     ? "Formulation meets bioequivalence standards. No critical interactions detected between API and excipients." 
-                                     : "Optimization Required: Binder concentration may affect dissolution profile. Recommend adjusting HPMC levels."}
-                                </p>
-                            </div>
-                       </>
-                   ) : (
-                       <div className="flex items-center justify-center h-full text-slate-500">Select a project</div>
-                   )}
-              </div>
+    return (
+      <div className="space-y-5 animate-fadeIn pb-10">
+        {/* ── HEADER ── */}
+        <div className="flex flex-wrap gap-3 justify-between items-center">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Beaker className="text-[#F4C430]" size={20}/> R&D Formulation Lab
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13}/>
+              <input value={rdSearch} onChange={e => setRdSearch(e.target.value)} placeholder="Search products..."
+                className="bg-slate-900 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none w-44"/>
+            </div>
+            <button onClick={() => rdFileRef.current?.click()}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
+              <Upload size={13}/> Upload Formula
+            </button>
+            <input type="file" ref={rdFileRef} className="hidden" onChange={(e) => handleFileUpload(e, 'rd')} accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg"/>
+            <button onClick={() => { setRdModalMode('addProduct'); setIsRdModalOpen(true); }}
+              className="luxury-gradient px-3 py-2 rounded-lg text-slate-950 text-xs font-bold flex items-center gap-1.5">
+              <Plus size={13}/> New Product
+            </button>
           </div>
         </div>
-      );
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          {/* ── PRODUCT LIST ── */}
+          <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow xl:col-span-1">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Products ({filteredRD.length})</h3>
+            </div>
+            <div className="space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-1">
+              {filteredRD.length === 0
+                ? <p className="text-slate-500 text-xs text-center py-8">No products yet.<br/>Upload a file or add manually.</p>
+                : filteredRD.map(project => (
+                  <div key={project.id}
+                    className={`p-3 rounded-lg border transition-all group relative cursor-pointer
+                      ${selectedRD?.id === project.id ? 'bg-[#D4AF37]/10 border-[#D4AF37]' : 'bg-slate-800/30 border-white/5 hover:border-[#D4AF37]/40'}`}
+                    onClick={() => { setSelectedRD(project); setRdAiReport(''); setRdActiveTab('formulation'); }}>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={e => { e.stopPropagation(); setCompareRD(compareRD?.id === project.id ? null : project); }}
+                        title="Compare" className={`p-1 rounded text-xs ${compareRD?.id === project.id ? 'bg-blue-600 text-white' : 'bg-slate-900 text-blue-400 hover:bg-blue-900'}`}>
+                        <Layers size={11}/>
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); handleDelete('rd', project.id, project.title); }}
+                        className="p-1 rounded bg-slate-900 text-red-500 hover:bg-red-900"><Trash2 size={11}/></button>
+                    </div>
+                    <div className="flex justify-between items-start pr-12">
+                      <div>
+                        <h4 className="font-bold text-white text-xs leading-tight">{project.title}</h4>
+                        {project.dosageForm && <p className="text-[10px] text-[#D4AF37] mt-0.5">{project.dosageForm}{project.strength ? ` · ${project.strength}` : ''}</p>}
+                        <p className="text-[10px] text-slate-500 mt-0.5">{project.id}{project.productCode ? ` · ${project.productCode}` : ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase font-bold
+                        ${project.status === 'Approved' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                          project.status === 'Formulation' ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' :
+                          'text-blue-400 border-blue-500/30 bg-blue-500/10'}`}>{project.status}</span>
+                      <span className="text-[9px] text-slate-500">{project.ingredients.length} ingredients</span>
+                      <span className="text-[9px] text-[#D4AF37] font-mono">${project.totalFinalRMC}/kg</span>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+
+          {/* ── DETAIL PANEL ── */}
+          <div className="xl:col-span-2 space-y-4">
+            {selectedRD ? (
+              <>
+                {/* Tabs */}
+                <div className="flex gap-1 bg-slate-900/50 border border-white/10 rounded-xl p-1">
+                  {([['formulation','Formulation'],['process','Process & QC'],['compare','Compare'],['spec','Spec Sheet']] as const).map(([tab, label]) => (
+                    <button key={tab} onClick={() => setRdActiveTab(tab as any)}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all
+                        ${rdActiveTab === tab ? 'bg-[#D4AF37] text-slate-950' : 'text-slate-400 hover:text-white'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── TAB: FORMULATION ── */}
+                {rdActiveTab === 'formulation' && (
+                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
+                    <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
+                      <div>
+                        <h3 className="text-base font-bold text-white">{selectedRD.title}</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {selectedRD.dosageForm || 'Form N/A'} · {selectedRD.strength || 'Strength N/A'} · Batch: {selectedRD.batchSize} {selectedRD.batchUnit}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => { setRdModalMode('addIngredient'); setNewIngData({ name:'', quantity:0, unit:'Kg', rateUSD:0, role:'API', supplier:'', grade:'', notes:'' }); setIsRdModalOpen(true); }}
+                          className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1">
+                          <Plus size={12}/> Add Ingredient
+                        </button>
+                        <button onClick={handleRDFullAnalysis} disabled={isAiLoading}
+                          className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-3 py-1.5 rounded text-xs font-bold">
+                          {isAiLoading ? <Loader2 className="animate-spin" size={12}/> : <Zap size={12}/>} AI Full Analysis
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-white/5 text-slate-500 uppercase text-[10px]">
+                            <th className="pb-2 pr-2">#</th>
+                            <th className="pb-2">Material</th>
+                            <th className="pb-2">Role</th>
+                            <th className="pb-2">Qty</th>
+                            <th className="pb-2">Rate $</th>
+                            <th className="pb-2 text-right">Cost $</th>
+                            <th className="pb-2"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {selectedRD.ingredients.map((ing, idx) => (
+                            <tr key={idx} className="hover:bg-white/5 group">
+                              <td className="py-2 pr-2 text-slate-500 text-[10px]">{ing.sNo || idx+1}</td>
+                              <td className="py-2">
+                                <div className="text-slate-200 font-medium">{ing.name}</div>
+                                {(ing.supplier || ing.grade) && <div className="text-[10px] text-slate-500">{ing.grade}{ing.supplier ? ` · ${ing.supplier}` : ''}</div>}
+                              </td>
+                              <td className="py-2">
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase font-bold
+                                  ${ing.role === 'API' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+                                    ing.role === 'Coating' ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' :
+                                    ing.role === 'Binder' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                                    'text-slate-400 border-slate-500/30 bg-slate-500/10'}`}>{ing.role}</span>
+                              </td>
+                              <td className="py-2 font-mono text-white">{ing.quantity} {ing.unit}</td>
+                              <td className="py-2 font-mono text-slate-400">{ing.rateUSD}</td>
+                              <td className="py-2 font-mono text-[#D4AF37] text-right">{ing.cost?.toFixed(2)}</td>
+                              <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-1">
+                                  <button onClick={() => { setEditIngIdx(idx); setNewIngData({...ing}); setRdModalMode('editIngredient'); setIsRdModalOpen(true); }}
+                                    className="p-1 rounded bg-slate-800 text-yellow-400 hover:bg-yellow-900"><Edit2 size={10}/></button>
+                                  <button onClick={() => {
+                                    const updated = calculateCosting({ ...selectedRD, ingredients: selectedRD.ingredients.filter((_,i) => i !== idx) });
+                                    setSelectedRD(updated); setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+                                  }} className="p-1 rounded bg-slate-800 text-red-400 hover:bg-red-900"><Trash2 size={10}/></button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-[#D4AF37]/30">
+                            <td colSpan={5} className="py-2 text-white font-bold text-xs">Total RMC</td>
+                            <td className="py-2 text-[#D4AF37] text-right font-mono font-bold">${selectedRD.totalRMC?.toFixed(2)}</td>
+                            <td/>
+                          </tr>
+                          <tr>
+                            <td colSpan={5} className="py-1 text-slate-400 text-[10px]">Cost/kg (incl. {(selectedRD.loss*100).toFixed(1)}% loss)</td>
+                            <td className="py-1 text-green-400 text-right font-mono font-bold">${selectedRD.totalFinalRMC}</td>
+                            <td/>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    {/* AI Report */}
+                    {aiData && (
+                      <div className="mt-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-[#D4AF37] uppercase">AI Analysis Report</h4>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${aiData.optimizationScore >= 90 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                            Score: {aiData.optimizationScore}/100
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed">{aiData.formulationAssessment}</p>
+                        {aiData.costOptimizations?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Cost Optimizations</p>
+                            <ul className="space-y-1">{aiData.costOptimizations.map((c: string, i: number) =>
+                              <li key={i} className="text-[10px] text-slate-300 flex gap-1.5"><span className="text-green-400">↓</span>{c}</li>)}</ul>
+                          </div>
+                        )}
+                        {aiData.ingredientSubstitutions?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Substitution Options</p>
+                            <div className="space-y-1">{aiData.ingredientSubstitutions.map((s: any, i: number) =>
+                              <div key={i} className="text-[10px] bg-slate-800/50 rounded p-2">
+                                <span className="text-yellow-400 font-bold">{s.ingredient}</span> → <span className="text-green-400 font-bold">{s.alternative}</span>
+                                <span className="text-slate-400 ml-1">({s.estimatedSavingPct}% saving) — {s.reason}</span>
+                              </div>)}</div>
+                          </div>
+                        )}
+                        {aiData.manufacturingRisks?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Manufacturing Risks</p>
+                            <ul className="space-y-1">{aiData.manufacturingRisks.map((r: string, i: number) =>
+                              <li key={i} className="text-[10px] text-red-300 flex gap-1.5"><span>⚠</span>{r}</li>)}</ul>
+                          </div>
+                        )}
+                        <div className="p-3 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded">
+                          <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Overall Recommendation</p>
+                          <p className="text-xs text-white">{aiData.overallRecommendation}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── TAB: PROCESS & QC ── */}
+                {rdActiveTab === 'process' && (
+                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow space-y-5">
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      {[
+                        ['Dosage Form', selectedRD.dosageForm],
+                        ['Strength', selectedRD.strength],
+                        ['Therapeutic Category', selectedRD.therapeuticCategory],
+                        ['Quality Standard', selectedRD.qualityStandards],
+                        ['Shelf Life', selectedRD.shelfLife],
+                        ['Storage Condition', selectedRD.storageCondition],
+                        ['Regulatory Status', selectedRD.regulatoryStatus],
+                        ['Last Updated', selectedRD.lastUpdated],
+                      ].map(([label, val]) => (
+                        <div key={label} className="bg-slate-800/30 rounded p-3 border border-white/5">
+                          <p className="text-[10px] text-slate-500 uppercase font-bold">{label}</p>
+                          <p className="text-white mt-0.5">{val || '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-xs font-bold text-[#D4AF37] uppercase">Manufacturing Process</p>
+                        <button onClick={() => {
+                          setNewProductData({ ...selectedRD });
+                          setRdModalMode('addProduct');
+                          setIsRdModalOpen(true);
+                        }} className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"><Edit2 size={10}/> Edit</button>
+                      </div>
+                      <div className="bg-slate-800/30 rounded p-3 border border-white/5">
+                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+                          {selectedRD.manufacturingProcess || 'No manufacturing process defined. Click Edit to add, or run AI Full Analysis to auto-generate.'}
+                        </p>
+                      </div>
+                    </div>
+                    {aiData?.qualityParameters?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-[#D4AF37] uppercase mb-2">Quality Control Parameters</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {aiData.qualityParameters.map((q: string, i: number) => (
+                            <div key={i} className="flex gap-2 items-start bg-slate-800/30 rounded p-2 text-[10px] text-slate-300 border border-white/5">
+                              <CheckCircle2 size={10} className="text-green-400 mt-0.5 shrink-0"/>{q}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Version History */}
+                    {(selectedRD.versions?.length || 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-[#D4AF37] uppercase mb-2">Version History</p>
+                        <div className="space-y-1">
+                          {selectedRD.versions!.map((v, i) => (
+                            <div key={i} className="flex gap-3 items-start text-[10px] bg-slate-800/20 rounded p-2 border border-white/5">
+                              <span className="text-[#D4AF37] font-mono font-bold shrink-0">{v.version}</span>
+                              <span className="text-slate-500 shrink-0">{v.date?.split('T')[0]}</span>
+                              <span className="text-slate-300">{v.summary}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── TAB: COMPARE ── */}
+                {rdActiveTab === 'compare' && (
+                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
+                    {compareRD && compareRD.id !== selectedRD.id ? (
+                      <>
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-sm font-bold text-white">Side-by-Side Comparison</h3>
+                          <button onClick={() => setCompareRD(null)} className="text-xs text-slate-400 hover:text-white flex items-center gap-1"><X size={12}/> Clear</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          {[selectedRD, compareRD].map((p, pi) => (
+                            <div key={pi} className={`p-3 rounded border ${pi===0?'border-[#D4AF37]/50 bg-[#D4AF37]/5':'border-blue-500/50 bg-blue-500/5'}`}>
+                              <p className={`text-[10px] font-bold uppercase mb-1 ${pi===0?'text-[#D4AF37]':'text-blue-400'}`}>{pi===0?'Product A':'Product B'}</p>
+                              <p className="text-white text-xs font-bold">{p.title}</p>
+                              <p className="text-slate-400 text-[10px]">{p.dosageForm} · {p.strength}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-white/10 text-slate-500 text-[10px] uppercase">
+                                <th className="pb-2 text-left">Metric</th>
+                                <th className="pb-2 text-center text-[#D4AF37]">A: {selectedRD.title.substring(0,20)}</th>
+                                <th className="pb-2 text-center text-blue-400">B: {compareRD.title.substring(0,20)}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {[
+                                ['Batch Size', `${selectedRD.batchSize} ${selectedRD.batchUnit}`, `${compareRD.batchSize} ${compareRD.batchUnit}`],
+                                ['# Ingredients', selectedRD.ingredients.length, compareRD.ingredients.length],
+                                ['Total RMC', `$${selectedRD.totalRMC?.toFixed(2)}`, `$${compareRD.totalRMC?.toFixed(2)}`],
+                                ['Cost/Kg', `$${selectedRD.totalFinalRMC}`, `$${compareRD.totalFinalRMC}`],
+                                ['Opt. Score', `${selectedRD.optimizationScore}/100`, `${compareRD.optimizationScore}/100`],
+                                ['Status', selectedRD.status, compareRD.status],
+                                ['Quality Std.', selectedRD.qualityStandards || '-', compareRD.qualityStandards || '-'],
+                              ].map(([label, a, b]) => (
+                                <tr key={String(label)} className="hover:bg-white/5">
+                                  <td className="py-2 text-slate-400 font-medium">{label}</td>
+                                  <td className="py-2 text-center text-white font-mono">{a}</td>
+                                  <td className="py-2 text-center text-white font-mono">{b}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">Ingredient Comparison</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            {[selectedRD, compareRD].map((p, pi) => (
+                              <div key={pi}>
+                                <p className={`text-[10px] font-bold mb-1 ${pi===0?'text-[#D4AF37]':'text-blue-400'}`}>{pi===0?'A':'B'}: {p.title.substring(0,25)}</p>
+                                <div className="space-y-1">
+                                  {p.ingredients.map((ing, i) => (
+                                    <div key={i} className="text-[10px] flex justify-between bg-slate-800/30 rounded px-2 py-1">
+                                      <span className="text-slate-300 truncate">{ing.name}</span>
+                                      <span className="text-[#D4AF37] font-mono ml-2 shrink-0">{ing.quantity}{ing.unit}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Layers size={32} className="text-slate-600 mb-3"/>
+                        <p className="text-slate-400 text-sm font-bold">Select a second product to compare</p>
+                        <p className="text-slate-600 text-xs mt-1">Hover over any product in the list and click the compare icon <Layers size={10} className="inline"/></p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── TAB: SPEC SHEET ── */}
+                {rdActiveTab === 'spec' && (
+                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
+                    <div className="flex justify-between items-center mb-5">
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Technical Specification Sheet</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Downloads a print-ready HTML document for {selectedRD.title}</p>
+                      </div>
+                      <button onClick={generateSpecSheet} disabled={rdSpecLoading}
+                        className="luxury-gradient px-4 py-2 rounded-lg text-slate-950 text-xs font-bold flex items-center gap-2 disabled:opacity-50">
+                        {rdSpecLoading ? <Loader2 className="animate-spin" size={13}/> : <Download size={13}/>}
+                        {rdSpecLoading ? 'Generating...' : 'Download Spec Sheet'}
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Includes', items: ['Product identification & regulatory details', 'Full ingredient table with costs', 'Manufacturing process (AI-generated if blank)', 'AI analysis with optimization suggestions', 'Version history', 'AL WAJER letterhead & footer'] },
+                      ].map(section => (
+                        <div key={section.label} className="bg-slate-800/30 rounded p-4 border border-white/5">
+                          <p className="text-[10px] text-[#D4AF37] uppercase font-bold mb-2">{section.label}</p>
+                          <div className="grid grid-cols-2 gap-1">
+                            {section.items.map(item => (
+                              <div key={item} className="flex gap-1.5 items-center text-[10px] text-slate-300">
+                                <CheckCircle2 size={10} className="text-green-400 shrink-0"/>{item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-300">
+                        <strong>Tip:</strong> Run "AI Full Analysis" first in the Formulation tab to enrich the spec sheet with optimization insights, substitution options, and quality parameters.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-10 gold-glow flex flex-col items-center justify-center">
+                <Beaker size={40} className="text-slate-700 mb-3"/>
+                <p className="text-slate-400 text-sm font-bold">Select a product or add a new one</p>
+                <p className="text-slate-600 text-xs mt-1">Upload a formulation file or click "New Product"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── R&D MODALS ── */}
+        {isRdModalOpen && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto" onClick={() => setIsRdModalOpen(false)}>
+            <div className="bg-slate-900 border border-[#D4AF37]/40 rounded-xl w-full max-w-xl shadow-2xl mb-8" onClick={e => e.stopPropagation()}>
+
+              {/* ADD / EDIT PRODUCT */}
+              {(rdModalMode === 'addProduct') && (
+                <>
+                  <div className="p-5 border-b border-white/10 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-[#D4AF37] uppercase tracking-widest">
+                      {selectedRD && newProductData.id === selectedRD.id ? 'Edit Product' : 'New Product'}
+                    </h3>
+                    <button onClick={() => setIsRdModalOpen(false)}><X size={18} className="text-slate-400"/></button>
+                  </div>
+                  <div className="p-5 space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[['Product Name *', 'title', 'text'], ['Product Code', 'productCode', 'text'], ['Dosage Form', 'dosageForm', 'select-form'], ['Strength', 'strength', 'text'],
+                        ['Therapeutic Category', 'therapeuticCategory', 'text'], ['Batch Size (Kg)', 'batchSize', 'number'],
+                        ['Loss Factor', 'loss', 'number'], ['Quality Standard', 'qualityStandards', 'text'],
+                        ['Shelf Life', 'shelfLife', 'text'], ['Storage Condition', 'storageCondition', 'text'],
+                        ['Regulatory Status', 'regulatoryStatus', 'select-reg'], ['Status', 'status', 'select-status']
+                      ].map(([label, key, type]) => (
+                        <div key={key} className={key === 'title' || key === 'therapeuticCategory' ? 'col-span-2' : ''}>
+                          <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{label}</label>
+                          {type === 'select-form' ? (
+                            <select value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
+                              {['Capsule','Tablet','Sachet','Liquid','Powder','Cream','Gel','Syrup','Injection','Suspension'].map(f => <option key={f}>{f}</option>)}
+                            </select>
+                          ) : type === 'select-reg' ? (
+                            <select value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
+                              {['Dossier Prep','Registered','Under Review','Clinical Trial','Approved'].map(f => <option key={f}>{f}</option>)}
+                            </select>
+                          ) : type === 'select-status' ? (
+                            <select value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
+                              {['Formulation','Stability','Bioequivalence','Clinical','Optimizing','Approved'].map(f => <option key={f}>{f}</option>)}
+                            </select>
+                          ) : (
+                            <input type={type} value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Manufacturing Process (optional)</label>
+                      <textarea value={newProductData.manufacturingProcess || ''} onChange={e => setNewProductData((p: any) => ({...p, manufacturingProcess: e.target.value}))} rows={4}
+                        placeholder="Step 1: Weighing & Dispensing&#10;Step 2: Granulation&#10;Step 3: Coating&#10;..."
+                        className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none resize-none"/>
+                    </div>
+                  </div>
+                  <div className="p-4 border-t border-white/10 flex justify-end gap-2">
+                    <button onClick={() => setIsRdModalOpen(false)} className="px-4 py-1.5 text-slate-400 hover:text-white text-xs font-bold">Cancel</button>
+                    <button disabled={!newProductData.title} onClick={() => {
+                      if (selectedRD && newProductData.id === selectedRD.id) {
+                        // editing existing
+                        const merged = calculateCosting({ ...selectedRD, ...newProductData });
+                        const versioned = saveRDVersion(merged, 'Product details updated');
+                        setSelectedRD(versioned);
+                        setRdProjects(prev => prev.map(p => p.id === versioned.id ? versioned : p));
+                      } else {
+                        const newProj = calculateCosting({
+                          ...newProductData,
+                          id: `RD-${Date.now()}`,
+                          ingredients: [],
+                          packingMaterials: [],
+                          versions: [],
+                          optimizationScore: 0,
+                          lastUpdated: new Date().toISOString().split('T')[0],
+                          totalRMC: 0, totalFinalRMC: 0
+                        });
+                        setRdProjects(prev => [newProj, ...prev]);
+                        setSelectedRD(newProj);
+                        logAction('CREATE', `Created R&D product: ${newProductData.title}`);
+                      }
+                      setNewProductData({ title:'', productCode:'', dosageForm:'Capsule', strength:'', therapeuticCategory:'', batchSize:100, batchUnit:'Kg', loss:0.02, status:'Formulation', shelfLife:'24 Months', storageCondition:'Below 25°C', qualityStandards:'BP/USP', regulatoryStatus:'Dossier Prep', manufacturingProcess:'' });
+                      setIsRdModalOpen(false);
+                    }} className="luxury-gradient px-5 py-1.5 rounded text-slate-950 text-xs font-bold disabled:opacity-40">
+                      Save Product
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* ADD / EDIT INGREDIENT */}
+              {(rdModalMode === 'addIngredient' || rdModalMode === 'editIngredient') && (
+                <>
+                  <div className="p-5 border-b border-white/10 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-[#D4AF37] uppercase tracking-widest">
+                      {rdModalMode === 'editIngredient' ? 'Edit Ingredient' : 'Add Ingredient'} — {selectedRD?.title.substring(0,30)}
+                    </h3>
+                    <button onClick={() => setIsRdModalOpen(false)}><X size={18} className="text-slate-400"/></button>
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[['S.No', 'sNo', 'text'], ['Material Name *', 'name', 'text'],
+                        ['Role', 'role', 'select-role'], ['Unit', 'unit', 'select-unit'],
+                        ['Qty / Batch', 'quantity', 'number'], ['Rate (USD/unit)', 'rateUSD', 'number'],
+                        ['Supplier', 'supplier', 'text'], ['Grade (BP/USP)', 'grade', 'text']
+                      ].map(([label, key, type]) => (
+                        <div key={key} className={key === 'name' || key === 'notes' ? 'col-span-2' : ''}>
+                          <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{label}</label>
+                          {type === 'select-role' ? (
+                            <select value={newIngData[key] || 'API'} onChange={e => setNewIngData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
+                              {['API','Filler','Binder','Coating','Disintegrant','Lubricant','Plasticizer','Surfactant','Excipient','Other'].map(r => <option key={r}>{r}</option>)}
+                            </select>
+                          ) : type === 'select-unit' ? (
+                            <select value={newIngData[key] || 'Kg'} onChange={e => setNewIngData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
+                              {['Kg','g','mg','L','mL','Units','Rolls'].map(u => <option key={u}>{u}</option>)}
+                            </select>
+                          ) : (
+                            <input type={type} value={newIngData[key] || ''} onChange={e => setNewIngData((p: any) => ({...p, [key]: e.target.value}))}
+                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Notes</label>
+                      <input value={newIngData.notes || ''} onChange={e => setNewIngData((p: any) => ({...p, notes: e.target.value}))}
+                        className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
+                    </div>
+                    {newIngData.quantity > 0 && newIngData.rateUSD > 0 && (
+                      <div className="p-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded flex justify-between text-xs">
+                        <span className="text-slate-400">Calculated Cost:</span>
+                        <span className="text-[#D4AF37] font-bold font-mono">${(Number(newIngData.quantity) * Number(newIngData.rateUSD)).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 border-t border-white/10 flex justify-end gap-2">
+                    <button onClick={() => setIsRdModalOpen(false)} className="px-4 py-1.5 text-slate-400 hover:text-white text-xs font-bold">Cancel</button>
+                    <button disabled={!newIngData.name} onClick={() => {
+                      if (!selectedRD) return;
+                      const ing = { ...newIngData, quantity: Number(newIngData.quantity), rateUSD: Number(newIngData.rateUSD), cost: 0 };
+                      let updatedIngredients;
+                      if (rdModalMode === 'editIngredient') {
+                        updatedIngredients = selectedRD.ingredients.map((x, i) => i === editIngIdx ? ing : x);
+                      } else {
+                        updatedIngredients = [...selectedRD.ingredients, { ...ing, sNo: String(selectedRD.ingredients.length + 1) }];
+                      }
+                      const updated = calculateCosting({ ...selectedRD, ingredients: updatedIngredients });
+                      const versioned = rdModalMode === 'editIngredient'
+                        ? saveRDVersion(updated, `Updated ingredient: ${ing.name}`)
+                        : saveRDVersion(updated, `Added ingredient: ${ing.name}`);
+                      setSelectedRD(versioned);
+                      setRdProjects(prev => prev.map(p => p.id === versioned.id ? versioned : p));
+                      setIsRdModalOpen(false);
+                    }} className="luxury-gradient px-5 py-1.5 rounded text-slate-950 text-xs font-bold disabled:opacity-40">
+                      {rdModalMode === 'editIngredient' ? 'Save Changes' : 'Add Ingredient'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderIndustrialStudio = () => (
@@ -2701,6 +3556,91 @@ const App: React.FC = () => {
       {renderSettingsModal()}
       {renderConfirmationDialog()}
       {renderUploadProgress()}
+
+      {/* PO GENERATION MODAL */}
+      {isPOModalOpen && poItem && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setIsPOModalOpen(false)}>
+          <div className="bg-slate-900 border border-[#D4AF37]/40 rounded-xl w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-[#D4AF37] uppercase tracking-widest flex items-center gap-2">
+                <FileText size={18}/> Generate Purchase Order
+              </h3>
+              <button onClick={() => setIsPOModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-slate-800/50 rounded-lg border border-[#D4AF37]/20">
+                <p className="text-xs text-slate-400 uppercase font-bold">Material</p>
+                <p className="text-white font-bold mt-1">{poItem.name}</p>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 uppercase font-bold mb-1">Supplier / Vendor Name</label>
+                <input value={poVendor} onChange={e => setPOVendor(e.target.value)} placeholder="e.g. Tagoor Laboratories Private Limited, India"
+                  className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 uppercase font-bold mb-1">Quantity (Kg)</label>
+                  <input type="number" value={poQty} onChange={e => setPOQty(e.target.value)}
+                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 uppercase font-bold mb-1">Unit Price (USD)</label>
+                  <input type="number" value={poUnitPrice} onChange={e => setPOUnitPrice(e.target.value)} placeholder="e.g. 48"
+                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 uppercase font-bold mb-1">Payment Terms</label>
+                  <select value={poPayment} onChange={e => setPOPayment(e.target.value)}
+                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37]/50 focus:outline-none">
+                    <option>LC at Sight</option>
+                    <option>LC 30 Days</option>
+                    <option>LC 60 Days</option>
+                    <option>Advance</option>
+                    <option>TT in Advance</option>
+                    <option>Open Account</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 uppercase font-bold mb-1">ETA</label>
+                  <input value={poETA} onChange={e => setPOETA(e.target.value)} placeholder="ASAP"
+                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 uppercase font-bold mb-1">Shipping Method</label>
+                <select value={poShipping} onChange={e => setPOShipping(e.target.value)}
+                  className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37]/50 focus:outline-none">
+                  <option>CIF by Air - Muscat Airport</option>
+                  <option>CIF by Sea - Sohar Port</option>
+                  <option>By Air</option>
+                  <option>By Sea</option>
+                  <option>FOB</option>
+                  <option>Ex-Works</option>
+                </select>
+              </div>
+              {poQty && poUnitPrice && (
+                <div className="p-3 bg-[#D4AF37]/10 rounded border border-[#D4AF37]/30 flex justify-between">
+                  <span className="text-slate-300 text-sm font-bold">Total Value:</span>
+                  <span className="text-[#D4AF37] font-bold">${(Number(poQty) * Number(poUnitPrice)).toLocaleString('en-US', {minimumFractionDigits: 2})} USD</span>
+                </div>
+              )}
+            </div>
+            <div className="p-5 border-t border-white/10 flex justify-end gap-3">
+              <button onClick={() => setIsPOModalOpen(false)} className="px-4 py-2 text-slate-400 hover:text-white font-bold text-sm">Cancel</button>
+              <button
+                disabled={!poVendor || !poQty || !poUnitPrice}
+                onClick={() => generatePODocument(poItem, poVendor, poQty, poUnitPrice, poPayment, poShipping, poETA)}
+                className="luxury-gradient px-6 py-2 rounded-lg text-slate-950 font-bold text-sm disabled:opacity-40 flex items-center gap-2"
+              >
+                <Download size={14}/> Download PO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       
       {/* RESPONSIVE SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-slate-950 border-r border-[#D4AF37]/20 flex flex-col transition-transform duration-300 md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
