@@ -264,6 +264,21 @@ const App: React.FC = () => {
   const [currentBrainstormId, setCurrentBrainstormId] = useState<string | null>(null);
   const [brainstormInput, setBrainstormInput] = useState('');
 
+  // AI Command Center State
+  const [aiCmdTab, setAiCmdTab] = useState<'chat'|'industrial'|'brainstorm'|'skills'>('chat');
+  const [savedSkills, setSavedSkills] = useState<{id:string, name:string, provider:'Claude'|'Gemini'|'NotebookLM', description:string, prompt:string, category:string, usageCount:number, createdAt:string}[]>(() => {
+    try { const s = localStorage.getItem('erp_saved_skills'); return s ? JSON.parse(s) : [
+      { id:'SK-001', name:'Operations Brief', provider:'Claude', description:'Daily operational summary with risks flagged', prompt:'You are the COO of Al Wajer Pharmaceuticals. Analyze current operations and provide a concise executive brief covering: production status, inventory alerts, financial position, and top 3 risks. Be direct and precise.', category:'Operations', usageCount:0, createdAt:'2026-02-27' },
+      { id:'SK-002', name:'Formulation Optimizer', provider:'Gemini', description:'Optimize pharmaceutical formulations for cost and quality', prompt:'You are a Senior Pharmaceutical Formulation Scientist. When given formulation data, analyze ingredient ratios, suggest cost-reducing substitutions, flag compatibility issues, and recommend quality improvements. Always reference BP/USP standards.', category:'R&D', usageCount:0, createdAt:'2026-02-27' },
+      { id:'SK-003', name:'Market Entry Analyst', provider:'Claude', description:'Analyze new pharmaceutical market opportunities', prompt:'You are a pharmaceutical market entry strategist for GCC/MENA region. When given a product or market, provide: regulatory pathway, competitive landscape, pricing benchmark, and go-to-market recommendation. Focus on Oman, UAE, Kuwait, Saudi Arabia.', category:'Business Dev', usageCount:0, createdAt:'2026-02-27' },
+    ]; } catch { return []; }
+  });
+  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
+  const [newSkillData, setNewSkillData] = useState({ name:'', provider:'Claude' as 'Claude'|'Gemini'|'NotebookLM', description:'', prompt:'', category:'Operations' });
+  const [activeSkillId, setActiveSkillId] = useState<string|null>(null);
+  const [aiCmdInput, setAiCmdInput] = useState('');
+  const [aiCmdHistory, setAiCmdHistory] = useState<{role:'user'|'model', text:string, provider:string, skillName?:string}[]>([]);
+
   // Inventory State
   const [inventoryTab, setInventoryTab] = useState<'raw' | 'finished'>('raw');
 
@@ -399,6 +414,7 @@ const App: React.FC = () => {
   useEffect(() => { saveToLocalStorage('erp_industrial_chat', industrialChat); }, [industrialChat]);
   useEffect(() => { saveToLocalStorage('erp_brainstorm_sessions', brainstormSessions); }, [brainstormSessions]);
   useEffect(() => { saveToLocalStorage('erp_chat_history', chatHistory); }, [chatHistory]);
+  useEffect(() => { saveToLocalStorage('erp_saved_skills', savedSkills); }, [savedSkills]);
   useEffect(() => { saveToLocalStorage('erp_api_config', apiConfig); }, [apiConfig]);
 
   // API Key Selection logic for gemini-3-pro-image-preview (Industrial Studio)
@@ -1334,6 +1350,33 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     document.body.removeChild(a); URL.revokeObjectURL(url);
     logAction('SPEC_GENERATED', `Generated spec sheet for ${selectedRD.title}`);
     setRdSpecLoading(false);
+  };
+
+
+  const handleAICommandSend = async (inputOverride?: string) => {
+    const msg = (inputOverride || aiCmdInput).trim();
+    if (!msg || isAiLoading) return;
+    setAiCmdInput("");
+    const activeSkill = savedSkills.find(s => s.id === activeSkillId);
+    const provider = activeSkill ? activeSkill.provider : activeProvider;
+    const userMsg = { role: "user" as const, text: msg, provider, skillName: activeSkill?.name };
+    setAiCmdHistory(prev => [...prev, userMsg]);
+    setIsAiLoading(true);
+    try {
+      let systemPrompt = "You are the Al Wajer Pharmaceuticals AI assistant.";
+      if (activeSkill) systemPrompt = activeSkill.prompt;
+      else if (provider === "Claude") systemPrompt = "You are the Chief Operations Officer AI for Al Wajer Pharmaceuticals, Sohar, Oman. Specialize in pharmaceutical operations, compliance, and strategic decisions.";
+      else if (provider === "Gemini") systemPrompt = "You are Al Wajer Pharmaceuticals data intelligence engine. Analyze pharmaceutical data and provide structured numerical insights.";
+      else if (provider === "NotebookLM") systemPrompt = "You are Al Wajer Pharmaceuticals knowledge specialist. Synthesize info into clear narratives and presentation-ready content.";
+      const fullPrompt = systemPrompt + "\n\nUser: " + msg;
+      const { quickInsight } = await import("./geminiService");
+      const response = await quickInsight(fullPrompt);
+      if (activeSkill) setSavedSkills(prev => prev.map(s => s.id === activeSkillId ? {...s, usageCount: s.usageCount + 1} : s));
+      setAiCmdHistory(prev => [...prev, { role: "model" as const, text: response || "No response.", provider, skillName: activeSkill?.name }]);
+    } catch(e) {
+      setAiCmdHistory(prev => [...prev, { role: "model" as const, text: "Error — check your Gemini API key in Settings.", provider }]);
+    }
+    setIsAiLoading(false);
   };
 
   const handleOptimizeFormulation = async () => {
@@ -2587,631 +2630,353 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     </div>
   );
 
-  const renderAIOps = () => (
-    <div className="space-y-6 animate-fadeIn flex flex-col pb-10">
-       <div className="flex justify-between items-center shrink-0">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <MessageSquare className="text-[#F4C430]" size={20} /> AI Operational Assistant
-          </h2>
-          {/* Provider Selector */}
-          <div className="flex items-center gap-2 bg-slate-900 border border-white/10 rounded-lg p-1">
-             <span className="text-[10px] text-slate-500 uppercase font-bold px-2">Model:</span>
-             <select 
-                value={activeProvider}
-                onChange={(e) => setActiveProvider(e.target.value as any)}
-                className="bg-transparent text-xs text-[#D4AF37] font-bold focus:outline-none"
-             >
-                 <option value="Gemini">Gemini 3 Pro</option>
-                 <option value="Claude">Claude 3.5 Sonnet</option>
-                 <option value="NotebookLM">NotebookLM</option>
-             </select>
-          </div>
-      </div>
-      <div className="flex-1 bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-4 gold-glow flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 mb-4 p-2">
-              {chatHistory.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] p-4 rounded-xl text-sm ${
-                          msg.role === 'user' 
-                          ? 'bg-[#D4AF37] text-slate-950 font-medium rounded-br-none' 
-                          : 'bg-slate-800 text-slate-200 border border-white/10 rounded-bl-none'
-                      }`}>
-                          {msg.text}
-                      </div>
-                  </div>
-              ))}
-              {isAiLoading && (
-                  <div className="flex justify-start">
-                      <div className="bg-slate-800 p-4 rounded-xl rounded-bl-none border border-white/10 flex items-center gap-2 text-slate-400 text-xs">
-                          <Loader2 className="animate-spin" size={14}/> Processing with {activeProvider}...
-                      </div>
-                  </div>
-              )}
-          </div>
-          <div className="shrink-0 flex gap-2">
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`p-3 rounded-lg border transition-all ${isRecording ? 'bg-red-500/20 border-red-500 text-red-500 animate-pulse' : 'bg-slate-950 border-white/10 text-slate-400 hover:text-white'}`}
-              >
-                  {isRecording ? <MicOff size={20}/> : <Mic size={20}/>}
-              </button>
-              <input 
-                  type="text" 
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleChat()}
-                  placeholder={`Query ${activeProvider}...`}
-                  className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
-              />
-              <button 
-                  onClick={handleChat}
-                  disabled={!chatMessage.trim() || isAiLoading}
-                  className="bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 p-3 rounded-lg transition-colors disabled:opacity-50"
-              >
-                  <Send size={20}/>
-              </button>
-          </div>
-      </div>
-    </div>
-  );
 
-  const renderRDLab = () => {
-    const filteredRD = rdProjects.filter(p =>
-      p.title.toLowerCase().includes(rdSearch.toLowerCase()) ||
-      p.id.toLowerCase().includes(rdSearch.toLowerCase()) ||
-      (p.productCode || '').toLowerCase().includes(rdSearch.toLowerCase())
-    );
-    const aiData = rdAiReport ? (() => { try { return JSON.parse(rdAiReport); } catch { return null; }})() : null;
+  const renderAIOps = () => {
+    const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
+    const providerColors: Record<string, string> = {
+      Claude: 'text-orange-400', Gemini: 'text-blue-400', NotebookLM: 'text-purple-400'
+    };
+    const providerBg: Record<string, string> = {
+      Claude: 'bg-orange-500/10 border-orange-500/30',
+      Gemini: 'bg-blue-500/10 border-blue-500/30',
+      NotebookLM: 'bg-purple-500/10 border-purple-500/30'
+    };
 
     return (
-      <div className="space-y-5 animate-fadeIn pb-10">
-        {/* ── HEADER ── */}
-        <div className="flex flex-wrap gap-3 justify-between items-center">
+      <div className="flex flex-col animate-fadeIn pb-6 space-y-4">
+
+        {/* ── HEADER + TAB BAR ── */}
+        <div className="flex flex-wrap gap-3 justify-between items-center shrink-0">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Beaker className="text-[#F4C430]" size={20}/> R&D Formulation Lab
+            <BrainCircuit className="text-[#F4C430]" size={20}/> AI Command Center
           </h2>
-          <div className="flex flex-wrap gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13}/>
-              <input value={rdSearch} onChange={e => setRdSearch(e.target.value)} placeholder="Search products..."
-                className="bg-slate-900 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none w-44"/>
-            </div>
-            <button onClick={() => rdFileRef.current?.click()}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5">
-              <Upload size={13}/> Upload Formula
-            </button>
-            <input type="file" ref={rdFileRef} className="hidden" onChange={(e) => handleFileUpload(e, 'rd')} accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg"/>
-            <button onClick={() => { setRdModalMode('addProduct'); setIsRdModalOpen(true); }}
-              className="luxury-gradient px-3 py-2 rounded-lg text-slate-950 text-xs font-bold flex items-center gap-1.5">
-              <Plus size={13}/> New Product
-            </button>
+          <div className="flex gap-1 bg-slate-900 border border-white/10 rounded-xl p-1">
+            {([['chat','💬 Chat'],['industrial','🏭 Industrial'],['brainstorm','⚡ Brainstorm'],['skills','🛠 Skills']] as const).map(([tab, label]) => (
+              <button key={tab} onClick={() => setAiCmdTab(tab as any)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all
+                  ${aiCmdTab === tab ? 'bg-[#D4AF37] text-slate-950' : 'text-slate-400 hover:text-white'}`}>
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-          {/* ── PRODUCT LIST ── */}
-          <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow xl:col-span-1">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Products ({filteredRD.length})</h3>
+        {/* ══════════════════════════════════════════
+            TAB: CHAT
+        ══════════════════════════════════════════ */}
+        {aiCmdTab === 'chat' && (
+          <div className="flex flex-col gap-4 min-h-0">
+
+            {/* Provider selector + pinned skills */}
+            <div className="flex flex-wrap gap-2 items-center bg-slate-900/50 border border-white/10 rounded-xl p-3 shrink-0">
+              <div className="flex gap-1">
+                {(['Claude','Gemini','NotebookLM'] as const).map(p => (
+                  <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all
+                      ${activeProvider === p && !activeSkillId
+                        ? providerBg[p] + ' ' + providerColors[p]
+                        : 'border-transparent text-slate-500 hover:text-white'}`}>
+                    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '📚 NotebookLM'}
+                  </button>
+                ))}
+              </div>
+              <div className="w-px h-5 bg-white/10 hidden sm:block"/>
+              <div className="flex gap-1 flex-wrap">
+                {savedSkills.slice(0, 4).map((sk: any) => (
+                  <button key={sk.id}
+                    onClick={() => { setActiveSkillId(activeSkillId === sk.id ? null : sk.id); setActiveProvider(sk.provider); }}
+                    className={`px-2 py-1 text-[10px] font-bold rounded border transition-all
+                      ${activeSkillId === sk.id
+                        ? 'bg-[#D4AF37]/20 border-[#D4AF37] text-[#D4AF37]'
+                        : 'border-white/10 text-slate-500 hover:text-white'}`}>
+                    {sk.name}
+                  </button>
+                ))}
+                <button onClick={() => setAiCmdTab('skills')}
+                  className="px-2 py-1 text-[10px] text-slate-600 hover:text-slate-400 border border-dashed border-white/10 rounded">
+                  + more skills
+                </button>
+              </div>
             </div>
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-1">
-              {filteredRD.length === 0
-                ? <p className="text-slate-500 text-xs text-center py-8">No products yet.<br/>Upload a file or add manually.</p>
-                : filteredRD.map(project => (
-                  <div key={project.id}
-                    className={`p-3 rounded-lg border transition-all group relative cursor-pointer
-                      ${selectedRD?.id === project.id ? 'bg-[#D4AF37]/10 border-[#D4AF37]' : 'bg-slate-800/30 border-white/5 hover:border-[#D4AF37]/40'}`}
-                    onClick={() => { setSelectedRD(project); setRdAiReport(''); setRdActiveTab('formulation'); }}>
-                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={e => { e.stopPropagation(); setCompareRD(compareRD?.id === project.id ? null : project); }}
-                        title="Compare" className={`p-1 rounded text-xs ${compareRD?.id === project.id ? 'bg-blue-600 text-white' : 'bg-slate-900 text-blue-400 hover:bg-blue-900'}`}>
-                        <Layers size={11}/>
-                      </button>
-                      <button onClick={e => { e.stopPropagation(); handleDelete('rd', project.id, project.title); }}
-                        className="p-1 rounded bg-slate-900 text-red-500 hover:bg-red-900"><Trash2 size={11}/></button>
-                    </div>
-                    <div className="flex justify-between items-start pr-12">
-                      <div>
-                        <h4 className="font-bold text-white text-xs leading-tight">{project.title}</h4>
-                        {project.dosageForm && <p className="text-[10px] text-[#D4AF37] mt-0.5">{project.dosageForm}{project.strength ? ` · ${project.strength}` : ''}</p>}
-                        <p className="text-[10px] text-slate-500 mt-0.5">{project.id}{project.productCode ? ` · ${project.productCode}` : ''}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase font-bold
-                        ${project.status === 'Approved' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
-                          project.status === 'Formulation' ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' :
-                          'text-blue-400 border-blue-500/30 bg-blue-500/10'}`}>{project.status}</span>
-                      <span className="text-[9px] text-slate-500">{project.ingredients.length} ingredients</span>
-                      <span className="text-[9px] text-[#D4AF37] font-mono">${project.totalFinalRMC}/kg</span>
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
 
-          {/* ── DETAIL PANEL ── */}
-          <div className="xl:col-span-2 space-y-4">
-            {selectedRD ? (
-              <>
-                {/* Tabs */}
-                <div className="flex gap-1 bg-slate-900/50 border border-white/10 rounded-xl p-1">
-                  {([['formulation','Formulation'],['process','Process & QC'],['compare','Compare'],['spec','Spec Sheet']] as const).map(([tab, label]) => (
-                    <button key={tab} onClick={() => setRdActiveTab(tab as any)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all
-                        ${rdActiveTab === tab ? 'bg-[#D4AF37] text-slate-950' : 'text-slate-400 hover:text-white'}`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* ── TAB: FORMULATION ── */}
-                {rdActiveTab === 'formulation' && (
-                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
-                    <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
-                      <div>
-                        <h3 className="text-base font-bold text-white">{selectedRD.title}</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {selectedRD.dosageForm || 'Form N/A'} · {selectedRD.strength || 'Strength N/A'} · Batch: {selectedRD.batchSize} {selectedRD.batchUnit}
-                        </p>
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        <button onClick={() => { setRdModalMode('addIngredient'); setNewIngData({ name:'', quantity:0, unit:'Kg', rateUSD:0, role:'API', supplier:'', grade:'', notes:'' }); setIsRdModalOpen(true); }}
-                          className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1">
-                          <Plus size={12}/> Add Ingredient
-                        </button>
-                        <button onClick={handleRDFullAnalysis} disabled={isAiLoading}
-                          className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-3 py-1.5 rounded text-xs font-bold">
-                          {isAiLoading ? <Loader2 className="animate-spin" size={12}/> : <Zap size={12}/>} AI Full Analysis
-                        </button>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="border-b border-white/5 text-slate-500 uppercase text-[10px]">
-                            <th className="pb-2 pr-2">#</th>
-                            <th className="pb-2">Material</th>
-                            <th className="pb-2">Role</th>
-                            <th className="pb-2">Qty</th>
-                            <th className="pb-2">Rate $</th>
-                            <th className="pb-2 text-right">Cost $</th>
-                            <th className="pb-2"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {selectedRD.ingredients.map((ing, idx) => (
-                            <tr key={idx} className="hover:bg-white/5 group">
-                              <td className="py-2 pr-2 text-slate-500 text-[10px]">{ing.sNo || idx+1}</td>
-                              <td className="py-2">
-                                <div className="text-slate-200 font-medium">{ing.name}</div>
-                                {(ing.supplier || ing.grade) && <div className="text-[10px] text-slate-500">{ing.grade}{ing.supplier ? ` · ${ing.supplier}` : ''}</div>}
-                              </td>
-                              <td className="py-2">
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase font-bold
-                                  ${ing.role === 'API' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
-                                    ing.role === 'Coating' ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' :
-                                    ing.role === 'Binder' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
-                                    'text-slate-400 border-slate-500/30 bg-slate-500/10'}`}>{ing.role}</span>
-                              </td>
-                              <td className="py-2 font-mono text-white">{ing.quantity} {ing.unit}</td>
-                              <td className="py-2 font-mono text-slate-400">{ing.rateUSD}</td>
-                              <td className="py-2 font-mono text-[#D4AF37] text-right">{ing.cost?.toFixed(2)}</td>
-                              <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div className="flex gap-1">
-                                  <button onClick={() => { setEditIngIdx(idx); setNewIngData({...ing}); setRdModalMode('editIngredient'); setIsRdModalOpen(true); }}
-                                    className="p-1 rounded bg-slate-800 text-yellow-400 hover:bg-yellow-900"><Edit2 size={10}/></button>
-                                  <button onClick={() => {
-                                    const updated = calculateCosting({ ...selectedRD, ingredients: selectedRD.ingredients.filter((_,i) => i !== idx) });
-                                    setSelectedRD(updated); setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
-                                  }} className="p-1 rounded bg-slate-800 text-red-400 hover:bg-red-900"><Trash2 size={10}/></button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t border-[#D4AF37]/30">
-                            <td colSpan={5} className="py-2 text-white font-bold text-xs">Total RMC</td>
-                            <td className="py-2 text-[#D4AF37] text-right font-mono font-bold">${selectedRD.totalRMC?.toFixed(2)}</td>
-                            <td/>
-                          </tr>
-                          <tr>
-                            <td colSpan={5} className="py-1 text-slate-400 text-[10px]">Cost/kg (incl. {(selectedRD.loss*100).toFixed(1)}% loss)</td>
-                            <td className="py-1 text-green-400 text-right font-mono font-bold">${selectedRD.totalFinalRMC}</td>
-                            <td/>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-
-                    {/* AI Report */}
-                    {aiData && (
-                      <div className="mt-5 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-[#D4AF37] uppercase">AI Analysis Report</h4>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${aiData.optimizationScore >= 90 ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                            Score: {aiData.optimizationScore}/100
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-300 leading-relaxed">{aiData.formulationAssessment}</p>
-                        {aiData.costOptimizations?.length > 0 && (
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Cost Optimizations</p>
-                            <ul className="space-y-1">{aiData.costOptimizations.map((c: string, i: number) =>
-                              <li key={i} className="text-[10px] text-slate-300 flex gap-1.5"><span className="text-green-400">↓</span>{c}</li>)}</ul>
-                          </div>
-                        )}
-                        {aiData.ingredientSubstitutions?.length > 0 && (
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Substitution Options</p>
-                            <div className="space-y-1">{aiData.ingredientSubstitutions.map((s: any, i: number) =>
-                              <div key={i} className="text-[10px] bg-slate-800/50 rounded p-2">
-                                <span className="text-yellow-400 font-bold">{s.ingredient}</span> → <span className="text-green-400 font-bold">{s.alternative}</span>
-                                <span className="text-slate-400 ml-1">({s.estimatedSavingPct}% saving) — {s.reason}</span>
-                              </div>)}</div>
-                          </div>
-                        )}
-                        {aiData.manufacturingRisks?.length > 0 && (
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Manufacturing Risks</p>
-                            <ul className="space-y-1">{aiData.manufacturingRisks.map((r: string, i: number) =>
-                              <li key={i} className="text-[10px] text-red-300 flex gap-1.5"><span>⚠</span>{r}</li>)}</ul>
-                          </div>
-                        )}
-                        <div className="p-3 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Overall Recommendation</p>
-                          <p className="text-xs text-white">{aiData.overallRecommendation}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── TAB: PROCESS & QC ── */}
-                {rdActiveTab === 'process' && (
-                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow space-y-5">
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                      {[
-                        ['Dosage Form', selectedRD.dosageForm],
-                        ['Strength', selectedRD.strength],
-                        ['Therapeutic Category', selectedRD.therapeuticCategory],
-                        ['Quality Standard', selectedRD.qualityStandards],
-                        ['Shelf Life', selectedRD.shelfLife],
-                        ['Storage Condition', selectedRD.storageCondition],
-                        ['Regulatory Status', selectedRD.regulatoryStatus],
-                        ['Last Updated', selectedRD.lastUpdated],
-                      ].map(([label, val]) => (
-                        <div key={label} className="bg-slate-800/30 rounded p-3 border border-white/5">
-                          <p className="text-[10px] text-slate-500 uppercase font-bold">{label}</p>
-                          <p className="text-white mt-0.5">{val || '—'}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <p className="text-xs font-bold text-[#D4AF37] uppercase">Manufacturing Process</p>
-                        <button onClick={() => {
-                          setNewProductData({ ...selectedRD });
-                          setRdModalMode('addProduct');
-                          setIsRdModalOpen(true);
-                        }} className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"><Edit2 size={10}/> Edit</button>
-                      </div>
-                      <div className="bg-slate-800/30 rounded p-3 border border-white/5">
-                        <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-                          {selectedRD.manufacturingProcess || 'No manufacturing process defined. Click Edit to add, or run AI Full Analysis to auto-generate.'}
-                        </p>
-                      </div>
-                    </div>
-                    {aiData?.qualityParameters?.length > 0 && (
-                      <div>
-                        <p className="text-xs font-bold text-[#D4AF37] uppercase mb-2">Quality Control Parameters</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {aiData.qualityParameters.map((q: string, i: number) => (
-                            <div key={i} className="flex gap-2 items-start bg-slate-800/30 rounded p-2 text-[10px] text-slate-300 border border-white/5">
-                              <CheckCircle2 size={10} className="text-green-400 mt-0.5 shrink-0"/>{q}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* Version History */}
-                    {(selectedRD.versions?.length || 0) > 0 && (
-                      <div>
-                        <p className="text-xs font-bold text-[#D4AF37] uppercase mb-2">Version History</p>
-                        <div className="space-y-1">
-                          {selectedRD.versions!.map((v, i) => (
-                            <div key={i} className="flex gap-3 items-start text-[10px] bg-slate-800/20 rounded p-2 border border-white/5">
-                              <span className="text-[#D4AF37] font-mono font-bold shrink-0">{v.version}</span>
-                              <span className="text-slate-500 shrink-0">{v.date?.split('T')[0]}</span>
-                              <span className="text-slate-300">{v.summary}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── TAB: COMPARE ── */}
-                {rdActiveTab === 'compare' && (
-                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
-                    {compareRD && compareRD.id !== selectedRD.id ? (
-                      <>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-sm font-bold text-white">Side-by-Side Comparison</h3>
-                          <button onClick={() => setCompareRD(null)} className="text-xs text-slate-400 hover:text-white flex items-center gap-1"><X size={12}/> Clear</button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          {[selectedRD, compareRD].map((p, pi) => (
-                            <div key={pi} className={`p-3 rounded border ${pi===0?'border-[#D4AF37]/50 bg-[#D4AF37]/5':'border-blue-500/50 bg-blue-500/5'}`}>
-                              <p className={`text-[10px] font-bold uppercase mb-1 ${pi===0?'text-[#D4AF37]':'text-blue-400'}`}>{pi===0?'Product A':'Product B'}</p>
-                              <p className="text-white text-xs font-bold">{p.title}</p>
-                              <p className="text-slate-400 text-[10px]">{p.dosageForm} · {p.strength}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-white/10 text-slate-500 text-[10px] uppercase">
-                                <th className="pb-2 text-left">Metric</th>
-                                <th className="pb-2 text-center text-[#D4AF37]">A: {selectedRD.title.substring(0,20)}</th>
-                                <th className="pb-2 text-center text-blue-400">B: {compareRD.title.substring(0,20)}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                              {[
-                                ['Batch Size', `${selectedRD.batchSize} ${selectedRD.batchUnit}`, `${compareRD.batchSize} ${compareRD.batchUnit}`],
-                                ['# Ingredients', selectedRD.ingredients.length, compareRD.ingredients.length],
-                                ['Total RMC', `$${selectedRD.totalRMC?.toFixed(2)}`, `$${compareRD.totalRMC?.toFixed(2)}`],
-                                ['Cost/Kg', `$${selectedRD.totalFinalRMC}`, `$${compareRD.totalFinalRMC}`],
-                                ['Opt. Score', `${selectedRD.optimizationScore}/100`, `${compareRD.optimizationScore}/100`],
-                                ['Status', selectedRD.status, compareRD.status],
-                                ['Quality Std.', selectedRD.qualityStandards || '-', compareRD.qualityStandards || '-'],
-                              ].map(([label, a, b]) => (
-                                <tr key={String(label)} className="hover:bg-white/5">
-                                  <td className="py-2 text-slate-400 font-medium">{label}</td>
-                                  <td className="py-2 text-center text-white font-mono">{a}</td>
-                                  <td className="py-2 text-center text-white font-mono">{b}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="mt-4">
-                          <p className="text-[10px] text-slate-400 uppercase font-bold mb-2">Ingredient Comparison</p>
-                          <div className="grid grid-cols-2 gap-3">
-                            {[selectedRD, compareRD].map((p, pi) => (
-                              <div key={pi}>
-                                <p className={`text-[10px] font-bold mb-1 ${pi===0?'text-[#D4AF37]':'text-blue-400'}`}>{pi===0?'A':'B'}: {p.title.substring(0,25)}</p>
-                                <div className="space-y-1">
-                                  {p.ingredients.map((ing, i) => (
-                                    <div key={i} className="text-[10px] flex justify-between bg-slate-800/30 rounded px-2 py-1">
-                                      <span className="text-slate-300 truncate">{ing.name}</span>
-                                      <span className="text-[#D4AF37] font-mono ml-2 shrink-0">{ing.quantity}{ing.unit}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <Layers size={32} className="text-slate-600 mb-3"/>
-                        <p className="text-slate-400 text-sm font-bold">Select a second product to compare</p>
-                        <p className="text-slate-600 text-xs mt-1">Hover over any product in the list and click the compare icon <Layers size={10} className="inline"/></p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── TAB: SPEC SHEET ── */}
-                {rdActiveTab === 'spec' && (
-                  <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
-                    <div className="flex justify-between items-center mb-5">
-                      <div>
-                        <h3 className="text-sm font-bold text-white">Technical Specification Sheet</h3>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Downloads a print-ready HTML document for {selectedRD.title}</p>
-                      </div>
-                      <button onClick={generateSpecSheet} disabled={rdSpecLoading}
-                        className="luxury-gradient px-4 py-2 rounded-lg text-slate-950 text-xs font-bold flex items-center gap-2 disabled:opacity-50">
-                        {rdSpecLoading ? <Loader2 className="animate-spin" size={13}/> : <Download size={13}/>}
-                        {rdSpecLoading ? 'Generating...' : 'Download Spec Sheet'}
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {[
-                        { label: 'Includes', items: ['Product identification & regulatory details', 'Full ingredient table with costs', 'Manufacturing process (AI-generated if blank)', 'AI analysis with optimization suggestions', 'Version history', 'AL WAJER letterhead & footer'] },
-                      ].map(section => (
-                        <div key={section.label} className="bg-slate-800/30 rounded p-4 border border-white/5">
-                          <p className="text-[10px] text-[#D4AF37] uppercase font-bold mb-2">{section.label}</p>
-                          <div className="grid grid-cols-2 gap-1">
-                            {section.items.map(item => (
-                              <div key={item} className="flex gap-1.5 items-center text-[10px] text-slate-300">
-                                <CheckCircle2 size={10} className="text-green-400 shrink-0"/>{item}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-300">
-                        <strong>Tip:</strong> Run "AI Full Analysis" first in the Formulation tab to enrich the spec sheet with optimization insights, substitution options, and quality parameters.
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-10 gold-glow flex flex-col items-center justify-center">
-                <Beaker size={40} className="text-slate-700 mb-3"/>
-                <p className="text-slate-400 text-sm font-bold">Select a product or add a new one</p>
-                <p className="text-slate-600 text-xs mt-1">Upload a formulation file or click "New Product"</p>
+            {/* Active skill banner */}
+            {activeSkill && (
+              <div className={`px-3 py-2 rounded-lg border text-xs flex items-center gap-2 shrink-0 ${providerBg[activeSkill.provider]}`}>
+                <span className={`font-bold ${providerColors[activeSkill.provider]}`}>
+                  Skill: {activeSkill.name}
+                </span>
+                <span className="text-slate-400 truncate">({activeSkill.provider}) — {activeSkill.description}</span>
+                <button onClick={() => setActiveSkillId(null)} className="ml-auto text-slate-500 hover:text-white shrink-0">
+                  <X size={12}/>
+                </button>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* ── R&D MODALS ── */}
-        {isRdModalOpen && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto" onClick={() => setIsRdModalOpen(false)}>
-            <div className="bg-slate-900 border border-[#D4AF37]/40 rounded-xl w-full max-w-xl shadow-2xl mb-8" onClick={e => e.stopPropagation()}>
-
-              {/* ADD / EDIT PRODUCT */}
-              {(rdModalMode === 'addProduct') && (
-                <>
-                  <div className="p-5 border-b border-white/10 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-[#D4AF37] uppercase tracking-widest">
-                      {selectedRD && newProductData.id === selectedRD.id ? 'Edit Product' : 'New Product'}
-                    </h3>
-                    <button onClick={() => setIsRdModalOpen(false)}><X size={18} className="text-slate-400"/></button>
-                  </div>
-                  <div className="p-5 space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-3">
-                      {[['Product Name *', 'title', 'text'], ['Product Code', 'productCode', 'text'], ['Dosage Form', 'dosageForm', 'select-form'], ['Strength', 'strength', 'text'],
-                        ['Therapeutic Category', 'therapeuticCategory', 'text'], ['Batch Size (Kg)', 'batchSize', 'number'],
-                        ['Loss Factor', 'loss', 'number'], ['Quality Standard', 'qualityStandards', 'text'],
-                        ['Shelf Life', 'shelfLife', 'text'], ['Storage Condition', 'storageCondition', 'text'],
-                        ['Regulatory Status', 'regulatoryStatus', 'select-reg'], ['Status', 'status', 'select-status']
-                      ].map(([label, key, type]) => (
-                        <div key={key} className={key === 'title' || key === 'therapeuticCategory' ? 'col-span-2' : ''}>
-                          <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{label}</label>
-                          {type === 'select-form' ? (
-                            <select value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
-                              {['Capsule','Tablet','Sachet','Liquid','Powder','Cream','Gel','Syrup','Injection','Suspension'].map(f => <option key={f}>{f}</option>)}
-                            </select>
-                          ) : type === 'select-reg' ? (
-                            <select value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
-                              {['Dossier Prep','Registered','Under Review','Clinical Trial','Approved'].map(f => <option key={f}>{f}</option>)}
-                            </select>
-                          ) : type === 'select-status' ? (
-                            <select value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
-                              {['Formulation','Stability','Bioequivalence','Clinical','Optimizing','Approved'].map(f => <option key={f}>{f}</option>)}
-                            </select>
-                          ) : (
-                            <input type={type} value={newProductData[key] || ''} onChange={e => setNewProductData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
-                          )}
-                        </div>
+            {/* Chat window */}
+            <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-4 gold-glow flex flex-col" style={{minHeight: '460px'}}>
+              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 mb-4 pr-1">
+                {aiCmdHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                    <BrainCircuit size={36} className="text-slate-700 mb-3"/>
+                    <p className="text-slate-400 text-sm font-bold">Select a provider or activate a skill, then chat</p>
+                    <div className="mt-4 space-y-2 w-full max-w-sm">
+                      {[
+                        'What is our current inventory status?',
+                        'Analyze Esomeprazole formulation cost',
+                        'What GCC markets should we target next?'
+                      ].map(q => (
+                        <button key={q} onClick={() => { setAiCmdInput(q); }}
+                          className="w-full text-left text-xs bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-[#D4AF37]/30 rounded-lg px-3 py-2 text-slate-400 hover:text-white transition-all">
+                          {q}
+                        </button>
                       ))}
                     </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Manufacturing Process (optional)</label>
-                      <textarea value={newProductData.manufacturingProcess || ''} onChange={e => setNewProductData((p: any) => ({...p, manufacturingProcess: e.target.value}))} rows={4}
-                        placeholder="Step 1: Weighing & Dispensing&#10;Step 2: Granulation&#10;Step 3: Coating&#10;..."
-                        className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none resize-none"/>
-                    </div>
                   </div>
-                  <div className="p-4 border-t border-white/10 flex justify-end gap-2">
-                    <button onClick={() => setIsRdModalOpen(false)} className="px-4 py-1.5 text-slate-400 hover:text-white text-xs font-bold">Cancel</button>
-                    <button disabled={!newProductData.title} onClick={() => {
-                      if (selectedRD && newProductData.id === selectedRD.id) {
-                        // editing existing
-                        const merged = calculateCosting({ ...selectedRD, ...newProductData });
-                        const versioned = saveRDVersion(merged, 'Product details updated');
-                        setSelectedRD(versioned);
-                        setRdProjects(prev => prev.map(p => p.id === versioned.id ? versioned : p));
-                      } else {
-                        const newProj = calculateCosting({
-                          ...newProductData,
-                          id: `RD-${Date.now()}`,
-                          ingredients: [],
-                          packingMaterials: [],
-                          versions: [],
-                          optimizationScore: 0,
-                          lastUpdated: new Date().toISOString().split('T')[0],
-                          totalRMC: 0, totalFinalRMC: 0
-                        });
-                        setRdProjects(prev => [newProj, ...prev]);
-                        setSelectedRD(newProj);
-                        logAction('CREATE', `Created R&D product: ${newProductData.title}`);
-                      }
-                      setNewProductData({ title:'', productCode:'', dosageForm:'Capsule', strength:'', therapeuticCategory:'', batchSize:100, batchUnit:'Kg', loss:0.02, status:'Formulation', shelfLife:'24 Months', storageCondition:'Below 25°C', qualityStandards:'BP/USP', regulatoryStatus:'Dossier Prep', manufacturingProcess:'' });
-                      setIsRdModalOpen(false);
-                    }} className="luxury-gradient px-5 py-1.5 rounded text-slate-950 text-xs font-bold disabled:opacity-40">
-                      Save Product
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {/* ADD / EDIT INGREDIENT */}
-              {(rdModalMode === 'addIngredient' || rdModalMode === 'editIngredient') && (
-                <>
-                  <div className="p-5 border-b border-white/10 flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-[#D4AF37] uppercase tracking-widest">
-                      {rdModalMode === 'editIngredient' ? 'Edit Ingredient' : 'Add Ingredient'} — {selectedRD?.title.substring(0,30)}
-                    </h3>
-                    <button onClick={() => setIsRdModalOpen(false)}><X size={18} className="text-slate-400"/></button>
-                  </div>
-                  <div className="p-5 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {[['S.No', 'sNo', 'text'], ['Material Name *', 'name', 'text'],
-                        ['Role', 'role', 'select-role'], ['Unit', 'unit', 'select-unit'],
-                        ['Qty / Batch', 'quantity', 'number'], ['Rate (USD/unit)', 'rateUSD', 'number'],
-                        ['Supplier', 'supplier', 'text'], ['Grade (BP/USP)', 'grade', 'text']
-                      ].map(([label, key, type]) => (
-                        <div key={key} className={key === 'name' || key === 'notes' ? 'col-span-2' : ''}>
-                          <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{label}</label>
-                          {type === 'select-role' ? (
-                            <select value={newIngData[key] || 'API'} onChange={e => setNewIngData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
-                              {['API','Filler','Binder','Coating','Disintegrant','Lubricant','Plasticizer','Surfactant','Excipient','Other'].map(r => <option key={r}>{r}</option>)}
-                            </select>
-                          ) : type === 'select-unit' ? (
-                            <select value={newIngData[key] || 'Kg'} onChange={e => setNewIngData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
-                              {['Kg','g','mg','L','mL','Units','Rolls'].map(u => <option key={u}>{u}</option>)}
-                            </select>
-                          ) : (
-                            <input type={type} value={newIngData[key] || ''} onChange={e => setNewIngData((p: any) => ({...p, [key]: e.target.value}))}
-                              className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
-                          )}
+                ) : (
+                  aiCmdHistory.map((msg: any, idx: number) => (
+                    <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] flex flex-col gap-0.5 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        {msg.skillName && (
+                          <span className="text-[9px] text-[#D4AF37] font-bold uppercase px-1">{msg.skillName}</span>
+                        )}
+                        {msg.role !== 'user' && (
+                          <span className={`text-[9px] font-bold uppercase px-1 ${providerColors[msg.provider] || 'text-slate-500'}`}>
+                            {msg.provider}
+                          </span>
+                        )}
+                        <div className={`p-3 rounded-xl text-sm leading-relaxed whitespace-pre-wrap ${
+                          msg.role === 'user'
+                            ? 'bg-[#D4AF37] text-slate-950 font-medium rounded-br-none'
+                            : 'bg-slate-800 text-slate-200 border border-white/10 rounded-bl-none'
+                        }`}>
+                          {msg.text}
                         </div>
-                      ))}
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Notes</label>
-                      <input value={newIngData.notes || ''} onChange={e => setNewIngData((p: any) => ({...p, notes: e.target.value}))}
-                        className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
-                    </div>
-                    {newIngData.quantity > 0 && newIngData.rateUSD > 0 && (
-                      <div className="p-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded flex justify-between text-xs">
-                        <span className="text-slate-400">Calculated Cost:</span>
-                        <span className="text-[#D4AF37] font-bold font-mono">${(Number(newIngData.quantity) * Number(newIngData.rateUSD)).toFixed(2)}</span>
                       </div>
-                    )}
+                    </div>
+                  ))
+                )}
+                {isAiLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-slate-800 p-3 rounded-xl rounded-bl-none border border-white/10 flex items-center gap-2 text-slate-400 text-xs">
+                      <Loader2 className="animate-spin" size={13}/> {activeProvider} thinking...
+                    </div>
                   </div>
-                  <div className="p-4 border-t border-white/10 flex justify-end gap-2">
-                    <button onClick={() => setIsRdModalOpen(false)} className="px-4 py-1.5 text-slate-400 hover:text-white text-xs font-bold">Cancel</button>
-                    <button disabled={!newIngData.name} onClick={() => {
-                      if (!selectedRD) return;
-                      const ing = { ...newIngData, quantity: Number(newIngData.quantity), rateUSD: Number(newIngData.rateUSD), cost: 0 };
-                      let updatedIngredients;
-                      if (rdModalMode === 'editIngredient') {
-                        updatedIngredients = selectedRD.ingredients.map((x, i) => i === editIngIdx ? ing : x);
-                      } else {
-                        updatedIngredients = [...selectedRD.ingredients, { ...ing, sNo: String(selectedRD.ingredients.length + 1) }];
-                      }
-                      const updated = calculateCosting({ ...selectedRD, ingredients: updatedIngredients });
-                      const versioned = rdModalMode === 'editIngredient'
-                        ? saveRDVersion(updated, `Updated ingredient: ${ing.name}`)
-                        : saveRDVersion(updated, `Added ingredient: ${ing.name}`);
-                      setSelectedRD(versioned);
-                      setRdProjects(prev => prev.map(p => p.id === versioned.id ? versioned : p));
-                      setIsRdModalOpen(false);
-                    }} className="luxury-gradient px-5 py-1.5 rounded text-slate-950 text-xs font-bold disabled:opacity-40">
-                      {rdModalMode === 'editIngredient' ? 'Save Changes' : 'Add Ingredient'}
+                )}
+              </div>
+              <div className="shrink-0 flex gap-2">
+                <input
+                  value={aiCmdInput}
+                  onChange={e => setAiCmdInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAICommandSend(); } }}
+                  placeholder={activeSkill ? `Using: ${activeSkill.name}...` : `Message ${activeProvider}...`}
+                  className="flex-1 bg-slate-950 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
+                />
+                <button
+                  onClick={() => handleAICommandSend()}
+                  disabled={!aiCmdInput.trim() || isAiLoading}
+                  className="bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 p-3 rounded-lg transition-colors disabled:opacity-50">
+                  <Send size={18}/>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════
+            TAB: INDUSTRIAL
+        ══════════════════════════════════════════ */}
+        {aiCmdTab === 'industrial' && renderIndustrialStudio()}
+
+        {/* ══════════════════════════════════════════
+            TAB: BRAINSTORM
+        ══════════════════════════════════════════ */}
+        {aiCmdTab === 'brainstorm' && renderBrainstorming()}
+
+        {/* ══════════════════════════════════════════
+            TAB: SKILLS STORE
+        ══════════════════════════════════════════ */}
+        {aiCmdTab === 'skills' && (
+          <div className="space-y-5">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-base font-bold text-white">Skills Store</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Save AI agent prompts — activate any skill in the Chat tab to apply it to every message
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setNewSkillData({ name: '', provider: 'Claude', description: '', prompt: '', category: 'Operations' });
+                  setIsSkillModalOpen(true);
+                }}
+                className="luxury-gradient px-4 py-2 rounded-lg text-slate-950 text-xs font-bold flex items-center gap-1.5 shrink-0">
+                <Plus size={13}/> Create Skill
+              </button>
+            </div>
+
+            {/* Provider legend */}
+            <div className="flex gap-3 text-[10px]">
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block"/><span className="text-slate-400">Claude — Operations & decisions</span></div>
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"/><span className="text-slate-400">Gemini — Data & formulations</span></div>
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block"/><span className="text-slate-400">NotebookLM — Presentations</span></div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {savedSkills.map((skill: any) => (
+                <div key={skill.id}
+                  className={`p-4 rounded-xl border transition-all group relative
+                    ${activeSkillId === skill.id
+                      ? 'bg-[#D4AF37]/10 border-[#D4AF37]'
+                      : providerBg[skill.provider] + ' hover:opacity-90'}`}>
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => {
+                        setSavedSkills((prev: any) => prev.filter((s: any) => s.id !== skill.id));
+                        if (activeSkillId === skill.id) setActiveSkillId(null);
+                      }}
+                      className="p-1 rounded bg-slate-900 text-red-400 hover:bg-red-900">
+                      <Trash2 size={10}/>
                     </button>
                   </div>
-                </>
+                  <div className="flex items-start gap-2 pr-8">
+                    <span className="text-lg shrink-0">
+                      {skill.provider === 'Claude' ? '🤖' : skill.provider === 'Gemini' ? '✨' : '📚'}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-white text-sm">{skill.name}</h4>
+                        {activeSkillId === skill.id && (
+                          <span className="text-[9px] bg-[#D4AF37] text-slate-950 px-1.5 py-0.5 rounded font-bold">ACTIVE</span>
+                        )}
+                      </div>
+                      <p className={`text-[10px] font-bold mt-0.5 ${providerColors[skill.provider]}`}>
+                        {skill.provider} · {skill.category}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-1">{skill.description}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/5 flex justify-between items-center">
+                    <span className="text-[10px] text-slate-600">Used {skill.usageCount || 0} times · {skill.createdAt}</span>
+                    <button
+                      onClick={() => {
+                        setActiveSkillId(skill.id);
+                        setActiveProvider(skill.provider);
+                        setAiCmdTab('chat');
+                      }}
+                      className="text-[10px] text-[#D4AF37] hover:underline font-bold">
+                      Activate →
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {savedSkills.length === 0 && (
+                <div className="col-span-2 flex flex-col items-center justify-center py-16 border border-dashed border-white/10 rounded-xl">
+                  <Wand2 size={32} className="text-slate-700 mb-3"/>
+                  <p className="text-slate-400 text-sm font-bold">No skills yet</p>
+                  <p className="text-slate-600 text-xs mt-1">Click "Create Skill" to build your first AI agent</p>
+                </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════
+            SKILL CREATE MODAL
+        ══════════════════════════════════════════ */}
+        {isSkillModalOpen && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsSkillModalOpen(false)}>
+            <div className="bg-slate-900 border border-[#D4AF37]/40 rounded-xl w-full max-w-lg shadow-2xl"
+              onClick={e => e.stopPropagation()}>
+              <div className="p-5 border-b border-white/10 flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-bold text-[#D4AF37] uppercase tracking-widest">Create AI Skill</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Define a reusable AI agent with a custom role and instructions</p>
+                </div>
+                <button onClick={() => setIsSkillModalOpen(false)}><X size={18} className="text-slate-400"/></button>
+              </div>
+              <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Skill Name *</label>
+                    <input value={newSkillData.name}
+                      onChange={e => setNewSkillData((p: any) => ({...p, name: e.target.value}))}
+                      placeholder="e.g. Batch Review Agent"
+                      className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Category</label>
+                    <select value={newSkillData.category}
+                      onChange={e => setNewSkillData((p: any) => ({...p, category: e.target.value}))}
+                      className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-xs focus:border-[#D4AF37] focus:outline-none">
+                      {['Operations','R&D','Finance','HR','Business Dev','Procurement','Compliance','Quality','Other'].map(c => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">AI Provider</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['Claude','Gemini','NotebookLM'] as const).map(p => (
+                      <button key={p}
+                        onClick={() => setNewSkillData((prev: any) => ({...prev, provider: p}))}
+                        className={`py-2.5 text-xs font-bold rounded-lg border transition-all text-center
+                          ${newSkillData.provider === p
+                            ? providerBg[p] + ' ' + providerColors[p]
+                            : 'border-white/10 text-slate-500 hover:text-white'}`}>
+                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '📚 NotebookLM'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1.5">
+                    {newSkillData.provider === 'Claude'
+                      ? '🤖 Best for: Operations decisions, compliance, strategic analysis, writing'
+                      : newSkillData.provider === 'Gemini'
+                      ? '✨ Best for: Formulation data, market research, numerical analysis'
+                      : '📚 Best for: Executive summaries, presentations, knowledge synthesis'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Short Description</label>
+                  <input value={newSkillData.description}
+                    onChange={e => setNewSkillData((p: any) => ({...p, description: e.target.value}))}
+                    placeholder="One line: what this skill does"
+                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-xs focus:border-[#D4AF37] focus:outline-none"/>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">System Prompt / Agent Instructions *</label>
+                  <textarea value={newSkillData.prompt}
+                    onChange={e => setNewSkillData((p: any) => ({...p, prompt: e.target.value}))}
+                    rows={6}
+                    placeholder={"You are a [role] for Al Wajer Pharmaceuticals.\nWhen given [input type], you will:\n1. [Action 1]\n2. [Action 2]\nAlways consider [constraints/context]."}
+                    className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-xs focus:border-[#D4AF37] focus:outline-none resize-none font-mono leading-relaxed"/>
+                  <p className="text-[10px] text-slate-600 mt-1">This is the secret instructions that define the AI's role and behaviour for this skill.</p>
+                </div>
+              </div>
+              <div className="p-4 border-t border-white/10 flex justify-end gap-2">
+                <button onClick={() => setIsSkillModalOpen(false)}
+                  className="px-4 py-2 text-slate-400 hover:text-white text-xs font-bold">Cancel</button>
+                <button
+                  disabled={!newSkillData.name || !newSkillData.prompt}
+                  onClick={() => {
+                    const skill = {
+                      ...newSkillData,
+                      id: `SK-${Date.now()}`,
+                      usageCount: 0,
+                      createdAt: new Date().toISOString().split('T')[0]
+                    };
+                    setSavedSkills((prev: any) => [skill, ...prev]);
+                    setIsSkillModalOpen(false);
+                    logAction('CREATE', `Created AI Skill: ${skill.name}`);
+                  }}
+                  className="luxury-gradient px-5 py-2 rounded text-slate-950 text-xs font-bold disabled:opacity-40">
+                  Save Skill
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -3219,255 +2984,6 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     );
   };
 
-  const renderIndustrialStudio = () => (
-      <div className="space-y-6 animate-fadeIn flex flex-col pb-10">
-          <div className="flex justify-between items-center shrink-0">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <DraftingCompass className="text-[#F4C430]" size={20} /> Industrial Design Chat
-              </h2>
-               {/* Provider Selector */}
-               <div className="flex items-center gap-2 bg-slate-900 border border-white/10 rounded-lg p-1">
-                 <span className="text-[10px] text-slate-500 uppercase font-bold px-2">Provider:</span>
-                 <select 
-                    value={activeProvider}
-                    onChange={(e) => setActiveProvider(e.target.value as any)}
-                    className="bg-transparent text-xs text-[#D4AF37] font-bold focus:outline-none"
-                 >
-                     <option value="Gemini">Gemini 3 Pro</option>
-                     <option value="Claude">Claude 3.5</option>
-                 </select>
-              </div>
-          </div>
-          
-          <div className="flex-1 bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-0 gold-glow flex flex-col overflow-hidden relative">
-              {/* Chat Area */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-                  {industrialChat.map((msg) => (
-                      <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
-                              <div className={`p-4 rounded-xl text-sm ${
-                                  msg.role === 'user' 
-                                  ? 'bg-[#D4AF37] text-slate-950 font-medium rounded-br-none' 
-                                  : 'bg-slate-800 text-slate-200 border border-white/10 rounded-bl-none'
-                              }`}>
-                                  {msg.text}
-                              </div>
-                              {msg.image && (
-                                  <div className="mt-2 relative group rounded-lg overflow-hidden border border-white/10 max-w-md">
-                                      <img src={msg.image} alt="Generated Design" className="w-full h-auto" />
-                                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button 
-                                              onClick={() => downloadContent(msg.image!, `design-${msg.timestamp}.png`, 'image')}
-                                              className="p-2 bg-white text-black rounded-full hover:bg-[#D4AF37] transition-colors" title="Download"
-                                          >
-                                              <FileDown size={20}/>
-                                          </button>
-                                          <button 
-                                              onClick={() => downloadContent(msg.image!, `design-${msg.timestamp}.png`, 'image')} 
-                                              className="p-2 bg-white text-black rounded-full hover:bg-[#D4AF37] transition-colors" title="Save to Gallery"
-                                          >
-                                              <Save size={20}/>
-                                          </button>
-                                      </div>
-                                  </div>
-                              )}
-                              <span className="text-[10px] text-slate-500 mt-1">{new Date(msg.timestamp).toLocaleTimeString()}</span>
-                          </div>
-                      </div>
-                  ))}
-                  {isAiLoading && (
-                      <div className="flex justify-start">
-                           <div className="bg-slate-800 p-4 rounded-xl rounded-bl-none border border-white/10 flex items-center gap-2 text-slate-400 text-xs">
-                              <Loader2 className="animate-spin" size={14}/> Generating Design Concept...
-                          </div>
-                      </div>
-                  )}
-              </div>
-
-              {/* Input Area */}
-              <div className="shrink-0 p-4 bg-slate-950 border-t border-white/10 flex flex-col gap-2">
-                  {pendingIndustrialImage && (
-                      <div className="flex items-center gap-2 p-2 bg-slate-900 border border-white/10 rounded-lg w-fit">
-                          <ImageIcon size={14} className="text-[#D4AF37]"/>
-                          <span className="text-xs text-white">Image Attached for Editing</span>
-                          <button onClick={() => { setPendingIndustrialImage(null); setPendingIndustrialMime(null); }}><X size={14} className="text-slate-500 hover:text-white"/></button>
-                      </div>
-                  )}
-                  <div className="flex gap-2 items-center">
-                    <button onClick={() => industrialFileRef.current?.click()} className="p-3 text-slate-400 hover:text-white bg-slate-900 rounded-lg border border-white/10 h-12 w-12 flex items-center justify-center">
-                        <Paperclip size={20}/>
-                    </button>
-                    <input type="file" ref={industrialFileRef} className="hidden" onChange={(e) => handleFileUpload(e, 'industrial')} />
-                    
-                    {/* Image Controls */}
-                    <select 
-                        value={aspectRatio} 
-                        onChange={(e) => setAspectRatio(e.target.value)}
-                        className="bg-slate-900 border border-white/10 rounded-lg px-2 h-12 text-xs text-white focus:outline-none"
-                    >
-                        <option value="1:1">1:1</option>
-                        <option value="16:9">16:9</option>
-                        <option value="9:16">9:16</option>
-                        <option value="4:3">4:3</option>
-                        <option value="3:4">3:4</option>
-                    </select>
-                    <select 
-                        value={imageSize} 
-                        onChange={(e) => setImageSize(e.target.value)}
-                        className="bg-slate-900 border border-white/10 rounded-lg px-2 h-12 text-xs text-white focus:outline-none"
-                    >
-                        <option value="1K">1K</option>
-                        <option value="2K">2K</option>
-                        <option value="4K">4K</option>
-                    </select>
-
-                    <input 
-                        type="text" 
-                        value={industrialInput}
-                        onChange={(e) => setIndustrialInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleIndustrialChat()}
-                        placeholder={pendingIndustrialImage ? "How should I edit this image?" : "Describe facility layout..."}
-                        className="flex-1 bg-slate-900 border border-white/10 rounded-lg px-4 h-12 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
-                    />
-                    <button 
-                        onClick={handleIndustrialChat}
-                        disabled={(!industrialInput.trim() && !pendingIndustrialImage) || isAiLoading}
-                        className="bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 px-6 h-12 rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {pendingIndustrialImage ? <Wand2 size={16}/> : <ImageIcon size={16}/>}
-                        {pendingIndustrialImage ? "EDIT" : "GENERATE"}
-                    </button>
-                  </div>
-              </div>
-          </div>
-      </div>
-  );
-
-  const renderBrainstorming = () => {
-      // Find current session or default to welcome
-      const currentSession = brainstormSessions.find(s => s.id === currentBrainstormId);
-
-      return (
-      <div className="space-y-6 animate-fadeIn flex flex-col pb-10">
-           <div className="flex justify-between items-center shrink-0">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <BrainCircuit className="text-[#F4C430]" size={20} /> Strategic Brainstorming
-              </h2>
-               {/* Provider Selector */}
-               <div className="flex items-center gap-2 bg-slate-900 border border-white/10 rounded-lg p-1">
-                 <span className="text-[10px] text-slate-500 uppercase font-bold px-2">Knowledge:</span>
-                 <select 
-                    value={activeProvider}
-                    onChange={(e) => setActiveProvider(e.target.value as any)}
-                    className="bg-transparent text-xs text-[#D4AF37] font-bold focus:outline-none"
-                 >
-                     <option value="Gemini">Gemini 3 Pro</option>
-                     <option value="NotebookLM">NotebookLM</option>
-                 </select>
-              </div>
-          </div>
-          
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 overflow-hidden">
-              {/* Sidebar History */}
-              <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-4 gold-glow flex flex-col">
-                  <button onClick={startNewBrainstorm} className="w-full mb-4 py-2 bg-[#D4AF37]/10 border border-[#D4AF37] text-[#D4AF37] rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#D4AF37]/20 transition-all">
-                      <Plus size={16}/> New Session
-                  </button>
-                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
-                      {brainstormSessions.map(session => (
-                          <div 
-                              key={session.id} 
-                              onClick={() => setCurrentBrainstormId(session.id)}
-                              className={`p-3 rounded-lg cursor-pointer border transition-all ${
-                                  currentBrainstormId === session.id 
-                                  ? 'bg-slate-800 border-[#D4AF37]/50 text-white' 
-                                  : 'bg-transparent border-transparent hover:bg-slate-800/50 text-slate-400'
-                              }`}
-                          >
-                              <div className="text-sm font-bold truncate">{session.topic}</div>
-                              <div className="text-[10px] opacity-60">{session.date}</div>
-                          </div>
-                      ))}
-                      {brainstormSessions.length === 0 && <p className="text-center text-xs text-slate-500 mt-4">No history.</p>}
-                  </div>
-              </div>
-
-              {/* Chat Area */}
-              <div className="lg:col-span-3 bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl flex flex-col gold-glow overflow-hidden relative">
-                  {currentBrainstormId ? (
-                      <>
-                          <div className="p-4 border-b border-white/5 flex justify-between items-center bg-slate-950/50">
-                               <div>
-                                   <h3 className="text-sm font-bold text-white">{currentSession?.topic}</h3>
-                                   <p className="text-[10px] text-slate-500">Strategic Session</p>
-                               </div>
-                               <button 
-                                  onClick={() => downloadContent(JSON.stringify(currentSession?.messages, null, 2), 'transcript.json', 'text')}
-                                  className="text-slate-400 hover:text-[#D4AF37] flex items-center gap-2 text-xs font-bold"
-                               >
-                                   <Download size={14}/> Transcript
-                               </button>
-                          </div>
-
-                          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-                              {currentSession?.messages.map(msg => (
-                                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                      <div className={`max-w-[85%] p-4 rounded-xl text-sm ${
-                                          msg.role === 'user' 
-                                          ? 'bg-slate-800 border border-white/20 text-white rounded-br-none' 
-                                          : 'bg-black/40 border border-[#D4AF37]/20 text-slate-300 rounded-bl-none'
-                                      }`}>
-                                          <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
-                                          <span className="text-[10px] opacity-40 block mt-2">{new Date(msg.timestamp).toLocaleTimeString()}</span>
-                                      </div>
-                                  </div>
-                              ))}
-                              {isAiLoading && (
-                                  <div className="flex justify-start">
-                                      <div className="bg-black/40 p-4 rounded-xl border border-[#D4AF37]/20 flex items-center gap-2 text-slate-400 text-xs">
-                                          <BrainCircuit className="animate-pulse" size={14}/> Analyzing Strategy...
-                                      </div>
-                                  </div>
-                              )}
-                          </div>
-
-                          <div className="p-4 bg-slate-950 border-t border-white/10 flex gap-2">
-                               <button onClick={() => brainstormFileRef.current?.click()} className="p-3 text-slate-400 hover:text-white bg-slate-900 rounded-lg border border-white/10">
-                                  <FolderOpen size={20}/>
-                              </button>
-                              <input type="file" ref={brainstormFileRef} className="hidden" onChange={(e) => handleFileUpload(e, 'brainstorm')} />
-                              
-                              <input 
-                                  type="text" 
-                                  value={brainstormInput}
-                                  onChange={(e) => setBrainstormInput(e.target.value)}
-                                  onKeyDown={(e) => e.key === 'Enter' && handleBrainstormChat()}
-                                  placeholder="Type your strategic input..."
-                                  className="flex-1 bg-slate-900 border border-white/10 rounded-lg px-4 py-3 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
-                              />
-                              <button 
-                                  onClick={handleBrainstormChat}
-                                  disabled={!brainstormInput.trim() || isAiLoading}
-                                  className="bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 p-3 rounded-lg transition-colors disabled:opacity-50"
-                              >
-                                  <Send size={20}/>
-                              </button>
-                          </div>
-                      </>
-                  ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-                          <BrainCircuit size={48} className="mb-4 opacity-20"/>
-                          <p>Select a session or start a new one.</p>
-                          <button onClick={startNewBrainstorm} className="mt-4 px-6 py-2 bg-[#D4AF37] text-slate-950 rounded-lg font-bold text-sm">
-                              Start New Session
-                          </button>
-                      </div>
-                  )}
-              </div>
-          </div>
-      </div>
-      );
-  };
 
   const renderBD = () => (
     <div className="space-y-6 animate-fadeIn">
@@ -3643,7 +3159,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
 
       
       {/* RESPONSIVE SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-slate-950 border-r border-[#D4AF37]/20 flex flex-col transition-transform duration-300 md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-950 border-r border-[#D4AF37]/20 flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-4 sm:p-8 h-full flex flex-col">
           <div className="flex justify-between items-center mb-6 sm:mb-10">
             <div className="flex items-center gap-3">
@@ -3655,7 +3171,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
                 <span className="text-[9px] sm:text-[10px] font-bold text-[#D4AF37] tracking-[0.2em] uppercase">Pharma ERP</span>
               </div>
             </div>
-            <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-500 hover:text-white">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-500 hover:text-white">
               <X size={20} />
             </button>
           </div>
@@ -3673,8 +3189,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
               { id: 'industrial', label: 'Industrial Studio', icon: DraftingCompass },
               { id: 'bd', label: 'Business Dev', icon: Globe },
               { id: 'samples', label: 'Sample Status', icon: PackageSearch },
-              { id: 'ai', label: 'AI Operations', icon: MessageSquare },
-              { id: 'brainstorm', label: 'Brainstorming', icon: BrainCircuit },
+              { id: 'ai', label: 'AI Command', icon: BrainCircuit },
               { id: 'history', label: 'Audit History', icon: History },
             ].map(item => (
               <button
@@ -3712,7 +3227,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
             <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-slate-400 hover:text-white -ml-2"
+              className="p-2 text-slate-400 hover:text-white -ml-2"
             >
               <Menu size={24} />
             </button>
@@ -3744,19 +3259,19 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
           {activeTab === 'accounting' && renderAccounting()}
           {activeTab === 'hr' && renderHRAdmin()}
           {activeTab === 'rd' && renderRDLab()}
-          {activeTab === 'industrial' && renderIndustrialStudio()}
+          {activeTab === 'industrial' && (() => { setActiveTab('ai' as any); setAiCmdTab('industrial'); return null; })()}
+          {activeTab === 'brainstorm' && (() => { setActiveTab('ai' as any); setAiCmdTab('brainstorm'); return null; })()}
           {activeTab === 'ai' && renderAIOps()}
-          {activeTab === 'brainstorm' && renderBrainstorming()}
           {activeTab === 'bd' && renderBD()}
           {activeTab === 'samples' && renderSamples()}
           {activeTab === 'history' && renderHistory()}
         </div>
       </main>
 
-      {/* Mobile Menu Overlay */}
+      {/* Menu Overlay - closes sidebar when tapping outside */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 z-40"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
