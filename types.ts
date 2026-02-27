@@ -1,4 +1,3 @@
-
 export interface Batch {
   id: string;
   product: string;
@@ -99,25 +98,58 @@ export interface COOInsight {
 export interface RDProject {
   id: string;
   title: string;
-  status: 'Formulation' | 'Stability' | 'Bioequivalence' | 'Clinical' | 'Optimizing';
+  productCode?: string;
+  dosageForm?: string;       // Tablet, Capsule, Sachet, Liquid, etc.
+  strength?: string;         // e.g. 40mg, 20mg/5ml
+  therapeuticCategory?: string;
+  shelfLife?: string;
+  storageCondition?: string;
+  manufacturingProcess?: string; // step-by-step process notes
+  qualityStandards?: string;     // BP, USP, IP, etc.
+  regulatoryStatus?: string;     // Registered, Under Review, Dossier Prep
+  status: 'Formulation' | 'Stability' | 'Bioequivalence' | 'Clinical' | 'Optimizing' | 'Approved';
   ingredients: Ingredient[];
+  packingMaterials?: PackingMaterial[];
   optimizationScore: number;
+  aiOptimizationNotes?: string;
   lastUpdated: string;
-  batchSize: number; // Output
+  batchSize: number;
   batchUnit: string;
   totalRMC: number;
   loss: number;
   totalFinalRMC: number;
+  versions?: RDVersion[];       // version history
 }
 
 export interface Ingredient {
   sNo?: string;
   name: string;
-  quantity: number; // Per B. Qty
+  quantity: number;
   unit: string;
   rateUSD: number;
   cost: number;
-  role: 'API' | 'Filler' | 'Binder' | 'Coating' | 'Disintegrant' | 'Other';
+  role: 'API' | 'Filler' | 'Binder' | 'Coating' | 'Disintegrant' | 'Lubricant' | 'Plasticizer' | 'Surfactant' | 'Excipient' | 'Other';
+  supplier?: string;
+  grade?: string;             // BP, USP, IP grade
+  notes?: string;
+}
+
+export interface PackingMaterial {
+  sNo?: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  rateUSD: number;
+  cost: number;
+  notes?: string;
+}
+
+export interface RDVersion {
+  version: string;
+  date: string;
+  changedBy?: string;
+  summary: string;
+  snapshot: Partial<RDProject>;
 }
 
 export interface FileAnalysisResult {
