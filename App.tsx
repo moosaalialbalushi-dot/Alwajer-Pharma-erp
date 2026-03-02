@@ -203,10 +203,13 @@ const App: React.FC = () => {
   const [newSalesOrder, setNewSalesOrder] = useState<any>({ customer:'', country:'', paymentMethod:'LC at Sight', shippingMethod:'By Sea', status:'Pending', lines:[], lcNo:'', remarks:'' });
   const [newSalesLine, setNewSalesLine] = useState<any>({ product:'', quantity:0, unit:'kg', unitRateUSD:0 });
 
-  // ── Sales render state (lifted from renderSales) ──
-  const [docMenuOrder, setDocMenuOrder] = useState<string|null>(null);
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [editOrder, setEditOrder] = useState<Order|null>(null);
+  // Procurement tab state
+  const [procTab, setProcTab] = useState<'shortages'|'vendors'|'po'>('vendors');
+
+  // Sales form state (must live at component level — Rules of Hooks)
+  const [salesDocMenu, setSalesDocMenu] = useState<string|null>(null);
+  const [salesShowForm, setSalesShowForm] = useState(false);
+  const [salesEditOrder, setSalesEditOrder] = useState<Order|null>(null);
   const [salesDraft, setSalesDraft] = useState<any>({
     invoiceNo: '', date: new Date().toISOString().split('T')[0],
     customer: '', country: '', lcNo: '', product: '',
@@ -214,21 +217,6 @@ const App: React.FC = () => {
     shippingMethod: 'By Sea', status: 'Pending', amountUSD: 0, amountOMR: 0
   });
 
-  // ── Procurement render state (lifted from renderProcurement) ──
-  const [procView, setProcView] = useState<'vendors'|'add-vendor'|'vendor-detail'|'generate-po'>('vendors');
-  const [activeVendor, setActiveVendor] = useState<Vendor|null>(null);
-  const [vDraft, setVDraft] = useState<any>({ name:'', category:'API', rating:5, status:'Verified', country:'', contactPerson:'', email:'', phone:'', address:'', paymentTerms:'LC at Sight', leadTimeDays:30, notes:'', products:[] });
-  const [pDraft, setPDraft] = useState<any>({ name:'', grade:'BP', unitPrice:0, currency:'USD', unit:'kg', minOrderQty:0 });
-  const [editingVendor, setEditingVendor] = useState<Vendor|null>(null);
-  const [poVendorId, setPoVendorId] = useState<string>('');
-  const [poLines, setPoLines] = useState<{productId:string,name:string,qty:number,unitPrice:number,total:number,supplierCountry:string}[]>([]);
-  const [poPaymentTerm, setPoPaymentTerm] = useState('LC at Sight');
-  const [poShipMethod, setPoShipMethod] = useState('By Sea');
-  const [poETA, setPoETA] = useState('ASAP');
-  const [poCustomNumber, setPoCustomNumber] = useState('');
-
-  // Procurement tab state
-  const [procTab, setProcTab] = useState<'shortages'|'vendors'|'po'>('vendors');
   const [bdLeads] = useState<BDLead[]>(INITIAL_BD);
   const [samples] = useState<SampleStatus[]>(INITIAL_SAMPLES);
   const calcInitialRD = (projects: any[]) => projects.map(p => {
@@ -379,7 +367,7 @@ const App: React.FC = () => {
   const [poUnitPrice, setPOUnitPrice] = useState('');
   const [poPayment, setPOPayment] = useState('LC at Sight');
   const [poShipping, setPOShipping] = useState('CIF by Air - Muscat Airport');
-
+  const [poETA, setPOETA] = useState('ASAP');
   
   // Expansion State
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
@@ -896,169 +884,125 @@ const App: React.FC = () => {
   };
 
 
-  // ── Document Generators ──────────────────────────────────────────
-  const generateProformaInvoice = (order: Order, docType: 'proforma' | 'invoice' | 'quotation' = 'proforma') => {
+  // ── Document Generators ───────────────────────────────────────────
+  const generateSalesDoc = (order: Order, docType: 'proforma' | 'invoice' | 'quotation') => {
     const today = new Date();
-    const dateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const totalWords = numberToWords(order.amountUSD || 0);
-    const isQuote = docType === 'quotation';
-    const isInvoice = docType === 'invoice';
-    const title = isQuote ? 'QUOTATION / PRICE OFFER' : isInvoice ? 'COMMERCIAL INVOICE' : 'PROFORMA INVOICE';
-    const refPrefix = isQuote ? 'AWP/QUOT' : isInvoice ? 'AWP/INV' : 'AWP/PI';
-    const refNo = `${refPrefix}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getFullYear()).slice(-2)}`;
+    const dateStr = today.toLocaleDateString('en-GB');
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const yy = String(today.getFullYear()).slice(-2);
+    const prefix = docType==='quotation' ? 'AWP/QUOT' : docType==='invoice' ? 'AWP/INV' : 'AWP/PI';
+    const refNo = `${prefix}-${mm}-${yy}`;
+    const title = docType==='quotation' ? 'QUOTATION / PRICE OFFER' : docType==='invoice' ? 'COMMERCIAL INVOICE' : 'PROFORMA INVOICE';
+    const amt = order.amountUSD || 0;
+    const words = numberToWords(amt);
+    const LOGO = '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';
 
-    const LOGO_B64 = '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';
+    const bankSection = docType !== 'quotation' ? `
+      <tr><td colspan="2" style="border:1px solid #000;padding:6px 8px;font-size:8.5pt">
+        <b>BANK DETAILS — BENEFICIARY:</b> AL WAJER PHARMACEUTICALS INDUSTRY LLC<br>
+        <b>BANK:</b> BANK NIZWA &nbsp; <b>A/C:</b> 00150000174002 &nbsp; <b>IBAN:</b> OM45033000150000174002<br>
+        <b>SWIFT:</b> BNZWOMRXXXX &nbsp; <b>BRANCH:</b> MUSCAT MAIN BRANCH, P.O.BOX 1423, PC-133, MUSCAT, OMAN
+      </td></tr>` : `
+      <tr><td colspan="2" style="border:1px solid #000;padding:6px 8px;font-size:8.5pt">
+        <b>VALIDITY:</b> 30 days from issue date &nbsp;&nbsp; <b>PAYMENT:</b> ${order.paymentMethod||'LC at Sight'} &nbsp;&nbsp; <b>DELIVERY:</b> ${order.shippingMethod||'By Sea'}
+      </td></tr>`;
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>${title} — ${refNo}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
 <style>
-  @page { size: A4; margin: 12mm 10mm 12mm 10mm; }
-  body { font-family: Arial, sans-serif; font-size: 9pt; color: #000; margin: 0; }
-  table { border-collapse: collapse; width: 100%; }
-  td, th { padding: 4px 6px; font-size: 9pt; vertical-align: top; }
-  .bdr { border: 1px solid #000; }
-  .bdr2 { border: 2px solid #000; }
-  .hdr { display: flex; justify-content: space-between; align-items: center; border: 2px solid #000; padding: 6px 10px; }
-  .title-bar { border: 2px solid #000; border-top: none; text-align: center; font-size: 14pt; font-weight: bold; letter-spacing: 4px; padding: 5px; }
-  .no-print { background:#1e293b; padding:10px; text-align:center; margin-bottom:12px; }
-  @media print { .no-print { display:none!important; } }
-  .items th { background: #d9e1f2; font-weight: bold; border: 1px solid #000; text-align: center; }
-  .items td { border: 1px solid #000; }
-  .info td { border: 1px solid #aaa; }
-</style>
-</head>
-<body>
+  @page{size:A4;margin:12mm 10mm}
+  body{font-family:Arial,sans-serif;font-size:9pt;color:#000;margin:0}
+  table{border-collapse:collapse;width:100%}
+  td,th{padding:4px 6px;font-size:9pt;vertical-align:top}
+  .no-print{background:#1e293b;padding:10px;text-align:center;margin-bottom:10px}
+  @media print{.no-print{display:none!important}}
+</style></head><body>
 <div class="no-print">
   <button onclick="window.print()" style="background:#D4AF37;color:#000;border:none;padding:10px 28px;font-weight:bold;font-size:12pt;border-radius:6px;cursor:pointer">🖨 Print / Save as PDF</button>
 </div>
-
-<!-- Header -->
-<div class="hdr">
-  <div style="font-size:10pt;font-weight:bold;direction:rtl;line-height:1.6">الـوجـر لصنـاعـة الأدويـة ش . م . م</div>
-  <img src="data:image/png;base64,${LOGO_B64}" style="height:60px;object-fit:contain" alt="AL WAJER"/>
-  <div style="text-align:right;font-size:9pt;line-height:1.5">
-    <b>AL WAJER PHARMACEUTICALS INDUSTRY LLC</b><br>
-    PO BOX NO: 98, PC-327, SOHAR INDUSTRIAL ESTATE<br>
-    SOHAR, SULTANATE OF OMAN<br>
-    TEL: +968 22372677 &nbsp;|&nbsp; TIN NO: 10638
-  </div>
-</div>
-<div class="title-bar">${title}</div>
-
-<!-- Info Grid -->
-<table class="info" style="border:2px solid #000;border-top:none">
+<table style="border:2px solid #000;margin-bottom:0">
   <tr>
-    <td style="width:50%;border-right:1px solid #000;border-bottom:1px solid #000"><b>Exporter:</b><br>AL WAJER PHARMACEUTICALS INDUSTRY LLC<br>PO BOX NO:98, PC-327, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN<br>TEL: +968 22372677 &nbsp; TIN NO: 10638</td>
-    <td style="border-bottom:1px solid #000"><b>${isQuote ? 'Quotation No & Date:' : 'Invoice No & Date:'}</b><br>${refNo}<br><b>DT:</b> ${dateStr}${order.invoiceNo ? `<br><b>Your Ref:</b> ${order.invoiceNo}` : ''}</td>
-  </tr>
-  <tr>
-    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Buyer Order No:</b> ${order.lcNo || '—'}</td>
-    <td style="border-bottom:1px solid #000"><b>Exporter's Ref:</b> ${order.invoiceNo || refNo}</td>
-  </tr>
-  <tr>
-    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Buyer / Notify On behalf:</b><br>${order.customer || '—'}<br>${order.country || ''}</td>
-    <td style="border-bottom:1px solid #000"><b>Consignee:</b><br>${order.customer || '—'}</td>
-  </tr>
-  <tr>
-    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Pre-Carriage by:</b><br>${order.shippingMethod || 'By Sea'}</td>
-    <td style="border-bottom:1px solid #000"><b>Place of Receipt by Carrier:</b><br>SOHAR, OMAN</td>
-  </tr>
-  <tr>
-    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Country of Origin of Goods:</b><br>SULTANATE OF OMAN.</td>
-    <td style="border-bottom:1px solid #000"><b>Final Destination:</b><br>${order.country || '—'}</td>
-  </tr>
-  <tr>
-    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Vessel / Flight No:</b><br>${order.shippingMethod?.includes('Air') ? 'BY AIR' : 'BY SEA'}</td>
-    <td style="border-bottom:1px solid #000"><b>Port of Loading:</b><br>SALALAH, OMAN</td>
-  </tr>
-  <tr>
-    <td colspan="2" style="border-bottom:1px solid #000"><b>PORT OF DISCHARGE & FINAL DESTINATION:</b> ${order.country || '—'} &nbsp;&nbsp;&nbsp; <b>TERMS OF PAYMENT:</b> ${order.paymentMethod || 'LC at Sight'}</td>
+    <td style="width:40%;font-size:10pt;font-weight:bold;direction:rtl;line-height:1.6">الـوجـر لصنـاعـة الأدويـة ش . م . م</td>
+    <td style="width:20%;text-align:center"><img src="data:image/png;base64,${LOGO}" style="height:58px" alt="AL WAJER"/></td>
+    <td style="text-align:right;font-size:8.5pt;line-height:1.5"><b>AL WAJER PHARMACEUTICALS INDUSTRY LLC</b><br>PO BOX 98, PC-327, SOHAR INDUSTRIAL ESTATE<br>SOHAR, SULTANATE OF OMAN<br>TEL: +968 22372677 | TIN: 10638</td>
   </tr>
 </table>
-
-<!-- Items -->
-<table class="items" style="border:2px solid #000;border-top:none">
+<div style="border:2px solid #000;border-top:none;text-align:center;font-size:14pt;font-weight:bold;letter-spacing:4px;padding:5px">${title}</div>
+<table style="border:2px solid #000;border-top:none">
+  <tr>
+    <td style="width:50%;border-right:1px solid #000;border-bottom:1px solid #000"><b>Exporter:</b><br>AL WAJER PHARMACEUTICALS INDUSTRY LLC<br>PO BOX 98, PC-327, SOHAR INDUSTRIAL ESTATE, SOHAR, OMAN<br>TEL: +968 22372677 | TIN: 10638</td>
+    <td style="border-bottom:1px solid #000"><b>${docType==='quotation'?'Quotation':'Invoice'} No:</b> ${refNo}<br><b>Date:</b> ${dateStr}${order.invoiceNo?`<br><b>Ref:</b> ${order.invoiceNo}`:''}</td>
+  </tr>
+  <tr>
+    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Buyer Order No:</b> ${order.lcNo||'—'}</td>
+    <td style="border-bottom:1px solid #000"><b>Exporter Ref:</b> ${order.invoiceNo||refNo}</td>
+  </tr>
+  <tr>
+    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Buyer / Notify:</b><br>${order.customer||'—'}<br>${order.country||''}</td>
+    <td style="border-bottom:1px solid #000"><b>Consignee:</b><br>${order.customer||'—'}</td>
+  </tr>
+  <tr>
+    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Pre-Carriage:</b> ${order.shippingMethod||'By Sea'}</td>
+    <td style="border-bottom:1px solid #000"><b>Place of Receipt:</b> SOHAR, OMAN</td>
+  </tr>
+  <tr>
+    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Country of Origin:</b> SULTANATE OF OMAN</td>
+    <td style="border-bottom:1px solid #000"><b>Final Destination:</b> ${order.country||'—'}</td>
+  </tr>
+  <tr>
+    <td style="border-right:1px solid #000;border-bottom:1px solid #000"><b>Vessel/Flight:</b> ${order.shippingMethod?.includes('Air')?'BY AIR':'BY SEA'}</td>
+    <td style="border-bottom:1px solid #000"><b>Port of Loading:</b> SALALAH, OMAN</td>
+  </tr>
+  <tr>
+    <td colspan="2" style="border-bottom:1px solid #000"><b>Port of Discharge:</b> ${order.country||'—'} &nbsp;&nbsp; <b>Terms of Payment:</b> ${order.paymentMethod||'LC at Sight'}</td>
+  </tr>
+</table>
+<table style="border:2px solid #000;border-top:none">
   <thead>
-    <tr>
-      <th colspan="4">Description of Goods</th>
-      <th>Quantity (KG)</th>
-      <th>Rate / Kg (USD)</th>
-      <th>Total Amount (USD)</th>
+    <tr style="background:#d9e1f2">
+      <th colspan="4" style="border:1px solid #000;text-align:center">Description of Goods</th>
+      <th style="border:1px solid #000;text-align:center">Qty (KG)</th>
+      <th style="border:1px solid #000;text-align:center">Rate/Kg (USD)</th>
+      <th style="border:1px solid #000;text-align:center">Total (USD)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td colspan="4" style="border:1px solid #000;padding:6px;font-weight:bold">${order.product || '—'}</td>
-      <td style="border:1px solid #000;text-align:center;padding:6px">${(order.quantity || 0).toLocaleString()}</td>
-      <td style="border:1px solid #000;text-align:right;padding:6px">${(order.rateUSD || 0).toFixed(2)}</td>
-      <td style="border:1px solid #000;text-align:right;padding:6px;font-weight:bold">${(order.amountUSD || 0).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-    </tr>
-    <tr>
-      <td colspan="4" style="border:1px solid #000"></td>
-      <td style="border:1px solid #000"></td>
-      <td style="border:1px solid #000"></td>
-      <td style="border:1px solid #000"></td>
+      <td colspan="4" style="border:1px solid #000;padding:8px;font-weight:bold">${order.product||'—'}</td>
+      <td style="border:1px solid #000;text-align:center;padding:6px">${(order.quantity||0).toLocaleString()}</td>
+      <td style="border:1px solid #000;text-align:right;padding:6px">${(order.rateUSD||0).toFixed(2)}</td>
+      <td style="border:1px solid #000;text-align:right;padding:6px;font-weight:bold">${amt.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
     </tr>
     <tr style="font-weight:bold;background:#d9e1f2">
-      <td colspan="5" style="border:1px solid #000;text-align:right;padding:6px">TOTAL</td>
-      <td colspan="2" style="border:1px solid #000;text-align:right;padding:6px">${(order.amountUSD || 0).toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      <td colspan="5" style="border:1px solid #000;text-align:right;padding:6px">TOTAL AMOUNT IN USD</td>
+      <td colspan="2" style="border:1px solid #000;text-align:right;padding:6px">${amt.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
     </tr>
     <tr>
-      <td colspan="7" style="border:1px solid #000;padding:6px"><b>Amount (In Words) USD:</b> <u>${totalWords} ONLY</u>.</td>
+      <td colspan="7" style="border:1px solid #000;padding:6px"><b>IN WORDS: USD ${words} ONLY.</b></td>
     </tr>
   </tbody>
 </table>
-
-${!isQuote ? `
-<!-- Bank Details -->
 <table style="border:2px solid #000;border-top:none">
+  ${bankSection}
   <tr>
-    <td style="padding:6px 8px;font-size:8.5pt">
-      <b>BANK DETAILS:</b><br>
-      <b>BENEFICIARY:</b> AL WAJER PHARMACEUTICALS INDUSTRY LLC<br>
-      <b>BANK:</b> BANK NIZWA — <b>ACCOUNT NO:</b> 00150000174002 / <b>IBAN:</b> OM45033000150000174002<br>
-      <b>SWIFT CODE:</b> BNZWOMRXXXX, <b>BRANCH:</b> MUSCAT MAIN BRANCH<br>
-      <b>ADDRESS:</b> P.O.BOX NO.1423, PC-133, BEACH ONE BUILDING 1, AL QURUM BEACH, AL KHUWAIR, MUSCAT, OMAN
-    </td>
-  </tr>
-</table>` : `
-<table style="border:2px solid #000;border-top:none">
-  <tr>
-    <td style="padding:6px 8px;font-size:8.5pt">
-      <b>VALIDITY:</b> This quotation is valid for 30 days from the date of issue.<br>
-      <b>DELIVERY:</b> ${order.shippingMethod || 'By Sea'} — Lead time approximately 4–6 weeks after order confirmation.<br>
-      <b>PAYMENT TERMS:</b> ${order.paymentMethod || 'LC at Sight'}
-    </td>
-  </tr>
-</table>`}
-
-<!-- Signatures -->
-<table style="border:2px solid #000;border-top:none;margin-top:0">
-  <tr>
-    <td style="border:1px solid #000;padding:10px;width:50%"><b>Seller Signature & Date</b><br><br><br><div style="border-top:1px solid #000;padding-top:2px;font-size:8pt">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div></td>
-    <td style="border:1px solid #000;padding:10px"><b>Buyer Signature & Date</b><br><br><br><div style="border-top:1px solid #000;padding-top:2px;font-size:8pt">${order.customer || '—'}</div></td>
+    <td style="border:1px solid #000;padding:12px;width:50%"><b>Seller Signature & Date</b><br><br><br><div style="border-top:1px solid #000;font-size:8pt">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div></td>
+    <td style="border:1px solid #000;padding:12px"><b>Buyer Signature & Date</b><br><br><br><div style="border-top:1px solid #000;font-size:8pt">${order.customer||'—'}</div></td>
   </tr>
 </table>
-
 </body></html>`;
 
     const blob = new Blob([html], {type:'text/html'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const docSuffix = isQuote ? 'Quotation' : isInvoice ? 'Invoice' : 'ProformaInvoice';
-    a.download = `AWP_${docSuffix}_${order.invoiceNo || refNo}_${(order.customer||'').replace(/\s+/g,'_')}.html`;
+    a.download = `AWP_${docType}_${(order.customer||'').replace(/\s+/g,'_')}.html`;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
-    logAction('DOC_GENERATED', `${docType} generated: ${order.customer} — ${order.product}`);
+    logAction('DOC_GENERATED', `${docType} — ${order.customer}`);
   };
 
-  // ── Sales render ──────────────────────────────────────────────────
+    // ── Sales render ──────────────────────────────────────────────────
   const renderSales = () => {
-    // State lives at component level (lifted to avoid illegal hook calls)
+    // All state is lifted to component level (Rules of Hooks)
     const draft = salesDraft;
     const setDraft = setSalesDraft;
 
@@ -1073,15 +1017,15 @@ ${!isQuote ? `
     };
 
     const openNew = () => {
-      setEditOrder(null);
-      setDraft({ invoiceNo: `AWP/INV-${Date.now().toString().slice(-5)}`, date: new Date().toISOString().split('T')[0], customer: '', country: '', lcNo: '', product: '', quantity: 0, rateUSD: 0, paymentMethod: 'LC at Sight', shippingMethod: 'By Sea', status: 'Pending', amountUSD: 0, amountOMR: 0 });
-      setShowNewForm(true);
+      setSalesEditOrder(null);
+      setSalesDraft({ invoiceNo: `AWP/INV-${Date.now().toString().slice(-5)}`, date: new Date().toISOString().split('T')[0], customer: '', country: '', lcNo: '', product: '', quantity: 0, rateUSD: 0, paymentMethod: 'LC at Sight', shippingMethod: 'By Sea', status: 'Pending', amountUSD: 0, amountOMR: 0 });
+      setSalesShowForm(true);
     };
 
     const openEdit = (o: Order) => {
-      setEditOrder(o);
-      setDraft({...o});
-      setShowNewForm(true);
+      setSalesEditOrder(o);
+      setSalesDraft({...o});
+      setSalesShowForm(true);
     };
 
     const saveOrder = () => {
@@ -1089,15 +1033,15 @@ ${!isQuote ? `
       const rate = Number(draft.rateUSD) || 0;
       const amtUSD = qty * rate;
       const amtOMR = +(amtUSD * 0.385).toFixed(2);
-      const finalOrder: Order = { ...draft, id: editOrder?.id || `ORD-${Date.now()}`, sNo: editOrder?.sNo || String(orders.length + 1), quantity: qty, rateUSD: rate, amountUSD: amtUSD, amountOMR: amtOMR };
-      if (editOrder) {
-        setOrders(prev => prev.map(o => o.id === editOrder.id ? finalOrder : o));
-        logAction('UPDATE', `Order updated: ${finalOrder.customer} — ${finalOrder.product}`);
+      const finalOrder: Order = { ...draft, id: salesEditOrder?.id || `ORD-${Date.now()}`, sNo: salesEditOrder?.sNo || String(orders.length + 1), quantity: qty, rateUSD: rate, amountUSD: amtUSD, amountOMR: amtOMR };
+      if (salesEditOrder) {
+        setOrders(prev => prev.map(o => o.id === salesEditOrder.id ? finalOrder : o));
+        logAction('UPDATE', `Order updated: ${finalOrder.customer}`);
       } else {
         setOrders(prev => [finalOrder, ...prev]);
-        logAction('CREATE', `Order created: ${finalOrder.customer} — $${amtUSD.toLocaleString()}`);
+        logAction('CREATE', `New order: ${finalOrder.customer} $${amtUSD.toLocaleString()}`);
       }
-      setShowNewForm(false);
+      setSalesShowForm(false);
     };
 
     const totalRevenue = orders.reduce((s, o) => s + (o.amountUSD || 0), 0);
@@ -1106,7 +1050,6 @@ ${!isQuote ? `
 
     return (
       <div className="space-y-5 animate-fadeIn pb-8">
-        {/* Header */}
         <div className="flex flex-wrap gap-3 justify-between items-center">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <BadgeDollarSign className="text-[#F4C430]" size={20}/> Sales & Orders
@@ -1126,10 +1069,10 @@ ${!isQuote ? `
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            {label:'Total Orders', value: orders.length, color:'text-white'},
+            {label:'Total Orders', value: String(orders.length), color:'text-white'},
             {label:'Total Revenue', value: `$${totalRevenue.toLocaleString()}`, color:'text-green-400'},
             {label:'Pending Value', value: `$${pendingValue.toLocaleString()}`, color:'text-yellow-400'},
-            {label:'Customers', value: uniqueCustomers, color:'text-blue-400'},
+            {label:'Customers', value: String(uniqueCustomers), color:'text-blue-400'},
           ].map(kpi => (
             <div key={kpi.label} className="bg-slate-900/50 border border-white/10 rounded-xl p-4">
               <p className="text-[10px] text-slate-500 uppercase font-bold">{kpi.label}</p>
@@ -1138,70 +1081,68 @@ ${!isQuote ? `
           ))}
         </div>
 
-        {/* New/Edit Order Form */}
-        {showNewForm && (
+        {/* Order Form */}
+        {salesShowForm && (
           <div className="bg-slate-900/80 border border-[#D4AF37]/30 rounded-xl p-5 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-bold text-[#D4AF37]">{editOrder ? 'Edit Order' : 'New Sales Order'}</h3>
-              <button onClick={() => setShowNewForm(false)} className="text-slate-500 hover:text-white"><X size={16}/></button>
+              <h3 className="text-sm font-bold text-[#D4AF37]">{salesEditOrder ? 'Edit Order' : 'New Order'}</h3>
+              <button onClick={() => setSalesShowForm(false)} className="text-slate-500 hover:text-white"><X size={16}/></button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                {label:'Invoice No', key:'invoiceNo', placeholder:'AWP/INV-'},
+              {([
+                {label:'Invoice No', key:'invoiceNo'},
                 {label:'Date', key:'date', type:'date'},
-                {label:'Customer *', key:'customer', placeholder:'Company name'},
-                {label:'Country', key:'country', placeholder:'e.g. Pakistan'},
-                {label:'LC No / Ref', key:'lcNo', placeholder:'LC reference'},
-                {label:'Product *', key:'product', placeholder:'Product name & spec', span:2},
-              ].map((f:any) => (
+                {label:'Customer *', key:'customer'},
+                {label:'Country', key:'country'},
+                {label:'LC No / Ref', key:'lcNo'},
+                {label:'Product *', key:'product', span:2},
+              ] as any[]).map((f:any) => (
                 <div key={f.key} className={f.span === 2 ? 'sm:col-span-2' : ''}>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{f.label}</label>
-                  <input type={f.type || 'text'} value={draft[f.key]||''} onChange={e=>setDraft((p:any)=>({...p,[f.key]:e.target.value}))}
-                    placeholder={f.placeholder}
+                  <input type={f.type||'text'} value={draft[f.key]||''} onChange={e=>setDraft((p:any)=>({...p,[f.key]:e.target.value}))}
                     className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37] focus:outline-none"/>
                 </div>
               ))}
               <div>
-                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Quantity (kg)</label>
+                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Qty (KG)</label>
                 <input type="number" value={draft.quantity||''} onChange={e=>setDraft((p:any)=>({...p,quantity:Number(e.target.value)}))}
                   className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37] focus:outline-none"/>
               </div>
               <div>
-                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Rate USD/kg</label>
+                <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Rate USD/KG</label>
                 <input type="number" value={draft.rateUSD||''} onChange={e=>setDraft((p:any)=>({...p,rateUSD:Number(e.target.value)}))}
                   className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37] focus:outline-none"/>
               </div>
               <div>
                 <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Auto Total USD</label>
                 <div className="w-full bg-slate-900 border border-white/5 rounded px-3 py-2 text-[#D4AF37] text-sm font-bold font-mono">
-                  ${((Number(draft.quantity)||0) * (Number(draft.rateUSD)||0)).toLocaleString('en-US',{minimumFractionDigits:2})}
+                  ${((Number(draft.quantity)||0)*(Number(draft.rateUSD)||0)).toLocaleString('en-US',{minimumFractionDigits:2})}
                 </div>
               </div>
-              {[
-                {label:'Payment Method', key:'paymentMethod', options:['LC at Sight','LC 30 Days','LC 60 Days','LC 90 Days','TT in Advance','TT 30 Days','Open Account','DA 90 Days']},
-                {label:'Shipping Method', key:'shippingMethod', options:['By Sea','By Air','By Road','Ex-Works','FOB','CIF']},
-                {label:'Status', key:'status', options:['Pending','Processing','Going to Dispatch','Shipped','Delivered','Existing Orders','Cancelled']},
-              ].map(f => (
+              {([
+                {label:'Payment Method', key:'paymentMethod', opts:['LC at Sight','LC 30 Days','LC 60 Days','LC 90 Days','TT in Advance','TT 30 Days','Open Account']},
+                {label:'Shipping', key:'shippingMethod', opts:['By Sea','By Air','By Road','Ex-Works','FOB','CIF']},
+                {label:'Status', key:'status', opts:['Pending','Processing','Going to Dispatch','Shipped','Delivered','Existing Orders','Cancelled']},
+              ] as any[]).map(f => (
                 <div key={f.key}>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">{f.label}</label>
                   <select value={draft[f.key]||''} onChange={e=>setDraft((p:any)=>({...p,[f.key]:e.target.value}))}
                     className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2 text-white text-sm focus:border-[#D4AF37] focus:outline-none">
-                    {f.options.map(o=><option key={o}>{o}</option>)}
+                    {f.opts.map((o:string)=><option key={o}>{o}</option>)}
                   </select>
                 </div>
               ))}
             </div>
             <div className="flex gap-3 justify-end pt-2">
-              <button onClick={() => setShowNewForm(false)} className="px-4 py-2 text-slate-400 hover:text-white text-sm font-bold">Cancel</button>
-              <button onClick={saveOrder} disabled={!draft.customer || !draft.product}
-                className="luxury-gradient px-6 py-2 rounded-lg text-slate-950 font-bold text-sm disabled:opacity-40">
-                {editOrder ? 'Update Order' : 'Add Order'}
+              <button onClick={() => setSalesShowForm(false)} className="px-4 py-2 text-slate-400 hover:text-white text-sm font-bold">Cancel</button>
+              <button onClick={saveOrder} className="luxury-gradient px-6 py-2 rounded-lg text-slate-950 font-bold text-sm">
+                {salesEditOrder ? 'Update' : 'Add Order'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Sales Table */}
+        {/* Orders Table */}
         <div className="bg-slate-900/50 border border-[#D4AF37]/20 rounded-xl overflow-x-auto">
           <table className="w-full text-left min-w-[900px]">
             <thead>
@@ -1213,7 +1154,7 @@ ${!isQuote ? `
             </thead>
             <tbody className="divide-y divide-white/5">
               {orders.length === 0 ? (
-                <tr><td colSpan={8} className="p-12 text-center text-slate-500">No orders yet. Click "New Order" to add one.</td></tr>
+                <tr><td colSpan={8} className="p-12 text-center text-slate-500">No orders yet.</td></tr>
               ) : orders.map(order => (
                 <tr key={order.id} className="hover:bg-white/5 transition-colors">
                   <td className="px-4 py-3">
@@ -1241,22 +1182,16 @@ ${!isQuote ? `
                       <button onClick={() => openEdit(order)} className="p-1.5 text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded"><Edit2 size={13}/></button>
                       <button onClick={() => handleDelete('sales', order.id, order.customer)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded"><Trash2 size={13}/></button>
                       <div className="relative">
-                        <button
-                          onClick={() => setDocMenuOrder(docMenuOrder === order.id ? null : order.id)}
+                        <button onClick={() => setSalesDocMenu(salesDocMenu === order.id ? null : order.id)}
                           className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded flex items-center gap-0.5 text-[10px] font-bold border border-white/10">
-                          <FileText size={12}/> <ChevronDown size={10}/>
+                          <FileText size={12}/><ChevronDown size={10}/>
                         </button>
-                        {docMenuOrder === order.id && (
-                          <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-white/10 rounded-lg shadow-xl z-50 w-48 overflow-hidden">
-                            {[
-                              {label:'📄 Proforma Invoice', type:'proforma'},
-                              {label:'🧾 Commercial Invoice', type:'invoice'},
-                              {label:'💼 Quotation', type:'quotation'},
-                            ].map(item => (
-                              <button key={item.type}
-                                onClick={() => { generateProformaInvoice(order, item.type as any); setDocMenuOrder(null); }}
-                                className="w-full text-left text-xs px-4 py-2.5 text-slate-300 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37] font-bold transition-colors">
-                                {item.label}
+                        {salesDocMenu === order.id && (
+                          <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-white/10 rounded-lg shadow-xl z-50 w-44 overflow-hidden">
+                            {(['proforma','invoice','quotation'] as const).map(t => (
+                              <button key={t} onClick={() => { generateSalesDoc(order, t); setSalesDocMenu(null); }}
+                                className="w-full text-left text-xs px-4 py-2.5 text-slate-300 hover:bg-[#D4AF37]/10 hover:text-[#D4AF37] font-bold">
+                                {t==='proforma'?'📄 Proforma Invoice':t==='invoice'?'🧾 Commercial Invoice':'💼 Quotation'}
                               </button>
                             ))}
                           </div>
@@ -1269,20 +1204,26 @@ ${!isQuote ? `
             </tbody>
           </table>
         </div>
-
-        {/* Click outside to close doc menu */}
-        {docMenuOrder && <div className="fixed inset-0 z-40" onClick={() => setDocMenuOrder(null)}/>}
+        {salesDocMenu && <div className="fixed inset-0 z-40" onClick={() => setSalesDocMenu(null)}/>}
       </div>
     );
   };
 
-
   // ── Procurement render ─────────────────────────────────────────────
   const renderProcurement = () => {
-    // State lives at component level (lifted)
+    const [procView, setProcView] = React.useState<'vendors'|'add-vendor'|'vendor-detail'|'generate-po'>('vendors');
+    const [activeVendor, setActiveVendor] = React.useState<Vendor|null>(null);
+    const [vDraft, setVDraft] = React.useState<any>({ name:'', category:'API', rating:5, status:'Verified', country:'', contactPerson:'', email:'', phone:'', address:'', paymentTerms:'LC at Sight', leadTimeDays:30, notes:'', products:[] });
+    const [pDraft, setPDraft] = React.useState<any>({ name:'', grade:'BP', unitPrice:0, currency:'USD', unit:'kg', minOrderQty:0 });
+    const [editingVendor, setEditingVendor] = React.useState<Vendor|null>(null);
 
     // PO builder
-
+    const [poVendorId, setPoVendorId] = React.useState<string>('');
+    const [poLines, setPoLines] = React.useState<{productId:string,name:string,qty:number,unitPrice:number,total:number,supplierCountry:string}[]>([]);
+    const [poPaymentTerm, setPoPaymentTerm] = React.useState('LC at Sight');
+    const [poShipMethod, setPoShipMethod] = React.useState('By Sea');
+    const [poETA, setPoETA] = React.useState('ASAP');
+    const [poCustomNumber, setPoCustomNumber] = React.useState('');
     const poVendor = vendors.find(v => v.id === poVendorId);
 
     const addVendorProduct = () => {
@@ -3164,12 +3105,12 @@ ${!isQuote ? `
       )}
 
       
-      {/* ── DESKTOP PERSISTENT SIDEBAR (md+) ── */}
-      <aside className="hidden md:flex w-64 fixed inset-y-0 left-0 z-30 flex-col bg-slate-950 border-r border-[#D4AF37]/20">
+      {/* ── DESKTOP PERSISTENT SIDEBAR (always visible on md+) ── */}
+      <aside className="hidden md:flex w-60 fixed inset-y-0 left-0 z-30 flex-col bg-slate-950 border-r border-[#D4AF37]/20">
         <div className="p-5 h-full flex flex-col">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="luxury-gradient w-9 h-9 rounded-lg flex items-center justify-center shadow-lg shadow-[#D4AF37]/20 shrink-0">
-              <Activity className="text-slate-950" size={20} />
+          <div className="flex items-center gap-3 mb-8 shrink-0">
+            <div className="luxury-gradient w-9 h-9 rounded-lg flex items-center justify-center shadow-lg shadow-[#D4AF37]/20">
+              <Activity className="text-slate-950" size={20}/>
             </div>
             <div>
               <h1 className="text-sm font-bold text-white tracking-tight leading-none">AL WAJER</h1>
@@ -3192,18 +3133,17 @@ ${!isQuote ? `
               { id: 'ai', label: 'AI Command', icon: BrainCircuit },
               { id: 'history', label: 'Audit History', icon: History },
             ].map(item => (
-              <button key={item.id}
-                onClick={() => setActiveTab(item.id as any)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-150 text-left ${
+              <button key={item.id} onClick={() => setActiveTab(item.id as any)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-150 ${
                   activeTab === item.id ? 'bg-[#D4AF37] text-slate-950 font-bold' : 'text-slate-500 hover:bg-white/5 hover:text-white'
                 }`}>
-                <item.icon size={15} />
+                <item.icon size={15}/>
                 <span className="text-xs">{item.label}</span>
-                {activeTab === item.id && <ChevronRight size={12} className="ml-auto" />}
+                {activeTab === item.id && <ChevronRight size={12} className="ml-auto"/>}
               </button>
             ))}
           </nav>
-          <div className="pt-3 mt-3 border-t border-white/10">
+          <div className="pt-3 mt-3 border-t border-white/10 shrink-0">
             <button onClick={() => setIsSettingsOpen(true)}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all">
               <Settings size={15}/><span className="text-xs font-bold">Settings & API Keys</span>
@@ -3217,8 +3157,13 @@ ${!isQuote ? `
         <div className="p-5 h-full flex flex-col">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-3">
-              <div className="luxury-gradient w-9 h-9 rounded-lg flex items-center justify-center"><Activity className="text-slate-950" size={20}/></div>
-              <div><h1 className="text-sm font-bold text-white leading-none">AL WAJER</h1><span className="text-[9px] font-bold text-[#D4AF37] tracking-[0.2em] uppercase">Pharma ERP V4</span></div>
+              <div className="luxury-gradient w-9 h-9 rounded-lg flex items-center justify-center">
+                <Activity className="text-slate-950" size={20}/>
+              </div>
+              <div>
+                <h1 className="text-sm font-bold text-white leading-none">AL WAJER</h1>
+                <span className="text-[9px] font-bold text-[#D4AF37] tracking-[0.2em] uppercase">Pharma ERP V4</span>
+              </div>
             </div>
             <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-500 hover:text-white"><X size={20}/></button>
           </div>
@@ -3257,26 +3202,28 @@ ${!isQuote ? `
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT — offset left on desktop for sidebar ── */}
-      <main className="flex-1 flex flex-col bg-[#020617] min-h-screen md:ml-64">
-        {/* HEADER */}
+      {/* ── MAIN — shifts right on desktop to make room for sidebar ── */}
+      <main className="flex-1 flex flex-col bg-[#020617] min-h-screen md:ml-60">
         <header className="sticky top-0 h-14 bg-slate-950/90 backdrop-blur-md border-b border-white/5 px-4 sm:px-6 flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-slate-400 hover:text-white -ml-2"><Menu size={22}/></button>
-            <h1 className="text-base font-bold text-white tracking-tight truncate">{activeTab === 'history' ? 'AUDIT HISTORY' : activeTab.toUpperCase() + ' HUB'}</h1>
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-slate-400 hover:text-white -ml-2">
+              <Menu size={22}/>
+            </button>
+            <h1 className="text-base font-bold text-white tracking-tight truncate">
+              {activeTab === 'history' ? 'AUDIT HISTORY' : activeTab.toUpperCase() + ' HUB'}
+            </h1>
             <div className="flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-full bg-slate-900 border border-white/5">
               <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}/>
               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{dbStatus === 'connected' ? 'Live DB' : 'Offline'}</span>
             </div>
           </div>
           <button onClick={handleGlobalAction} className="luxury-gradient px-3 py-1.5 rounded-lg text-slate-950 text-xs font-bold flex items-center gap-1.5 shrink-0 ml-2">
-            <Upload size={14}/><span>GLOBAL SYNC</span>
+            <Upload size={14}/><span className="hidden sm:inline">GLOBAL SYNC</span><span className="sm:hidden">SYNC</span>
           </button>
           <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'global')}/>
         </header>
 
-        {/* CONTENT AREA */}
-        <div className="p-4 sm:p-6">
+        <div className="p-4 sm:p-6 lg:p-8">
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'production' && renderProduction()}
           {activeTab === 'inventory' && renderInventory()}
