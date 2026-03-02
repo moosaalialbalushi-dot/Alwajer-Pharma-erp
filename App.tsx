@@ -217,6 +217,18 @@ const App: React.FC = () => {
     shippingMethod: 'By Sea', status: 'Pending', amountUSD: 0, amountOMR: 0
   });
 
+  // Procurement / Vendor state (must live at component level — Rules of Hooks)
+  const [procView, setProcView] = useState<'vendors'|'add-vendor'|'vendor-detail'|'generate-po'>('vendors');
+  const [activeVendor, setActiveVendor] = useState<Vendor|null>(null);
+  const [vDraft, setVDraft] = useState<any>({ name:'', category:'API', rating:5, status:'Verified', country:'', contactPerson:'', email:'', phone:'', address:'', paymentTerms:'LC at Sight', leadTimeDays:30, notes:'', products:[] });
+  const [pDraft, setPDraft] = useState<any>({ name:'', grade:'BP', unitPrice:0, currency:'USD', unit:'kg', minOrderQty:0 });
+  const [editingVendor, setEditingVendor] = useState<Vendor|null>(null);
+  const [poVendorId, setPoVendorId] = useState<string>('');
+  const [poLines, setPoLines] = useState<{productId:string,name:string,qty:number,unitPrice:number,total:number,supplierCountry:string}[]>([]);
+  const [poPaymentTerm, setPoPaymentTerm] = useState('LC at Sight');
+  const [poShipMethod, setPoShipMethod] = useState('By Sea');
+  const [poCustomNumber, setPoCustomNumber] = useState('');
+
   const [bdLeads] = useState<BDLead[]>(INITIAL_BD);
   const [samples] = useState<SampleStatus[]>(INITIAL_SAMPLES);
   const calcInitialRD = (projects: any[]) => projects.map(p => {
@@ -1211,19 +1223,10 @@ const App: React.FC = () => {
 
   // ── Procurement render ─────────────────────────────────────────────
   const renderProcurement = () => {
-    const [procView, setProcView] = React.useState<'vendors'|'add-vendor'|'vendor-detail'|'generate-po'>('vendors');
-    const [activeVendor, setActiveVendor] = React.useState<Vendor|null>(null);
-    const [vDraft, setVDraft] = React.useState<any>({ name:'', category:'API', rating:5, status:'Verified', country:'', contactPerson:'', email:'', phone:'', address:'', paymentTerms:'LC at Sight', leadTimeDays:30, notes:'', products:[] });
-    const [pDraft, setPDraft] = React.useState<any>({ name:'', grade:'BP', unitPrice:0, currency:'USD', unit:'kg', minOrderQty:0 });
-    const [editingVendor, setEditingVendor] = React.useState<Vendor|null>(null);
+    // procView, activeVendor, vDraft, pDraft, editingVendor live at component level
 
     // PO builder
-    const [poVendorId, setPoVendorId] = React.useState<string>('');
-    const [poLines, setPoLines] = React.useState<{productId:string,name:string,qty:number,unitPrice:number,total:number,supplierCountry:string}[]>([]);
-    const [poPaymentTerm, setPoPaymentTerm] = React.useState('LC at Sight');
-    const [poShipMethod, setPoShipMethod] = React.useState('By Sea');
-    const [poETA, setPoETA] = React.useState('ASAP');
-    const [poCustomNumber, setPoCustomNumber] = React.useState('');
+    // poVendorId, poLines, poPaymentTerm, poShipMethod, poETA, poCustomNumber live at component level
     const poVendor = vendors.find(v => v.id === poVendorId);
 
     const addVendorProduct = () => {
