@@ -203,6 +203,30 @@ const App: React.FC = () => {
   const [newSalesOrder, setNewSalesOrder] = useState<any>({ customer:'', country:'', paymentMethod:'LC at Sight', shippingMethod:'By Sea', status:'Pending', lines:[], lcNo:'', remarks:'' });
   const [newSalesLine, setNewSalesLine] = useState<any>({ product:'', quantity:0, unit:'kg', unitRateUSD:0 });
 
+  // ── Sales render state (lifted from renderSales) ──
+  const [docMenuOrder, setDocMenuOrder] = useState<string|null>(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [editOrder, setEditOrder] = useState<Order|null>(null);
+  const [salesDraft, setSalesDraft] = useState<any>({
+    invoiceNo: '', date: new Date().toISOString().split('T')[0],
+    customer: '', country: '', lcNo: '', product: '',
+    quantity: 0, rateUSD: 0, paymentMethod: 'LC at Sight',
+    shippingMethod: 'By Sea', status: 'Pending', amountUSD: 0, amountOMR: 0
+  });
+
+  // ── Procurement render state (lifted from renderProcurement) ──
+  const [procView, setProcView] = useState<'vendors'|'add-vendor'|'vendor-detail'|'generate-po'>('vendors');
+  const [activeVendor, setActiveVendor] = useState<Vendor|null>(null);
+  const [vDraft, setVDraft] = useState<any>({ name:'', category:'API', rating:5, status:'Verified', country:'', contactPerson:'', email:'', phone:'', address:'', paymentTerms:'LC at Sight', leadTimeDays:30, notes:'', products:[] });
+  const [pDraft, setPDraft] = useState<any>({ name:'', grade:'BP', unitPrice:0, currency:'USD', unit:'kg', minOrderQty:0 });
+  const [editingVendor, setEditingVendor] = useState<Vendor|null>(null);
+  const [poVendorId, setPoVendorId] = useState<string>('');
+  const [poLines, setPoLines] = useState<{productId:string,name:string,qty:number,unitPrice:number,total:number,supplierCountry:string}[]>([]);
+  const [poPaymentTerm, setPoPaymentTerm] = useState('LC at Sight');
+  const [poShipMethod, setPoShipMethod] = useState('By Sea');
+  const [poETA, setPoETA] = useState('ASAP');
+  const [poCustomNumber, setPoCustomNumber] = useState('');
+
   // Procurement tab state
   const [procTab, setProcTab] = useState<'shortages'|'vendors'|'po'>('vendors');
   const [bdLeads] = useState<BDLead[]>(INITIAL_BD);
@@ -355,7 +379,7 @@ const App: React.FC = () => {
   const [poUnitPrice, setPOUnitPrice] = useState('');
   const [poPayment, setPOPayment] = useState('LC at Sight');
   const [poShipping, setPOShipping] = useState('CIF by Air - Muscat Airport');
-  const [poETA, setPOETA] = useState('ASAP');
+
   
   // Expansion State
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
@@ -1034,15 +1058,9 @@ ${!isQuote ? `
 
   // ── Sales render ──────────────────────────────────────────────────
   const renderSales = () => {
-    const [docMenuOrder, setDocMenuOrder] = React.useState<string|null>(null);
-    const [showNewForm, setShowNewForm] = React.useState(false);
-    const [editOrder, setEditOrder] = React.useState<Order|null>(null);
-    const [draft, setDraft] = React.useState<any>({
-      invoiceNo: '', date: new Date().toISOString().split('T')[0],
-      customer: '', country: '', lcNo: '', product: '',
-      quantity: 0, rateUSD: 0, paymentMethod: 'LC at Sight',
-      shippingMethod: 'By Sea', status: 'Pending', amountUSD: 0, amountOMR: 0
-    });
+    // State lives at component level (lifted to avoid illegal hook calls)
+    const draft = salesDraft;
+    const setDraft = setSalesDraft;
 
     const statusColor: Record<string,string> = {
       'Pending': 'text-yellow-400 bg-yellow-400/10',
@@ -1261,19 +1279,10 @@ ${!isQuote ? `
 
   // ── Procurement render ─────────────────────────────────────────────
   const renderProcurement = () => {
-    const [procView, setProcView] = React.useState<'vendors'|'add-vendor'|'vendor-detail'|'generate-po'>('vendors');
-    const [activeVendor, setActiveVendor] = React.useState<Vendor|null>(null);
-    const [vDraft, setVDraft] = React.useState<any>({ name:'', category:'API', rating:5, status:'Verified', country:'', contactPerson:'', email:'', phone:'', address:'', paymentTerms:'LC at Sight', leadTimeDays:30, notes:'', products:[] });
-    const [pDraft, setPDraft] = React.useState<any>({ name:'', grade:'BP', unitPrice:0, currency:'USD', unit:'kg', minOrderQty:0 });
-    const [editingVendor, setEditingVendor] = React.useState<Vendor|null>(null);
+    // State lives at component level (lifted)
 
     // PO builder
-    const [poVendorId, setPoVendorId] = React.useState<string>('');
-    const [poLines, setPoLines] = React.useState<{productId:string,name:string,qty:number,unitPrice:number,total:number,supplierCountry:string}[]>([]);
-    const [poPaymentTerm, setPoPaymentTerm] = React.useState('LC at Sight');
-    const [poShipMethod, setPoShipMethod] = React.useState('By Sea');
-    const [poETA, setPoETA] = React.useState('ASAP');
-    const [poCustomNumber, setPoCustomNumber] = React.useState('');
+
     const poVendor = vendors.find(v => v.id === poVendorId);
 
     const addVendorProduct = () => {
