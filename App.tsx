@@ -10,7 +10,7 @@ import {
   Send, Loader2, Search, CheckCircle2, Beaker, Zap, ChevronDown, LineChart, Calendar, 
   BarChart3, Globe, PackageSearch, Star, Menu, X, Factory, Boxes, BadgeDollarSign, 
   AlertCircle, Eye, Edit2, Plus, BrainCircuit, Lightbulb, DraftingCompass, Image as ImageIcon, 
-  Settings, Trash2, ExternalLink, Save, Database, Wallet, Users, Calculator, Briefcase, FileSpreadsheet, FileText, Layers, PenTool, Download, LayoutDashboard, Grip, CheckSquare, Square, Paperclip, History, MoreVertical, FileDown, FolderOpen, RefreshCw, Mic, MicOff, Bolt, Wand2, Link, ShieldCheck, Key, CloudCog
+  Settings, Trash2, ExternalLink, Save, Database, Wallet, Users, Calculator, Briefcase, FileSpreadsheet, FileText, Layers, PenTool, Download, LayoutDashboard, Grip, CheckSquare, Square, Paperclip, History, MoreVertical, FileDown, FolderOpen, RefreshCw, Mic, MicOff, Bolt, Wand2, Link, ShieldCheck, Key, CloudCog, UserPlus
 } from 'lucide-react';
 import { 
   Batch, InventoryItem, Order, Vendor, COOInsight, RDProject, BDLead, SampleStatus, 
