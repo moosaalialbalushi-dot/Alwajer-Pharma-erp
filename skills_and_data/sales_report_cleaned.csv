@@ -1,0 +1,14 @@
+invoice_no,customer,country,product,quantity,amount_usd,amount_omr,status,date,payment_method,shipping_method
+AI-136,Amson,Unknown,Omeprazole 8.5%,1000,12500,0,Existing Orders,2026-02-27,LC at Sight,By Sea
+AI-708,Ferozsons,Unknown,Esomeprazole 22.5%,6500,185250,0,Existing Orders,2026-02-27,LC at Sight,By Sea
+AI-640,Ferozsons,Unknown,Dexlansoprazole 22.5%,2200,121000,0,Existing Orders,2026-02-27,LC at Sight,By Sea
+AWP/INV-02-26,Ferozsons,Unknown,Omeprazole 8.5%,4500,31000,0,Going to Dispatch,2026-02-27,LC at Sight,By Sea
+AWP/INV-02-26,Ferozsons,Unknown,Omeprazole 12.5%,2000,20000,0,Going to Dispatch,2026-02-27,LC at Sight,By Sea
+AWP/INV-56-26,UBSA,Lebanon,Esomeprazole ec 8.5%,2000,12000,0,Existing Orders,2026-02-28,TT in Advance,FOB
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,"Diclofenac Sodium SR Pellets 50mg & Vitamins – B1,B6, & B12",250,4750,0,Pending,,LC at Sight,By Sea
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,Tamsulosine HCL SR Pellets 0.4 mg + Dutasteride IR Pellets 0.5mg,250,13500,0,Pending,,LC at Sight,By Sea
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,Dex lansoprazole Pellets 22.5%,250,14500,0,Pending,,LC at Sight,By Sea
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,D3 Vitamin 10k iu,200,3000,0,Pending,,LC at Sight,By Sea
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,D3 Vitamin 25k iu,200,3600,0,Pending,,LC at Sight,By Sea
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,D3 Vitamin 50k,200,4400,0,Pending,,LC at Sight,By Sea
+AWP/INV-56-25,UBSA Pharmaceutical Industries,Unknown,Mebeverine HCl SR pellets 80.0%,200,14000,0,Pending,,LC at Sight,By Sea
