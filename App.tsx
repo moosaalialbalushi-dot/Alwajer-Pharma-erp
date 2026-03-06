@@ -706,7 +706,7 @@ const App: React.FC = () => {
   const logAction = async (action: string, details: string) => {
     const logEntry = {
       action,
-      user: 'Admin',
+      performed_by: 'Admin',
       details,
       timestamp: new Date().toISOString()
     };
@@ -1718,7 +1718,9 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
             actual_yield: Number(newItem.actualYield),
             expected_yield: Number(newItem.expectedYield),
             status: newItem.status,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            batch_number: newItem.id,
+            yield_percent: (Number(newItem.actualYield) / Number(newItem.expectedYield)) * 100
           };
           setBatches(prev => [...prev, newItem]);
           await supabase.from('production_yields').insert(payload);
@@ -1760,11 +1762,11 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
           await logAction('CREATE', `Added item: ${newItem.name}`);
         } else if (currentSection === 'accounting') {
           setExpenses(prev => [...prev, newItem]);
-          await supabase.from('expenses').insert(newItem);
+          // await supabase.from('expenses').insert(newItem);
           await logAction('CREATE', `Added expense: ${newItem.description}`);
         } else if (currentSection === 'hr') {
           setEmployees(prev => [...prev, newItem]);
-          await supabase.from('employees').insert(newItem);
+          // await supabase.from('employees').insert(newItem);
           await logAction('CREATE', `Added employee: ${newItem.name}`);
         } else if (currentSection === 'procurement') {
           setVendors(prev => [...prev, newItem]);
@@ -1810,10 +1812,10 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
           await logAction('UPDATE', `Updated item: ${newItem.name}`);
         } else if (currentSection === 'accounting') {
           setExpenses(prev => prev.map(e => e.id === newItem.id ? newItem : e));
-          await supabase.from('expenses').update(newItem).eq('id', newItem.id);
+          // await supabase.from('expenses').update(newItem).eq('id', newItem.id);
         } else if (currentSection === 'hr') {
           setEmployees(prev => prev.map(e => e.id === newItem.id ? newItem : e));
-          await supabase.from('employees').update(newItem).eq('id', newItem.id);
+          // await supabase.from('employees').update(newItem).eq('id', newItem.id);
         }
       }
     } catch (err) {
