@@ -698,7 +698,16 @@ const App: React.FC = () => {
       setIsAiLoading(true);
       const summary = `Pending Orders: ${orders.filter(o=>o.status==='Pending').length}, Batches Active: ${batches.filter(b=>b.status==='In-Progress').length}`;
       const res = await quickInsight(summary);
-      alert(`⚡ Quick Insight: ${res}`);
+      // Display insight as a toast notification instead of alert
+      console.log(`⚡ Quick Insight: ${res}`);
+      setUploadProgress({
+        isUploading: false,
+        fileName: 'Quick Scan',
+        progress: 100,
+        status: 'complete',
+        message: `⚡ Quick Insight: ${res}`
+      });
+      setTimeout(() => setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'uploading', message: '' }), 5000);
       setIsAiLoading(false);
   };
 
@@ -1826,7 +1835,14 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
       }
     } catch (err) {
       console.error("Save failed:", err);
-      alert("Database error: Check your Supabase configuration.");
+      // Display error as a toast notification instead of alert
+      setUploadProgress({
+        isUploading: false,
+        fileName: 'Error',
+        progress: 0,
+        status: 'error',
+        message: 'Database error: Check your Supabase configuration.'
+      });
     }
 
     setIsModalOpen(false);
