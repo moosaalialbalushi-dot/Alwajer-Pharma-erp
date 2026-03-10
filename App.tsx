@@ -220,7 +220,7 @@ const App: React.FC = () => {
           };
       } catch (e) { return { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' }; }
   });
-  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'NotebookLM'>('Gemini');
+  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'DeepSeek' | 'NotebookLM'>('Gemini');
 
   // App State
   const [selectedRD, setSelectedRD] = useState<RDProject | null>(CALC_RD[0]);
@@ -1645,8 +1645,14 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
       else if (provider === 'Claude') systemPrompt = 'You are the Chief Operations Officer AI for Al Wajer Pharmaceuticals, Sohar, Oman. You specialize in pharmaceutical operations, compliance, production planning, and strategic decisions. Be direct and precise.';
       else if (provider === 'Gemini') systemPrompt = 'You are Al Wajer Pharmaceuticals data intelligence engine. Analyze pharmaceutical data, formulations, and market data. Use numbers and specifics.';
       else if (provider === 'NotebookLM') systemPrompt = 'You are Al Wajer Pharmaceuticals knowledge specialist. Synthesize information into clear narratives and presentation-ready content.';
-      const { quickInsight } = await import('./geminiService');
-      const response = await quickInsight(systemPrompt + '\n\nUser: ' + msg);
+      const { callAIProxy, extractText } = await import('./aiProxyService');
+      const providerKey = provider.toLowerCase() as any;
+      const responseData = await callAIProxy({
+        provider: providerKey === 'notebooklm' ? 'gemini' : providerKey,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: msg }]
+      });
+      const response = extractText(responseData, providerKey === 'notebooklm' ? 'gemini' : providerKey);
       if (activeSkill) setSavedSkills((prev: any) => prev.map((s: any) => s.id === activeSkillId ? {...s, usageCount: s.usageCount + 1} : s));
       const modelMsg = { role: 'model' as const, text: response || 'No response.', provider, skillName: activeSkill?.name };
       const finalMessages = [...updatedMessages, modelMsg];
@@ -3989,11 +3995,12 @@ const renderProcurement = () => {
   const renderAIOps = () => {
     const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
     const providerColors: Record<string, string> = {
-      Claude: 'text-orange-400', Gemini: 'text-blue-400', NotebookLM: 'text-purple-400'
+      Claude: 'text-orange-400', Gemini: 'text-blue-400', DeepSeek: 'text-cyan-400', NotebookLM: 'text-purple-400'
     };
     const providerBg: Record<string, string> = {
       Claude: 'bg-orange-500/10 border-orange-500/30',
       Gemini: 'bg-blue-500/10 border-blue-500/30',
+      DeepSeek: 'bg-cyan-500/10 border-cyan-500/30',
       NotebookLM: 'bg-purple-500/10 border-purple-500/30'
     };
 
@@ -4065,11 +4072,11 @@ const renderProcurement = () => {
             <div className="flex-1 flex flex-col gap-2 min-w-0">
               {/* Provider + Skills bar */}
               <div className="flex flex-wrap gap-1.5 items-center bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 shrink-0">
-                {(['Claude','Gemini','NotebookLM'] as const).map(p => (
+                {(['Claude','Gemini','DeepSeek','NotebookLM'] as const).map(p => (
                   <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
                     className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all
                       ${activeProvider === p && !activeSkillId ? providerBg[p] + ' ' + providerColors[p] : 'border-transparent text-slate-500 hover:text-white'}`}>
-                    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '📚 NotebookLM'}
+                    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'DeepSeek' ? '🐳 DeepSeek' : '📚 NotebookLM'}
                   </button>
                 ))}
                 <div className="w-px h-4 bg-white/10"/>
@@ -4288,14 +4295,14 @@ const renderProcurement = () => {
                 <div>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">AI Provider</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['Claude','Gemini','NotebookLM'] as const).map(p => (
+                    {(['Claude','Gemini','DeepSeek','NotebookLM'] as const).map(p => (
                       <button key={p}
                         onClick={() => setNewSkillData((prev: any) => ({...prev, provider: p}))}
                         className={`py-2.5 text-xs font-bold rounded-lg border transition-all text-center
                           ${newSkillData.provider === p
                             ? providerBg[p] + ' ' + providerColors[p]
                             : 'border-white/10 text-slate-500 hover:text-white'}`}>
-                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '📚 NotebookLM'}
+                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'DeepSeek' ? '🐳 DeepSeek' : '📚 NotebookLM'}
                       </button>
                     ))}
                   </div>
@@ -4304,7 +4311,7 @@ const renderProcurement = () => {
                       ? '🤖 Best for: Operations decisions, compliance, strategic analysis, writing'
                       : newSkillData.provider === 'Gemini'
                       ? '✨ Best for: Formulation data, market research, numerical analysis'
-                      : '📚 Best for: Executive summaries, presentations, knowledge synthesis'}
+                      : newSkillData.provider === 'DeepSeek' ? '🐳 Best for: Complex reasoning, coding, and logical tasks' : '📚 Best for: Executive summaries, presentations, knowledge synthesis'}
                   </p>
                 </div>
 
