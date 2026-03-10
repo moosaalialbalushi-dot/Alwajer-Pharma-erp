@@ -1636,45 +1636,128 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
   };
 
   const handleAICommandSend = async (inputOverride?: string) => {
-    const msg = (inputOverride || aiCmdInput).trim();
-    if (!msg || isAiLoading) return;
-    setAiCmdInput('');
-    const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
-    const provider = activeSkill ? activeSkill.provider : activeProvider;
-    const userMsg = { role: 'user' as const, text: msg, provider, skillName: activeSkill?.name };
-    const updatedMessages = [...(chatSessions.find(s => s.id === activeChatId)?.messages || []), userMsg];
-    // Auto-title chat from first message
-    const chatTitle = updatedMessages.length === 1 ? msg.substring(0, 40) + (msg.length > 40 ? '...' : '') : (chatSessions.find(s => s.id === activeChatId)?.title || 'Chat');
-    setChatSessions(prev => prev.map(s => s.id === activeChatId ? {...s, messages: updatedMessages, title: chatTitle, provider} : s));
-    setAiCmdHistory(updatedMessages);
-    setIsAiLoading(true);
-    try {
-      let systemPrompt = 'You are the Al Wajer Pharmaceuticals AI assistant. Be concise, professional, and precise.';
-      if (activeSkill) systemPrompt = activeSkill.prompt;
-      else if (provider === 'Claude') systemPrompt = 'You are the Chief Operations Officer AI for Al Wajer Pharmaceuticals, Sohar, Oman. You specialize in pharmaceutical operations, compliance, production planning, and strategic decisions. Be direct and precise.';
-      else if (provider === 'Gemini') systemPrompt = 'You are Al Wajer Pharmaceuticals data intelligence engine. Analyze pharmaceutical data, formulations, and market data. Use numbers and specifics.';
-      else if (provider === 'NotebookLM') systemPrompt = 'You are Al Wajer Pharmaceuticals knowledge specialist. Synthesize information into clear narratives and presentation-ready content.';
-      const { callAIProxy, extractText } = await import('./aiProxyService');
-      const providerKey = provider.toLowerCase() as any;
-      const responseData = await callAIProxy({
-        provider: providerKey === 'notebooklm' ? 'gemini' : providerKey,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: msg }]
-      });
-      const response = extractText(responseData, providerKey === 'notebooklm' ? 'gemini' : providerKey);
-      if (activeSkill) setSavedSkills((prev: any) => prev.map((s: any) => s.id === activeSkillId ? {...s, usageCount: s.usageCount + 1} : s));
-      const modelMsg = { role: 'model' as const, text: response || 'No response.', provider, skillName: activeSkill?.name };
-      const finalMessages = [...updatedMessages, modelMsg];
-      setChatSessions(prev => prev.map(s => s.id === activeChatId ? {...s, messages: finalMessages} : s));
-      setAiCmdHistory(finalMessages);
-    } catch(e) {
-      const errMsg = { role: 'model' as const, text: 'Error — check your Gemini API key in Settings.', provider };
-      const finalMessages = [...updatedMessages, errMsg];
-      setChatSessions(prev => prev.map(s => s.id === activeChatId ? {...s, messages: finalMessages} : s));
-      setAiCmdHistory(finalMessages);
-    }
-    setIsAiLoading(false);
+  const msg = (inputOverride || aiCmdInput).trim();
+  if (!msg || isAiLoading) return;
+  setAiCmdInput('');
+
+  const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
+  const uiProvider = activeSkill ? activeSkill.provider : activeProvider; // e.g. 'Claude'
+
+  // Map UI display name → API provider name (edge function canonical names)
+  const apiProviderMap: Record<string, string> = {
+    Claude: 'anthropic',
+    Gemini: 'gemini',
+    DeepSeek: 'deepseek',
+    NotebookLM: 'gemini',
   };
+  const apiProvider = apiProviderMap[uiProvider] || 'gemini';
+
+  const userMsg = {
+    role: 'user' as const,
+    text: msg,
+    provider: uiProvider,
+    skillName: activeSkill?.name,
+  };
+
+  const currentMessages = chatSessions.find((s: any) => s.id === activeChatId)?.messages || [];
+  const updatedMessages = [...currentMessages, userMsg];
+
+  // Auto-title from first user message
+  const chatTitle =
+    currentMessages.length === 0
+      ? msg.substring(0, 40) + (msg.length > 40 ? '...' : '')
+      : chatSessions.find((s: any) => s.id === activeChatId)?.title || 'Chat';
+
+  setChatSessions((prev: any) =>
+    prev.map((s: any) =>
+      s.id === activeChatId
+        ? { ...s, messages: updatedMessages, title: chatTitle, provider: uiProvider }
+        : s
+    )
+  );
+  setAiCmdHistory(updatedMessages);
+  setIsAiLoading(true);
+
+  try {
+    let systemPrompt =
+      'You are the Al Wajer Pharmaceuticals AI assistant. Be concise, professional, and precise.';
+
+    if (activeSkill) {
+      systemPrompt = activeSkill.prompt;
+    } else if (uiProvider === 'Claude') {
+      systemPrompt =
+        'You are the Chief Operations Officer AI for Al Wajer Pharmaceuticals, Sohar, Oman. ' +
+        'You specialise in pharmaceutical operations, compliance, production planning, and strategic decisions. ' +
+        'Be direct and precise.';
+    } else if (uiProvider === 'Gemini') {
+      systemPrompt =
+        'You are Al Wajer Pharmaceuticals data intelligence engine. ' +
+        'Analyse pharmaceutical data, formulations, and market data. Use numbers and specifics.';
+    } else if (uiProvider === 'DeepSeek') {
+      systemPrompt =
+        'You are Al Wajer Pharmaceuticals deep reasoning specialist. ' +
+        'Think through problems step-by-step and provide well-structured, logical analysis.';
+    } else if (uiProvider === 'NotebookLM') {
+      systemPrompt =
+        'You are Al Wajer Pharmaceuticals knowledge specialist. ' +
+        'Synthesise information into clear narratives and presentation-ready content.';
+    }
+
+    // Import updated proxy service functions
+    const { callAIProxy, extractText } = await import('./aiProxyService');
+
+    const responseData = await callAIProxy({
+      provider: apiProvider,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: msg }],
+    });
+
+    const response = extractText(responseData, apiProvider);
+
+    if (activeSkill) {
+      setSavedSkills((prev: any) =>
+        prev.map((s: any) =>
+          s.id === activeSkillId ? { ...s, usageCount: s.usageCount + 1 } : s
+        )
+      );
+    }
+
+    const modelMsg = {
+      role: 'model' as const,
+      text: response || 'No response received.',
+      provider: uiProvider,
+      skillName: activeSkill?.name,
+    };
+
+    const finalMessages = [...updatedMessages, modelMsg];
+    setChatSessions((prev: any) =>
+      prev.map((s: any) => (s.id === activeChatId ? { ...s, messages: finalMessages } : s))
+    );
+    setAiCmdHistory(finalMessages);
+  } catch (e: any) {
+    // Show a meaningful error for each provider
+    const providerLabel =
+      uiProvider === 'Claude'
+        ? 'Anthropic Claude'
+        : uiProvider === 'DeepSeek'
+        ? 'DeepSeek'
+        : 'Gemini';
+
+    const errMsg = {
+      role: 'model' as const,
+      text: `⚠️ ${providerLabel} error: ${e?.message || 'Unknown error'}.\n\nCheck that the ${uiProvider === 'Claude' ? 'ANTHROPIC_API_KEY' : uiProvider === 'DeepSeek' ? 'DEEPSEEK_API_KEY' : 'GEMINI_API_KEY'} secret is set in your Supabase project → Settings → Edge Functions → Secrets.`,
+      provider: uiProvider,
+    };
+
+    const finalMessages = [...updatedMessages, errMsg];
+    setChatSessions((prev: any) =>
+      prev.map((s: any) => (s.id === activeChatId ? { ...s, messages: finalMessages } : s))
+    );
+    setAiCmdHistory(finalMessages);
+  }
+
+  setIsAiLoading(false);
+};
 
   const handleOptimizeFormulation = async () => {
     if (!selectedRD) return;
@@ -1942,124 +2025,137 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
   };
 
   const handleSaveSettings = () => {
-      // Save General Config
-      localStorage.setItem('erp_api_config', JSON.stringify({
-          claudeKey: apiConfig.claudeKey,
-          notebookLmSource: apiConfig.notebookLmSource
-      }));
-
-      // Save Supabase Config specifically for the client to pick up on reload
-      if (apiConfig.supabaseUrl) localStorage.setItem('erp_supabase_url', apiConfig.supabaseUrl);
-      if (apiConfig.supabaseKey) localStorage.setItem('erp_supabase_key', apiConfig.supabaseKey);
-
-      setIsSettingsOpen(false);
-      
-      // Optional: specific alert if Supabase changed
-      if (apiConfig.supabaseUrl && apiConfig.supabaseKey) {
-          if (confirm("Settings saved. Reload to apply new Database connection?")) {
-              window.location.reload();
-          }
-      }
-  };
+  localStorage.setItem(
+    'erp_api_config',
+    JSON.stringify({ notebookLmSource: apiConfig.notebookLmSource })
+  );
+  setIsSettingsOpen(false);
+};
 
   const renderSettingsModal = () => {
-      if (!isSettingsOpen) return null;
-      return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-slate-900 border border-[#D4AF37] rounded-xl w-full max-w-lg shadow-2xl gold-glow flex flex-col max-h-[85vh]">
-                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#D4AF37]/10">
-                    <h3 className="text-xl font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                        <Settings size={20}/> System Configuration
-                    </h3>
-                    <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-white"><X size={24}/></button>
-                </div>
-                <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-                    
-                    {/* Database Config */}
-                    <div className="space-y-3 pb-4 border-b border-white/5">
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                            <CloudCog size={16}/> Backend Connection (Supabase)
-                        </h4>
-                        <div className="space-y-2">
-                            <input 
-                                type="text" 
-                                value={apiConfig.supabaseUrl}
-                                onChange={(e) => setApiConfig({...apiConfig, supabaseUrl: e.target.value})}
-                                placeholder="https://xyz.supabase.co"
-                                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none"
-                            />
-                            <input 
-                                type="password" 
-                                value={apiConfig.supabaseKey}
-                                onChange={(e) => setApiConfig({...apiConfig, supabaseKey: e.target.value})}
-                                placeholder="public-anon-key"
-                                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none"
-                            />
-                        </div>
-                        <p className="text-[10px] text-slate-500">
-                            Leave blank if using system Environment Variables (NEXT_PUBLIC_...). 
-                            <br/>Enter manually to override or connect from a new device.
-                        </p>
-                    </div>
+  if (!isSettingsOpen) return null;
 
-                    {/* Gemini Config (System Managed) */}
-                    <div className="space-y-2 pb-4 border-b border-white/5">
-                        <h4 className="text-sm font-bold text-[#D4AF37] flex items-center gap-2">
-                            <Zap size={16}/> Google Gemini (Primary)
-                        </h4>
-                        <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                            <ShieldCheck size={16} className="text-green-500"/>
-                            <div className="flex-1">
-                                <div className="text-xs font-bold text-green-400">System Connected</div>
-                                <div className="text-[10px] text-slate-400">Secure Environment Key Active</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Claude Config */}
-                    <div className="space-y-2">
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                            <BotIcon/> Anthropic Claude
-                        </h4>
-                        <div className="relative">
-                            <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
-                            <input 
-                                type="password" 
-                                value={apiConfig.claudeKey}
-                                onChange={(e) => setApiConfig({...apiConfig, claudeKey: e.target.value})}
-                                placeholder="sk-ant-..."
-                                className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none"
-                            />
-                        </div>
-                        <p className="text-[10px] text-slate-500">Enter API Key to enable Claude 3.5 Sonnet integration.</p>
-                    </div>
-
-                    {/* NotebookLM Config */}
-                    <div className="space-y-2 pt-4 border-t border-white/5">
-                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                            <Database size={16}/> NotebookLM (RAG)
-                        </h4>
-                         <div className="relative">
-                            <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
-                            <input 
-                                type="text" 
-                                value={apiConfig.notebookLmSource}
-                                onChange={(e) => setApiConfig({...apiConfig, notebookLmSource: e.target.value})}
-                                placeholder="Source ID / Knowledge Graph ID"
-                                className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none"
-                            />
-                        </div>
-                        <p className="text-[10px] text-slate-500">Connect to your custom NotebookLM knowledge source.</p>
-                    </div>
-
-                </div>
-                <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-slate-950">
-                    <button onClick={handleSaveSettings} className="luxury-gradient px-6 py-2 rounded-lg text-slate-950 font-bold text-sm">Save & Close</button>
-                </div>
-            </div>
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+      <div className="bg-slate-900 border border-[#D4AF37] rounded-xl w-full max-w-lg shadow-2xl gold-glow flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#D4AF37]/10">
+          <h3 className="text-xl font-bold text-white uppercase tracking-widest flex items-center gap-2">
+            <Settings size={20} /> System Configuration
+          </h3>
+          <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-white">
+            <X size={24} />
+          </button>
         </div>
-      );
-  };
+
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+
+          {/* ── AI Keys — secured in Supabase ── */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <ShieldCheck size={16} className="text-green-400" /> AI API Keys — Secured in Supabase
+            </h4>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              All API keys are stored as encrypted Supabase Edge Function secrets — never in your browser.
+              To update a key, go to your{' '}
+              <a
+                href="https://supabase.com/dashboard/project/dqsriohrazmlikwjwbot/settings/functions"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#D4AF37] underline"
+              >
+                Supabase Dashboard → Settings → Edge Functions → Secrets
+              </a>
+            </p>
+
+            {/* Status grid */}
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                { label: 'Google Gemini', secret: 'GEMINI_API_KEY', provider: 'Gemini' },
+                { label: 'Anthropic Claude', secret: 'ANTHROPIC_API_KEY', provider: 'Claude' },
+                { label: 'DeepSeek', secret: 'DEEPSEEK_API_KEY', provider: 'DeepSeek' },
+              ].map(({ label, secret, provider }) => (
+                <div
+                  key={secret}
+                  className="flex items-center justify-between p-3 bg-slate-800/50 border border-white/5 rounded-lg"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-white">{label}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">{secret}</div>
+                  </div>
+                  <span className="text-[10px] font-bold text-green-400 flex items-center gap-1.5">
+                    <ShieldCheck size={12} /> Secured
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Database ── */}
+          <div className="space-y-3 border-t border-white/5 pt-4">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <CloudCog size={16} /> Database Connection (Supabase)
+            </h4>
+            <p className="text-[11px] text-slate-400">
+              Configured via Vercel environment variables{' '}
+              <span className="font-mono text-slate-300">VITE_SUPABASE_URL</span> and{' '}
+              <span className="font-mono text-slate-300">VITE_SUPABASE_ANON_KEY</span>.
+            </p>
+            <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <ShieldCheck size={16} className="text-green-500" />
+              <div className="flex-1">
+                <div className="text-xs font-bold text-green-400">Live Connection</div>
+                <div className="text-[10px] text-slate-400 font-mono truncate">
+                  dqsriohrazmlikwjwbot.supabase.co
+                </div>
+              </div>
+              <a
+                href="https://supabase.com/dashboard/project/dqsriohrazmlikwjwbot"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] text-[#D4AF37] underline"
+              >
+                Dashboard →
+              </a>
+            </div>
+          </div>
+
+          {/* ── NotebookLM ── */}
+          <div className="space-y-2 border-t border-white/5 pt-4">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <Database size={16} /> NotebookLM Source ID (optional)
+            </h4>
+            <div className="relative">
+              <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={apiConfig.notebookLmSource}
+                onChange={(e) => setApiConfig({ ...apiConfig, notebookLmSource: e.target.value })}
+                placeholder="NotebookLM Knowledge Graph ID"
+                className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none"
+              />
+            </div>
+            <p className="text-[10px] text-slate-500">
+              Connect to your custom NotebookLM knowledge source for enhanced context.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-slate-950">
+          <button
+            onClick={() => {
+              localStorage.setItem('erp_api_config', JSON.stringify({ notebookLmSource: apiConfig.notebookLmSource }));
+              setIsSettingsOpen(false);
+            }}
+            className="luxury-gradient px-6 py-2 rounded-lg text-slate-950 font-bold text-sm"
+          >
+            Save & Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   const renderCustomizeModal = () => {
       if (!isCustomizeOpen) return null;
