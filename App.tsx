@@ -20,6 +20,8 @@ import {
   analyzeOperations, chatWithCOO, optimizeFormulation, analyzeImageOrFile, 
   brainstormSession, generateIndustrialDesign, editImage, transcribeAudio, quickInsight
 } from './geminiService';
+import { ImportDataSchema } from './importSchemas';
+import { ImportDataSchema } from './importSchemas';
 import { supabase } from './supabaseClient';
 import { exportToCSV } from './exportUtils';
 
@@ -745,48 +747,67 @@ const App: React.FC = () => {
   };
 
   // NEW: Handle delete with confirmation
-  const handleDelete = (type: string, id: string, name: string) => {
-    showConfirmation('delete', type, name, async () => {
-      switch (type) {
-        case 'inventory':
-          setInventory(prev => prev.filter(item => item.id !== id));
-          await logAction('DELETE', `Deleted inventory item: ${name}`);
-          await supabase.from('inventory').delete().eq('id', id);
-          break;
-        case 'production':
-          setBatches(prev => prev.filter(item => item.id !== id));
-          await logAction('DELETE', `Deleted batch: ${name}`);
-          await supabase.from('production_yields').delete().eq('id', id);
-          break;
-        case 'sales':
-          setOrders(prev => prev.filter(item => item.id !== id));
-          await logAction('DELETE', `Deleted order: ${name}`);
-          await supabase.from('orders').delete().eq('id', id);
-          break;
-        case 'procurement':
-          // Note: vendors state is not mutable in original, needs to be changed to useState
-          await logAction('DELETE', `Deleted vendor: ${name}`);
-          break;
-        case 'accounting':
-          setExpenses(prev => prev.filter(item => item.id !== id));
-          await logAction('DELETE', `Deleted expense: ${name}`);
-          break;
-        case 'hr':
-          setEmployees(prev => prev.filter(item => item.id !== id));
-          await logAction('DELETE', `Deleted employee: ${name}`);
-          break;
-        case 'rd':
-          setRdProjects(prev => prev.filter(item => item.id !== id));
-          await logAction('DELETE', `Deleted R&D project: ${name}`);
-          break;
-      }
-      setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      
-      // Refresh audit logs
-      const { data: logs } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(50);
-      if (logs) setAuditLogs(logs);
+const handleDelete = async (type: string, id: string, name: string) => {
+  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+
+  let previousState;
+  let setState: React.Dispatch<React.SetStateAction<any[]>>;
+  let table: string;
+
+  switch (type) {
+    case 'inventory':
+      previousState = inventory;
+      setState = setInventory;
+      table = 'inventory';
+      break;
+    case 'production':
+      previousState = batches;
+      setState = setBatches;
+      table = 'production_yields';
+      break;
+    case 'sales':
+      previousState = orders;
+      setState = setOrders;
+      table = 'orders';
+      break;
+    case 'accounting':
+      previousState = expenses;
+      setState = setExpenses;
+      table = 'expenses';
+      break;
+    case 'hr':
+      previousState = employees;
+      setState = setEmployees;
+      table = 'employees';
+      break;
+    case 'rd':
+      previousState = rdProjects;
+      setState = setRdProjects;
+      table = 'rd_projects';
+      break;
+    default:
+      return;
+  }
+
+  setState(prev => prev.filter(item => item.id !== id));
+
+  try {
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
+    await logAction('DELETE', `Deleted ${type} item: ${name}`);
+  } catch (error: any) {
+    console.error('Delete failed, rolling back', error);
+    setState(previousState);
+    setUploadProgress({
+      isUploading: false,
+      fileName: '',
+      progress: 0,
+      status: 'error',
+      message: `Delete failed: ${error.message}`
     });
-  };
+    setTimeout(() => setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'uploading', message: '' }), 3000);
+  }
+};
 
   // --- Handlers ---
   
@@ -1801,135 +1822,118 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
 
   // Actual save logic extracted to separate function
   const performSave = async () => {
-    let newItem = { ...modalData };
-    const tempId = `${currentSection.substring(0,3).toUpperCase()}-${Math.floor(Math.random()*1000)}`;
-    
-    try {
-      if (modalType === 'add') {
-        newItem.id = newItem.id || tempId;
-        
-        if (currentSection === 'production') {
-          const payload = {
-            id: newItem.id,
-            product: newItem.product,
-            quantity: Number(newItem.quantity),
-            actual_yield: Number(newItem.actualYield),
-            expected_yield: Number(newItem.expectedYield),
-            status: newItem.status,
-            timestamp: new Date().toISOString(),
-            batch_number: newItem.id,
-            yield_percent: (Number(newItem.actualYield) / Number(newItem.expectedYield)) * 100
-          };
-          setBatches(prev => [...prev, newItem]);
-          await supabase.from('production_yields').insert(payload);
-          await logAction('CREATE', `Created batch: ${newItem.id}`);
-        } else if (currentSection === 'sales') {
-          const payload = {
-            id: newItem.id,
-            s_no: newItem.sNo,
-            invoice_no: newItem.invoiceNo,
-            customer: newItem.customer,
-            country: newItem.country,
-            product: newItem.product,
-            quantity: Number(newItem.quantity),
-            rate_usd: Number(newItem.rateUSD || 0),
-            amount_usd: Number(newItem.amountUSD),
-            amount_omr: Number(newItem.amountOMR),
-            status: newItem.status,
-            payment_method: newItem.paymentMethod || 'LC at Sight',
-            shipping_method: newItem.shippingMethod || 'By Sea',
-            date: newItem.date || new Date().toISOString().split('T')[0]
-          };
-          setOrders(prev => [...prev, newItem]);
-          await supabase.from('orders').insert(payload);
-          await logAction('CREATE', `Created order: ${newItem.id}`);
-        } else if (currentSection === 'inventory') {
-          const payload = {
-            id: newItem.id,
-            s_no: newItem.sNo,
-            name: newItem.name,
-            category: newItem.category,
-            stock: Number(newItem.stock),
-            required_for_orders: Number(newItem.requiredForOrders),
-            balance_to_purchase: Number(newItem.balanceToPurchase),
-            unit: newItem.unit,
-            stock_date: newItem.stockDate
-          };
-          setInventory(prev => [...prev, newItem]);
-          await supabase.from('inventory').insert(payload);
-          await logAction('CREATE', `Added item: ${newItem.name}`);
-        } else if (currentSection === 'accounting') {
-          setExpenses(prev => [...prev, newItem]);
-          // await supabase.from('expenses').insert(newItem);
-          await logAction('CREATE', `Added expense: ${newItem.description}`);
-        } else if (currentSection === 'hr') {
-          setEmployees(prev => [...prev, newItem]);
-          // await supabase.from('employees').insert(newItem);
-          await logAction('CREATE', `Added employee: ${newItem.name}`);
-        } else if (currentSection === 'procurement') {
-          setVendors(prev => [...prev, newItem]);
-          await logAction('CREATE', `Added vendor: ${newItem.name}`);
-        } else if (currentSection === 'bd') {
-          setBdLeads(prev => [...prev, newItem]);
-          await logAction('CREATE', `Added BD Lead: ${newItem.targetMarket || newItem.name || 'Lead'}`);
-        } else if (currentSection === 'samples') {
-          setSamples(prev => [...prev, newItem]);
-          await logAction('CREATE', `Added Sample: ${newItem.product || 'Sample'}`);
-        }
-      } else if (modalType === 'edit') {
-        if (currentSection === 'production') {
-          setBatches(prev => prev.map(b => b.id === newItem.id ? newItem : b));
-          await supabase.from('production_yields').update({
-            product: newItem.product,
-            quantity: Number(newItem.quantity),
-            actual_yield: Number(newItem.actualYield),
-            expected_yield: Number(newItem.expectedYield),
-            status: newItem.status
-          }).eq('id', newItem.id);
-          await logAction('UPDATE', `Updated batch: ${newItem.id}`);
-        } else if (currentSection === 'sales') {
-          setOrders(prev => prev.map(o => o.id === newItem.id ? newItem : o));
-          await supabase.from('orders').update({
-            invoice_no: newItem.invoiceNo,
-            customer: newItem.customer,
-            product: newItem.product,
-            quantity: Number(newItem.quantity),
-            rate_usd: Number(newItem.rateUSD || 0),
-            amount_usd: Number(newItem.amountUSD),
-            status: newItem.status
-          }).eq('id', newItem.id);
-          await logAction('UPDATE', `Updated order: ${newItem.id}`);
-        } else if (currentSection === 'inventory') {
-          setInventory(prev => prev.map(i => i.id === newItem.id ? newItem : i));
-          await supabase.from('inventory').update({
-            name: newItem.name,
-            stock: Number(newItem.stock),
-            required_for_orders: Number(newItem.requiredForOrders),
-            balance_to_purchase: Number(newItem.balanceToPurchase)
-          }).eq('id', newItem.id);
-          await logAction('UPDATE', `Updated item: ${newItem.name}`);
-        } else if (currentSection === 'accounting') {
-          setExpenses(prev => prev.map(e => e.id === newItem.id ? newItem : e));
-          // await supabase.from('expenses').update(newItem).eq('id', newItem.id);
-        } else if (currentSection === 'hr') {
-          setEmployees(prev => prev.map(e => e.id === newItem.id ? newItem : e));
-          // await supabase.from('employees').update(newItem).eq('id', newItem.id);
-        }
-      }
-    } catch (err) {
-      console.error("Save failed:", err);
-      // Display error as a toast notification instead of alert
-      setUploadProgress({
-        isUploading: false,
-        fileName: 'Error',
-        progress: 0,
-        status: 'error',
-        message: 'Database error: Check your Supabase configuration.'
-      });
-    }
+  let newItem = { ...modalData };
+  const tempId = `${currentSection.substring(0,3).toUpperCase()}-${Math.floor(Math.random()*1000)}`;
+  if (modalType === 'add') newItem.id = newItem.id || tempId;
 
-    setIsModalOpen(false);
-  };
+  let previousState, setState, table, payload;
+  const section = currentSection;
+
+  if (section === 'inventory') {
+    previousState = inventory;
+    setState = setInventory;
+    table = 'inventory';
+    payload = {
+      id: newItem.id,
+      s_no: newItem.sNo,
+      name: newItem.name,
+      category: newItem.category,
+      stock: Number(newItem.stock),
+      required_for_orders: Number(newItem.requiredForOrders) || 0,
+      balance_to_purchase: Number(newItem.balanceToPurchase) || 0,
+      unit: newItem.unit,
+      stock_date: newItem.stockDate || new Date().toLocaleDateString()
+    };
+  } else if (section === 'production') {
+    previousState = batches;
+    setState = setBatches;
+    table = 'production_yields';
+    payload = {
+      id: newItem.id,
+      product: newItem.product,
+      quantity: Number(newItem.quantity),
+      actual_yield: Number(newItem.actualYield),
+      expected_yield: Number(newItem.expectedYield),
+      status: newItem.status,
+      timestamp: new Date().toISOString(),
+      dispatch_date: newItem.dispatchDate
+    };
+  } else if (section === 'sales') {
+    previousState = orders;
+    setState = setOrders;
+    table = 'orders';
+    payload = {
+      id: newItem.id,
+      invoice_no: newItem.invoiceNo,
+      date: newItem.date,
+      customer: newItem.customer,
+      country: newItem.country,
+      product: newItem.product,
+      quantity: Number(newItem.quantity),
+      rate_usd: Number(newItem.rateUSD) || 0,
+      amount_usd: Number(newItem.amountUSD),
+      amount_omr: Number(newItem.amountOMR),
+      status: newItem.status
+    };
+  } else if (section === 'accounting') {
+    previousState = expenses;
+    setState = setExpenses;
+    table = 'expenses';
+    payload = {
+      id: newItem.id,
+      description: newItem.description,
+      category: newItem.category,
+      amount: Number(newItem.amount),
+      status: newItem.status,
+      due_date: newItem.dueDate
+    };
+  } else if (section === 'hr') {
+    previousState = employees;
+    setState = setEmployees;
+    table = 'employees';
+    payload = {
+      id: newItem.id,
+      name: newItem.name,
+      role: newItem.role,
+      department: newItem.department,
+      salary: Number(newItem.salary),
+      status: newItem.status,
+      join_date: newItem.joinDate
+    };
+  } else {
+    return;
+  }
+
+  if (modalType === 'add') {
+    setState(prev => [...prev, newItem]);
+  } else {
+    setState(prev => prev.map(item => item.id === newItem.id ? newItem : item));
+  }
+
+  try {
+    if (modalType === 'add') {
+      const { error } = await supabase.from(table).insert(payload);
+      if (error) throw error;
+      await logAction('CREATE', `Created ${section} item: ${newItem.name || newItem.id}`);
+    } else {
+      const { error } = await supabase.from(table).update(payload).eq('id', newItem.id);
+      if (error) throw error;
+      await logAction('UPDATE', `Updated ${section} item: ${newItem.name || newItem.id}`);
+    }
+  } catch (error: any) {
+    console.error('Save failed, rolling back', error);
+    setState(previousState);
+    setUploadProgress({
+      isUploading: false,
+      fileName: '',
+      progress: 0,
+      status: 'error',
+      message: `Save failed: ${error.message}`
+    });
+    setTimeout(() => setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'uploading', message: '' }), 3000);
+  }
+  setIsModalOpen(false);
+};
   
   const toggleBatchExpansion = (id: string) => {
     setExpandedBatchId(expandedBatchId === id ? null : id);
@@ -2052,37 +2056,24 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
 
           {/* ── AI Keys — secured in Supabase ── */}
           <div className="space-y-3">
-            <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <ShieldCheck size={16} className="text-green-400" /> AI API Keys — Secured in Supabase
-            </h4>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              All API keys are stored as encrypted Supabase Edge Function secrets — never in your browser.
-              To update a key, go to your{' '}
-              <a
-                href="https://supabase.com/dashboard/project/dqsriohrazmlikwjwbot/settings/functions"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#D4AF37] underline"
-              >
-                Supabase Dashboard → Settings → Edge Functions → Secrets
-              </a>
-            </p>
-
-            {/* Status grid */}
-            <div className="grid grid-cols-1 gap-2">
-              {[
-                { label: 'Google Gemini', secret: 'GEMINI_API_KEY', provider: 'Gemini' },
-                { label: 'Anthropic Claude', secret: 'ANTHROPIC_API_KEY', provider: 'Claude' },
-                { label: 'DeepSeek', secret: 'DEEPSEEK_API_KEY', provider: 'DeepSeek' },
-              ].map(({ label, secret, provider }) => (
-                <div
-                  key={secret}
-                  className="flex items-center justify-between p-3 bg-slate-800/50 border border-white/5 rounded-lg"
-                >
-                  <div>
-                    <div className="text-xs font-bold text-white">{label}</div>
-                    <div className="text-[10px] text-slate-500 font-mono">{secret}</div>
-                  </div>
+  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+    <ShieldCheck size={16} className="text-green-400" /> API Keys — Secured in Vercel
+  </h4>
+  <p className="text-[11px] text-slate-400 leading-relaxed">
+    All API keys are stored as encrypted environment variables in Vercel — never in the browser.
+    To update a key, go to your Vercel project dashboard → Settings → Environment Variables.
+  </p>
+  <div className="grid grid-cols-1 gap-2">
+    {['Gemini', 'Claude', 'DeepSeek'].map((provider) => (
+      <div key={provider} className="flex items-center justify-between p-3 bg-slate-800/50 border border-white/5 rounded-lg">
+        <div className="text-xs font-bold text-white">{provider}</div>
+        <span className="text-[10px] font-bold text-green-400 flex items-center gap-1.5">
+          <ShieldCheck size={12} /> Secured in Vercel
+        </span>
+      </div>
+    ))}
+  </div>
+</div>
                   <span className="text-[10px] font-bold text-green-400 flex items-center gap-1.5">
                     <ShieldCheck size={12} /> Secured
                   </span>
@@ -4760,52 +4751,48 @@ const renderProcurement = () => {
       </aside>
 
       <main className="flex-1 flex flex-col bg-[#020617] min-h-screen md:ml-60">
-        {/* RESPONSIVE HEADER */}
-        <header className="sticky top-0 h-16 sm:h-20 bg-slate-950/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-8 flex items-center justify-between z-10 shrink-0">
-          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-            <button 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-slate-400 hover:text-white -ml-2"
-            >
-              <Menu size={24} />
-            </button>
-            <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight truncate">
-              {activeTab === 'history' ? 'AUDIT HISTORY' : activeTab.toUpperCase() + ' HUB'}
-            </h1>
-            <div className="hidden sm:flex items-center gap-1.5 ml-4 px-2 py-1 rounded-full bg-slate-900 border border-white/5">
-              <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                {dbStatus === 'connected' ? 'Live DB' : 'Offline'}
-              </span>
-            </div>
-          </div>
-          <button onClick={handleGlobalAction} className="luxury-gradient px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-950 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shrink-0 ml-2">
-            <Upload size={16} className="sm:w-[18px] sm:h-[18px]" />
-            <span className="hidden sm:inline">GLOBAL SYNC</span>
-            <span className="sm:hidden">SYNC</span>
-          </button>
-          <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'global')} />
-        </header>
-
-        {/* RESPONSIVE CONTENT AREA */}
-        <div className="p-4 sm:p-6 lg:p-8">
-          {activeTab === 'dashboard' && renderDashboard()}
-          {activeTab === 'production' && renderProduction()}
-          {activeTab === 'inventory' && renderInventory()}
-          {activeTab === 'sales' && renderSales()}
-          {activeTab === 'procurement' && renderProcurement()}
-          {activeTab === 'accounting' && renderAccounting()}
-          {activeTab === 'hr' && renderHRAdmin()}
-          {activeTab === 'rd' && renderRDLab()}
-          {activeTab === 'industrial' && (() => { setActiveTab('ai' as any); setAiCmdTab('industrial'); return null; })()}
-          {activeTab === 'brainstorm' && (() => { setActiveTab('ai' as any); setAiCmdTab('brainstorm'); return null; })()}
-          {activeTab === 'ai' && renderAIOps()}
-          {activeTab === 'bd' && renderBD()}
-          {activeTab === 'samples' && renderSamples()}
-          {activeTab === 'costing' && renderCalculator()}
-          {activeTab === 'history' && renderHistory()}
-        </div>
-      </main>
+  <header className="sticky top-0 h-16 sm:h-20 bg-slate-950/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-8 flex items-center justify-between z-10 shrink-0">
+    {/* RESPONSIVE HEADER */}
+    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+      <button 
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="p-2 text-slate-400 hover:text-white -ml-2"
+      >
+        <Menu size={24} />
+      </button>
+      <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight truncate">
+        {activeTab === 'history' ? 'AUDIT HISTORY' : activeTab.toUpperCase() + ' HUB'}
+      </h1>
+      <div className="hidden sm:flex items-center gap-1.5 ml-4 px-2 py-1 rounded-full bg-slate-900 border border-white/5">
+        <div className={`w-1.5 h-1.5 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+          {dbStatus === 'connected' ? 'Live DB' : 'Offline'}
+        </span>
+      </div>
+    </div>
+    <button onClick={handleGlobalAction} className="luxury-gradient px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-slate-950 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shrink-0 ml-2">
+      <Upload size={16} className="sm:w-[18px] sm:h-[18px]" />
+      <span className="hidden sm:inline">GLOBAL SYNC</span>
+      <span className="sm:hidden">SYNC</span>
+    </button>
+    <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'global')} />
+  </header>
+  <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+    {activeTab === 'dashboard' && renderDashboard()}
+    {activeTab === 'production' && renderProduction()}
+    {activeTab === 'inventory' && renderInventory()}
+    {activeTab === 'sales' && renderSales()}
+    {activeTab === 'procurement' && renderProcurement()}
+    {activeTab === 'accounting' && renderAccounting()}
+    {activeTab === 'hr' && renderHRAdmin()}
+    {activeTab === 'rd' && renderRDLab()}
+    {activeTab === 'ai' && renderAIOps()}
+    {activeTab === 'bd' && renderBD()}
+    {activeTab === 'samples' && renderSamples()}
+    {activeTab === 'costing' && renderCalculator()}
+    {activeTab === 'history' && renderHistory()}
+  </div>
+</main>
 
       {/* Menu Overlay - closes sidebar when tapping outside */}
       {isMobileMenuOpen && (
