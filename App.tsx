@@ -223,6 +223,33 @@ const App: React.FC = () => {
   });
   const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'DeepSeek' | 'NotebookLM'>('Gemini');
 
+  // Per-provider model selection
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
+    Gemini: 'gemini-2.0-flash',
+    Claude: 'claude-sonnet-4-6',
+    DeepSeek: 'deepseek-chat',
+  });
+  const PROVIDER_MODELS: Record<string, { id: string; label: string; note: string }[]> = {
+    Gemini:   [
+      { id: 'gemini-2.0-flash',                    label: 'Gemini 2.0 Flash',    note: 'Fast — default'       },
+      { id: 'gemini-2.5-pro',                      label: 'Gemini 2.5 Pro',      note: 'Deep analysis'        },
+    ],
+    Claude:   [
+      { id: 'claude-haiku-4-5-20251001',           label: 'Claude Haiku',        note: 'Fast'                 },
+      { id: 'claude-sonnet-4-6',                   label: 'Claude Sonnet',       note: 'Balanced — default'   },
+      { id: 'claude-opus-4-6',                     label: 'Claude Opus',         note: 'Highest quality'      },
+    ],
+    DeepSeek: [
+      { id: 'deepseek-chat',                       label: 'DeepSeek Chat',       note: 'Fast'                 },
+      { id: 'deepseek-reasoner',                   label: 'DeepSeek R1',         note: 'Chain-of-thought'     },
+    ],
+  };
+
+  // Triple validation chain state
+  const [tripleChainInput, setTripleChainInput] = useState('');
+  const [tripleChainResult, setTripleChainResult] = useState<any>(null);
+  const [tripleChainLoading, setTripleChainLoading] = useState(false);
+
   // App State
   const [selectedRD, setSelectedRD] = useState<RDProject | null>(CALC_RD[0]);
   const [insights, setInsights] = useState<COOInsight[]>([]);
@@ -274,7 +301,7 @@ const App: React.FC = () => {
   const [brainstormInput, setBrainstormInput] = useState('');
 
   // AI Command Center State
-  const [aiCmdTab, setAiCmdTab] = useState<'chat'|'industrial'|'brainstorm'|'skills'>('chat');
+  const [aiCmdTab, setAiCmdTab] = useState<'chat'|'industrial'|'brainstorm'|'skills'|'triple'>('chat');
   const [savedSkills, setSavedSkills] = useState<{id:string, name:string, provider:'Claude'|'Gemini'|'NotebookLM', description:string, prompt:string, category:string, usageCount:number, createdAt:string}[]>(() => {
     try {
       const AI_STUDIO_SKILLS = [
@@ -1739,6 +1766,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
       provider: apiProvider,
       system: systemPrompt,
       messages: [{ role: 'user', content: msg }],
+      model: selectedModels[uiProvider] ?? undefined,
     });
 
     const response = extractText(responseData, apiProvider);
@@ -1788,7 +1816,24 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
   setIsAiLoading(false);
 };
 
-  const handleOptimizeFormulation = async () => {
+  const handleTripleChain = async (inputOverride?: string) => {
+    const query = (inputOverride || tripleChainInput).trim();
+    if (!query || tripleChainLoading) return;
+    setTripleChainInput('');
+    setTripleChainLoading(true);
+    setTripleChainResult(null);
+    try {
+      const { runTripleValidation } = await import('./tripleValidation');
+      const result = await runTripleValidation(query, '', 'pharma');
+      setTripleChainResult(result);
+    } catch (e: any) {
+      setTripleChainResult({ error: e?.message || 'Chain failed. Check all 3 API keys are set in Vercel.' });
+    } finally {
+      setTripleChainLoading(false);
+    }
+  };
+
+
     if (!selectedRD) return;
     setIsAiLoading(true);
     try {
@@ -3745,8 +3790,8 @@ const renderProcurement = () => {
                     onChange={(e) => setActiveProvider(e.target.value as any)}
                     className="bg-transparent text-xs text-[#D4AF37] font-bold focus:outline-none"
                  >
-                     <option value="Gemini">Gemini 3 Pro</option>
-                     <option value="Claude">Claude 3.5</option>
+                     <option value="Gemini">Gemini 2.0 Flash</option>
+                     <option value="Claude">Claude Sonnet</option>
                  </select>
               </div>
           </div>
@@ -3873,7 +3918,7 @@ const renderProcurement = () => {
                     onChange={(e) => setActiveProvider(e.target.value as any)}
                     className="bg-transparent text-xs text-[#D4AF37] font-bold focus:outline-none"
                  >
-                     <option value="Gemini">Gemini 3 Pro</option>
+                     <option value="Gemini">Gemini 2.0 Flash</option>
                      <option value="NotebookLM">NotebookLM</option>
                  </select>
               </div>
@@ -4114,7 +4159,7 @@ const renderProcurement = () => {
             <BrainCircuit className="text-[#F4C430]" size={20}/> AI Command Center
           </h2>
           <div className="flex gap-1 bg-slate-900 border border-white/10 rounded-xl p-1">
-            {([['chat','💬 Chat'],['industrial','🏭 Industrial'],['brainstorm','⚡ Brainstorm'],['skills','🛠 Skills']] as const).map(([tab, label]) => (
+            {([['chat','💬 Chat'],['industrial','🏭 Industrial'],['brainstorm','⚡ Brainstorm'],['skills','🛠 Skills'],['triple','🔁 Triple']] as const).map(([tab, label]) => (
               <button key={tab} onClick={() => setAiCmdTab(tab as any)}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all
                   ${aiCmdTab === tab ? 'bg-[#D4AF37] text-slate-950' : 'text-slate-400 hover:text-white'}`}>
@@ -4194,6 +4239,23 @@ const renderProcurement = () => {
                   + skills
                 </button>
               </div>
+              {/* Model selector — shown when a real provider (not NotebookLM) is active */}
+              {!activeSkillId && activeProvider !== 'NotebookLM' && PROVIDER_MODELS[activeProvider] && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/30 border border-white/5 rounded-lg shrink-0">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Model:</span>
+                  {PROVIDER_MODELS[activeProvider].map(m => (
+                    <button key={m.id}
+                      onClick={() => setSelectedModels(prev => ({ ...prev, [activeProvider]: m.id }))}
+                      className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-all flex items-center gap-1
+                        ${selectedModels[activeProvider] === m.id
+                          ? (activeProvider === 'Claude' ? 'bg-orange-500/15 border-orange-500/40 text-orange-300' : activeProvider === 'Gemini' ? 'bg-blue-500/15 border-blue-500/40 text-blue-300' : 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300')
+                          : 'border-white/10 text-slate-500 hover:text-white hover:border-white/20'}`}>
+                      {m.label}
+                      <span className="text-[9px] opacity-60 font-normal">{m.note}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {activeSkill && (
                 <div className={`px-3 py-1.5 rounded-lg border text-xs flex items-center gap-2 shrink-0 ${providerBg[activeSkill.provider]}`}>
                   <span className={`font-bold text-[11px] ${providerColors[activeSkill.provider]}`}>Skill: {activeSkill.name}</span>
@@ -4262,6 +4324,176 @@ const renderProcurement = () => {
             TAB: BRAINSTORM
         ══════════════════════════════════════════ */}
         {aiCmdTab === 'brainstorm' && renderBrainstorming()}
+
+        {/* ══════════════════════════════════════════
+            TAB: TRIPLE VALIDATION
+        ══════════════════════════════════════════ */}
+        {aiCmdTab === 'triple' && (
+          <div className="space-y-4 animate-fadeIn">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  🔁 Triple Validation Chain
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Gemini initiates → Claude validates → DeepSeek R1 confirms
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-400 font-bold">✨ Gemini 2.0 Flash</div>
+                <div className="px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded text-[10px] text-orange-400 font-bold">🤖 Claude Sonnet</div>
+                <div className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded text-[10px] text-cyan-400 font-bold">🐳 DeepSeek R1</div>
+              </div>
+            </div>
+
+            {/* Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tripleChainInput}
+                onChange={e => setTripleChainInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleTripleChain()}
+                placeholder="Enter your query — all 3 AIs will validate the answer..."
+                className="flex-1 bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-[#D4AF37] focus:outline-none"
+                disabled={tripleChainLoading}
+              />
+              <button
+                onClick={() => handleTripleChain()}
+                disabled={!tripleChainInput.trim() || tripleChainLoading}
+                className="bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors disabled:opacity-40 flex items-center gap-2 shrink-0"
+              >
+                {tripleChainLoading ? <><Loader2 className="animate-spin" size={14}/> Running chain...</> : <>Run Chain</>}
+              </button>
+            </div>
+
+            {/* Loading state — show which step is running */}
+            {tripleChainLoading && (
+              <div className="border border-white/10 rounded-xl p-6 bg-slate-900/50">
+                <div className="flex flex-col gap-3">
+                  {[
+                    { label: 'Step 1 — Gemini 2.0 Flash generating draft...', color: 'text-blue-400' },
+                    { label: 'Step 2 — Claude Sonnet validating response...', color: 'text-orange-400' },
+                    { label: 'Step 3 — DeepSeek R1 performing final confirmation...', color: 'text-cyan-400' },
+                  ].map((s, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Loader2 className={`animate-spin shrink-0 ${s.color}`} size={13}/>
+                      <span className={`text-xs ${s.color}`}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-600 mt-4">All 3 calls run server-side in sequence — this takes 15–45 seconds</p>
+              </div>
+            )}
+
+            {/* Error state */}
+            {tripleChainResult?.error && (
+              <div className="border border-red-500/30 rounded-xl p-4 bg-red-500/5">
+                <p className="text-sm text-red-400 font-bold mb-1">Chain failed</p>
+                <p className="text-xs text-red-300">{tripleChainResult.error}</p>
+                <p className="text-[10px] text-slate-500 mt-2">Make sure ANTHROPIC_API_KEY, GEMINI_API_KEY, and DEEPSEEK_API_KEY are all set in Vercel → Settings → Environment Variables</p>
+              </div>
+            )}
+
+            {/* Results — 3 columns */}
+            {tripleChainResult && !tripleChainResult.error && (() => {
+              const { chain } = tripleChainResult;
+              const verdictColors: Record<string, string> = {
+                'APPROVED': 'text-green-400 bg-green-500/10 border-green-500/30',
+                'APPROVED WITH CORRECTIONS': 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30',
+                'REJECTED': 'text-red-400 bg-red-500/10 border-red-500/30',
+                'UNKNOWN': 'text-slate-400 bg-slate-500/10 border-slate-500/30',
+              };
+              const getVerdict = (text: string) => {
+                if (text.includes('VERDICT: APPROVED WITH CORRECTIONS')) return 'APPROVED WITH CORRECTIONS';
+                if (text.includes('VERDICT: APPROVED')) return 'APPROVED';
+                if (text.includes('VERDICT: REJECTED')) return 'REJECTED';
+                return 'UNKNOWN';
+              };
+              const getFinalAnswer = (text: string) => {
+                const idx = text.indexOf('FINAL ANSWER:');
+                return idx !== -1 ? text.slice(idx + 13).trim() : text;
+              };
+              const getConsensus = (text: string) => {
+                const t = text.toLowerCase();
+                if (t.includes('consensus: yes')) return 'yes';
+                if (t.includes('consensus: partial')) return 'partial';
+                if (t.includes('consensus: no')) return 'no';
+                return 'unknown';
+              };
+              const verdict = getVerdict(chain.validator.response);
+              const consensus = getConsensus(chain.finalValidator.response);
+              return (
+                <div className="space-y-4">
+                  {/* Summary bar */}
+                  <div className="flex items-center gap-3 p-3 bg-slate-900/70 border border-white/10 rounded-xl">
+                    <div className="flex-1">
+                      <p className="text-[10px] text-slate-500 uppercase font-bold">Query</p>
+                      <p className="text-sm text-white mt-0.5 truncate">{tripleChainResult.query}</p>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold shrink-0 ${verdictColors[verdict] || verdictColors['UNKNOWN']}`}>
+                      {verdict}
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold shrink-0 ${consensus === 'yes' ? 'text-green-400 bg-green-500/10 border-green-500/30' : consensus === 'partial' ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' : 'text-slate-400 bg-slate-500/10 border-slate-500/30'}`}>
+                      Consensus: {consensus}
+                    </div>
+                  </div>
+
+                  {/* Three response panels */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    {/* Initiator */}
+                    <div className="border border-blue-500/20 rounded-xl bg-slate-900/50 flex flex-col overflow-hidden">
+                      <div className="px-3 py-2 bg-blue-500/10 border-b border-blue-500/20 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-400 shrink-0"/>
+                        <span className="text-[11px] font-bold text-blue-300">Step 1 — Initiator</span>
+                        <span className="text-[9px] text-blue-500 ml-auto">{chain.initiator.provider}</span>
+                      </div>
+                      <div className="p-3 flex-1 overflow-y-auto max-h-72 custom-scrollbar">
+                        <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{chain.initiator.response}</p>
+                      </div>
+                    </div>
+
+                    {/* Validator */}
+                    <div className="border border-orange-500/20 rounded-xl bg-slate-900/50 flex flex-col overflow-hidden">
+                      <div className="px-3 py-2 bg-orange-500/10 border-b border-orange-500/20 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0"/>
+                        <span className="text-[11px] font-bold text-orange-300">Step 2 — Validator</span>
+                        <span className="text-[9px] text-orange-500 ml-auto">{chain.validator.provider}</span>
+                      </div>
+                      <div className="p-3 flex-1 overflow-y-auto max-h-72 custom-scrollbar">
+                        <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{chain.validator.response}</p>
+                      </div>
+                    </div>
+
+                    {/* Final validator */}
+                    <div className="border border-cyan-500/20 rounded-xl bg-slate-900/50 flex flex-col overflow-hidden">
+                      <div className="px-3 py-2 bg-cyan-500/10 border-b border-cyan-500/20 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"/>
+                        <span className="text-[11px] font-bold text-cyan-300">Step 3 — Final validator</span>
+                        <span className="text-[9px] text-cyan-500 ml-auto">{chain.finalValidator.provider}</span>
+                      </div>
+                      <div className="p-3 flex-1 overflow-y-auto max-h-72 custom-scrollbar">
+                        <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{chain.finalValidator.response}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Final answer callout */}
+                  <div className="border border-[#D4AF37]/40 rounded-xl bg-[#D4AF37]/5 p-4">
+                    <p className="text-[10px] text-[#D4AF37] uppercase font-bold tracking-wide mb-2">Confirmed final answer</p>
+                    <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">{getFinalAnswer(chain.finalValidator.response)}</p>
+                    <button
+                      onClick={() => navigator.clipboard?.writeText(getFinalAnswer(chain.finalValidator.response))}
+                      className="mt-3 text-[10px] text-[#D4AF37] hover:text-white border border-[#D4AF37]/30 hover:border-[#D4AF37] rounded px-3 py-1 transition-colors"
+                    >
+                      Copy answer
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════
             TAB: SKILLS STORE
@@ -4784,6 +5016,7 @@ const renderProcurement = () => {
     {activeTab === 'accounting' && renderAccounting()}
     {activeTab === 'hr' && renderHRAdmin()}
     {activeTab === 'rd' && renderRDLab()}
+    {activeTab === 'industrial' && renderIndustrialStudio()}
     {activeTab === 'ai' && renderAIOps()}
     {activeTab === 'bd' && renderBD()}
     {activeTab === 'samples' && renderSamples()}
