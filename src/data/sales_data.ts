@@ -1,171 +1,23 @@
-export const salesData = [
-  {
-    "invoice_no": "AI-136",
-    "customer": "Amson",
-    "country": "Unknown",
-    "product": "Omeprazole 8.5%",
-    "quantity": 1000,
-    "amount_usd": 12500,
-    "amount_omr": 0,
-    "status": "Existing Orders",
-    "date": "2026-02-27",
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AI-708",
-    "customer": "Ferozsons",
-    "country": "Unknown",
-    "product": "Esomeprazole 22.5%",
-    "quantity": 6500,
-    "amount_usd": 185250,
-    "amount_omr": 0,
-    "status": "Existing Orders",
-    "date": "2026-02-27",
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AI-640",
-    "customer": "Ferozsons",
-    "country": "Unknown",
-    "product": "Dexlansoprazole 22.5%",
-    "quantity": 2200,
-    "amount_usd": 121000,
-    "amount_omr": 0,
-    "status": "Existing Orders",
-    "date": "2026-02-27",
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-02-26",
-    "customer": "Ferozsons",
-    "country": "Unknown",
-    "product": "Omeprazole 8.5%",
-    "quantity": 4500,
-    "amount_usd": 31000,
-    "amount_omr": 0,
-    "status": "Going to Dispatch",
-    "date": "2026-02-27",
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-02-26",
-    "customer": "Ferozsons",
-    "country": "Unknown",
-    "product": "Omeprazole 12.5%",
-    "quantity": 2000,
-    "amount_usd": 20000,
-    "amount_omr": 0,
-    "status": "Going to Dispatch",
-    "date": "2026-02-27",
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-26",
-    "customer": "UBSA",
-    "country": "Lebanon",
-    "product": "Esomeprazole ec 8.5%",
-    "quantity": 2000,
-    "amount_usd": 12000,
-    "amount_omr": 0,
-    "status": "Existing Orders",
-    "date": "2026-02-28",
-    "payment_method": "TT in Advance",
-    "shipping_method": "FOB"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "Diclofenac Sodium SR Pellets 50mg & Vitamins \u2013 B1,B6, & B12",
-    "quantity": 250,
-    "amount_usd": 4750,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "Tamsulosine HCL SR Pellets 0.4 mg + Dutasteride IR Pellets 0.5mg",
-    "quantity": 250,
-    "amount_usd": 13500,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "Dex lansoprazole Pellets 22.5%",
-    "quantity": 250,
-    "amount_usd": 14500,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "D3 Vitamin 10k iu",
-    "quantity": 200,
-    "amount_usd": 3000,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "D3 Vitamin 25k iu",
-    "quantity": 200,
-    "amount_usd": 3600,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "D3 Vitamin 50k",
-    "quantity": 200,
-    "amount_usd": 4400,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  },
-  {
-    "invoice_no": "AWP/INV-56-25",
-    "customer": "UBSA Pharmaceutical Industries",
-    "country": "Unknown",
-    "product": "Mebeverine HCl SR pellets 80.0%",
-    "quantity": 200,
-    "amount_usd": 14000,
-    "amount_omr": 0,
-    "status": "Pending",
-    "date": NaN,
-    "payment_method": "LC at Sight",
-    "shipping_method": "By Sea"
-  }
+// src/data/sales_data.ts
+export interface SalesRow {
+  customer: string;
+  product: string;
+  quantity_kg: number;
+  rate_usd: number;
+  amount_usd: number;
+  status: string;
+  date: string;
+}
+
+export const salesData: SalesRow[] = [
+  { customer: 'FEROZSONS',       product: 'Esomeprazole EC Pellets 22.5%', quantity_kg: 5000, rate_usd: 24, amount_usd: 120000, status: 'Pending',    date: '2025-01-19' },
+  { customer: 'FEROZSONS',       product: 'Omeprazole Pellets 8.5%',       quantity_kg: 3000, rate_usd: 14, amount_usd: 42000,  status: 'Shipped',    date: '2025-02-10' },
+  { customer: 'GULF PHARMA',     product: 'Lansoprazole EC Pellets',        quantity_kg: 2000, rate_usd: 32, amount_usd: 64000,  status: 'Pending',    date: '2025-02-15' },
+  { customer: 'AL NAHDI',        product: 'Esomeprazole EC Pellets 22.5%', quantity_kg: 4000, rate_usd: 25, amount_usd: 100000, status: 'Processing', date: '2025-03-01' },
+  { customer: 'IQVIA HEALTH',    product: 'Pantoprazole Pellets',           quantity_kg: 1500, rate_usd: 28, amount_usd: 42000,  status: 'Pending',    date: '2025-03-10' },
+  { customer: 'TABUK PHARMA',    product: 'Omeprazole Pellets 8.5%',       quantity_kg: 6000, rate_usd: 13, amount_usd: 78000,  status: 'New Expected', date: '2025-03-20' },
+  { customer: 'JULPHAR',         product: 'Esomeprazole EC Pellets 22.5%', quantity_kg: 3500, rate_usd: 24, amount_usd: 84000,  status: 'Pending',    date: '2025-04-01' },
+  { customer: 'BAHWAN PHARMA',   product: 'Lansoprazole EC Pellets',        quantity_kg: 1000, rate_usd: 33, amount_usd: 33000,  status: 'Processing', date: '2025-04-15' },
+  { customer: 'FEROZSONS',       product: 'Pantoprazole Pellets',           quantity_kg: 2500, rate_usd: 27, amount_usd: 67500,  status: 'Pending',    date: '2025-05-01' },
+  { customer: 'GULF PHARMA',     product: 'Esomeprazole EC Pellets 22.5%', quantity_kg: 2000, rate_usd: 25, amount_usd: 50000,  status: 'Shipped',    date: '2025-05-10' },
 ];

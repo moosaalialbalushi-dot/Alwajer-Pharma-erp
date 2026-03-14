@@ -20,8 +20,7 @@ import {
   analyzeOperations, chatWithCOO, optimizeFormulation, analyzeImageOrFile, 
   brainstormSession, generateIndustrialDesign, editImage, transcribeAudio, quickInsight
 } from './geminiService';
-import { ImportDataSchema } from './importSchemas';
-import { ImportDataSchema } from './importSchemas';
+import type { ImportDataSchema } from './importSchemas';
 import { supabase } from './supabaseClient';
 import { exportToCSV } from './exportUtils';
 
@@ -479,7 +478,7 @@ const App: React.FC = () => {
   const [aiCmdHistory, setAiCmdHistory] = useState<{role:'user'|'model', text:string, provider:string, skillName?:string}[]>([]);
 
   // Inventory State
-  const [inventoryTab, setInventoryTab] = useState<'raw' | 'finished'>('raw');
+  const [inventoryTab, setInventoryTab] = useState<'raw' | 'packing' | 'spares' | 'finished'>('raw');
 
   // R&D State
   const [rdSearch, setRdSearch] = useState('');
@@ -2074,13 +2073,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     ))}
   </div>
 </div>
-                  <span className="text-[10px] font-bold text-green-400 flex items-center gap-1.5">
-                    <ShieldCheck size={12} /> Secured
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+
 
           {/* ── Database ── */}
           <div className="space-y-3 border-t border-white/5 pt-4">
@@ -2134,10 +2127,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
 
         <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-slate-950">
           <button
-            onClick={() => {
-              localStorage.setItem('erp_api_config', JSON.stringify({ notebookLmSource: apiConfig.notebookLmSource }));
-              setIsSettingsOpen(false);
-            }}
+            onClick={handleSaveSettings}
             className="luxury-gradient px-6 py-2 rounded-lg text-slate-950 font-bold text-sm"
           >
             Save & Close

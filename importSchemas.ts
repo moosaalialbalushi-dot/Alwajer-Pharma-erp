@@ -1,28 +1,33 @@
-import { z } from 'zod';
+// importSchemas.ts
+// NOTE: App.tsx was importing this file twice — remove the duplicate import line.
 
-export const InventoryItemSchema = z.object({
-  sNo: z.string().optional(),
-  name: z.string(),
-  category: z.enum(['API', 'Excipient', 'Packing', 'Finished', 'Spare']),
-  requiredForOrders: z.number().optional(),
-  stock: z.number(),
-  unit: z.string().optional(),
-  stockDate: z.string().optional(),
-});
-
-export const OrderSchema = z.object({
-  invoiceNo: z.string(),
-  date: z.string().optional(),
-  customer: z.string(),
-  country: z.string().optional(),
-  product: z.string(),
-  quantity: z.number(),
-  rateUSD: z.number().optional(),
-  amountUSD: z.number(),
-  status: z.string().optional(),
-});
-
-export const ImportDataSchema = z.object({
-  inventory: z.array(InventoryItemSchema).optional(),
-  orders: z.array(OrderSchema).optional(),
-});
+export interface ImportDataSchema {
+  inventory?: {
+    sNo?: string;
+    name: string;
+    category?: 'API' | 'Excipient' | 'Packing' | 'Finished' | 'Spare';
+    required?: number;
+    stock?: number;
+    unit?: string;
+    date?: string;
+  }[];
+  orders?: {
+    customer: string;
+    product: string;
+    quantity: number;
+    amountUSD?: number;
+    rateUSD?: number;
+    status?: string;
+    invoiceNo?: string;
+    date?: string;
+    country?: string;
+  }[];
+  ingredients?: {
+    name: string;
+    quantity: number;
+    unit?: string;
+    rateUSD?: number;
+    role?: string;
+  }[];
+  batchSize?: number;
+}

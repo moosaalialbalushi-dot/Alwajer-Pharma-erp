@@ -1,24 +1,26 @@
+// exportUtils.ts
+export function exportToCSV(data: Record<string, unknown>[], filename: string): void {
+  if (!data?.length) return;
 
-export const exportToCSV = (data: any[], fileName: string) => {
-  if (!data || data.length === 0) return;
-  
-  const headers = Object.keys(data[0]).join(',');
-  const rows = data.map(item => {
-    return Object.values(item).map(val => {
-      const str = String(val).replace(/"/g, '""');
-      return `"${str}"`;
-    }).join(',');
-  });
-  
-  const csvContent = [headers, ...rows].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const headers = Object.keys(data[0]);
+  const escape = (v: unknown) => {
+    const s = String(v ?? '').replace(/"/g, '""');
+    return /[,"\n\r]/.test(s) ? `"${s}"` : s;
+  };
+
+  const csv = [
+    headers.join(','),
+    ...data.map(row => headers.map(h => escape(row[h])).join(',')),
+  ].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${fileName}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+  const a = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `${filename}_${new Date().toISOString().slice(0, 10)}.csv`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
