@@ -4252,17 +4252,17 @@ const renderProcurement = () => {
                         {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
                       </button>
                     ))}
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1.5">
-                    {newSkillData.provider === 'Claude'
-                      ? '🤖 Best for: Operations decisions, compliance, strategic analysis, writing'
-                      : newSkillData.provider === 'Gemini'
-                      ? '✨ Best for: Formulation data, market research, numerical analysis'
-                      : newSkillData.provider === 'DeepSeek' ? '🐳 Best for: Complex reasoning, coding, and logical tasks' : '📚 Best for: Executive summaries, presentations, knowledge synthesis'}
-                  </p>
-                </div>
-
-                <div>
+</div>
+                    <p className="text-[10px] text-slate-500 mt-1.5">
+                      {newSkillData.provider === 'Claude'
+                        ? '🤖 Best for: Operations decisions, compliance, strategic analysis, writing'
+                        : newSkillData.provider === 'Gemini'
+                        ? '✨ Best for: Formulation data, market research, numerical analysis'
+                        : newSkillData.provider === 'Qwen'
+                        ? '🌟 Best for: Fast responses, general tasks, free tier available'
+                        : '📚 Best for: Presentations, knowledge synthesis'}
+                    </p>
+              <div>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Short Description</label>
                   <input value={newSkillData.description}
                     onChange={e => setNewSkillData((p: any) => ({...p, description: e.target.value}))}
