@@ -1448,7 +1448,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     }
   };
 
-
+  const handleOptimizeRD = async () => {
     if (!selectedRD) return;
     setIsAiLoading(true);
     try {
