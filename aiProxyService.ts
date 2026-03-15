@@ -1,19 +1,21 @@
 // aiProxyService.ts
-// Browser-side service. Calls /api/ai-proxy (Vercel serverless).
-// Keys are NEVER in this file — they live in Vercel Environment Variables.
+// Browser-side service. Calls /api/ai-proxy (Vercel serverless) or Supabase edge function.
+// Keys are NEVER in this file.
+
+export type AIProvider = 'anthropic' | 'gemini' | 'qwen' | 'deepseek';
 
 export interface ProxyRequest {
-  provider: 'anthropic' | 'gemini' | 'deepseek';
+  provider: AIProvider;
   system?: string;
   messages: { role: 'user' | 'assistant'; content: string }[];
   maxTokens?: number;
   model?: string;
-  json_mode?: boolean; // Gemini: requests JSON output format
+  json_mode?: boolean;
 }
 
 /**
- * Call the Vercel AI proxy.
- * Returns the raw provider response (shape varies by provider — use extractText below).
+ * Call the AI proxy (Vercel serverless → AI provider).
+ * Returns the raw provider response.
  */
 export async function callAIProxy(req: ProxyRequest): Promise<unknown> {
   const response = await fetch('/api/ai-proxy', {
@@ -56,13 +58,14 @@ export function extractText(data: unknown, provider: string): string {
       return g?.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('') ?? '';
     }
 
-    if (provider === 'deepseek') {
+    // Qwen & DeepSeek both use OpenAI-compatible format
+    if (provider === 'qwen' || provider === 'deepseek') {
       type OpenAIResponse = { choices?: { message?: { content?: string } }[] };
       const o = d as OpenAIResponse;
       return o?.choices?.[0]?.message?.content ?? '';
     }
 
-    // Fallback
+    // Fallback — try all formats
     type AnyResponse = {
       content?: { type: string; text?: string }[];
       candidates?: { content?: { parts?: { text?: string }[] } }[];

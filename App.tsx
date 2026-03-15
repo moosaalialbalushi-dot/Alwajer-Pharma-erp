@@ -181,7 +181,11 @@ const App: React.FC = () => {
   const [salesDocMenu, setSalesDocMenu] = useState<string|null>(null);
   const [bdLeads, setBdLeads] = useState<BDLead[]>(INITIAL_BD);
   const [samples, setSamples] = useState<SampleStatus[]>(INITIAL_SAMPLES);
-  const [calcData, setCalcData] = useState({ product: '', volume: 0, targetPrice: 0, rmc: 0, labor: 0, packing: 0 });
+  const [calcData, setCalcData] = useState({
+  product: '', volume: 0, targetPrice: 0,
+  rmc: 0, labor: 0, packing: 0,
+  logistics: 0, shippingCost: 0, shippingMethod: 'CIF by Air - Muscat Airport'
+});
   const [calcResults, setCalcResults] = useState<any>(null);
   const calcInitialRD = (projects: any[]) => projects.map(p => {
     const ings = p.ingredients.map((i: any) => ({ ...i, cost: Number((i.quantity * i.rateUSD).toFixed(3)) }));
@@ -221,7 +225,7 @@ const App: React.FC = () => {
           };
       } catch (e) { return { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' }; }
   });
-  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'DeepSeek' | 'NotebookLM'>('Gemini');
+  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'Qwen' | 'NotebookLM'>('Gemini');
 
   // Per-provider model selection
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
@@ -230,410 +234,21 @@ const App: React.FC = () => {
     DeepSeek: 'deepseek-chat',
   });
   const PROVIDER_MODELS: Record<string, { id: string; label: string; note: string }[]> = {
-    Gemini:   [
-      { id: 'gemini-2.0-flash',                    label: 'Gemini 2.0 Flash',    note: 'Fast — default'       },
-      { id: 'gemini-2.5-pro',                      label: 'Gemini 2.5 Pro',      note: 'Deep analysis'        },
-    ],
-    Claude:   [
-      { id: 'claude-haiku-4-5-20251001',           label: 'Claude Haiku',        note: 'Fast'                 },
-      { id: 'claude-sonnet-4-6',                   label: 'Claude Sonnet',       note: 'Balanced — default'   },
-      { id: 'claude-opus-4-6',                     label: 'Claude Opus',         note: 'Highest quality'      },
-    ],
-    DeepSeek: [
-      { id: 'deepseek-chat',                       label: 'DeepSeek Chat',       note: 'Fast'                 },
-      { id: 'deepseek-reasoner',                   label: 'DeepSeek R1',         note: 'Chain-of-thought'     },
-    ],
-  };
-
-  // Triple validation chain state
-  const [tripleChainInput, setTripleChainInput] = useState('');
-  const [tripleChainResult, setTripleChainResult] = useState<any>(null);
-  const [tripleChainLoading, setTripleChainLoading] = useState(false);
-
-  // App State
-  const [selectedRD, setSelectedRD] = useState<RDProject | null>(CALC_RD[0]);
-  const [insights, setInsights] = useState<COOInsight[]>([]);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [dbStatus, setDbStatus] = useState<'connected' | 'disconnected'>('disconnected');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  
-  // NEW: Upload Progress State
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
-    isUploading: false,
-    fileName: '',
-    progress: 0,
-    status: 'uploading',
-    message: ''
-  });
-  
-  // Chat & Brainstorm State
-  const [chatMessage, setChatMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'model', text: string}[]>(() => {
-    try {
-      const saved = localStorage.getItem('erp_chat_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
-  
-  // Industrial Chat State
-  const [industrialChat, setIndustrialChat] = useState<ChatMessage[]>(() => {
-    try {
-      const saved = localStorage.getItem('erp_industrial_chat');
-      return saved ? JSON.parse(saved) : [{id: '1', role: 'model', text: 'Welcome to the Industrial Design Studio. I can assist with facility layouts, machine design, and packaging concepts. How can I help?', timestamp: Date.now()}];
-    } catch (e) { return [{id: '1', role: 'model', text: 'Welcome to the Industrial Design Studio. I can assist with facility layouts, machine design, and packaging concepts. How can I help?', timestamp: Date.now()}]; }
-  });
-  const [industrialInput, setIndustrialInput] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('16:9');
-  const [imageSize, setImageSize] = useState('1K');
-  const [pendingIndustrialImage, setPendingIndustrialImage] = useState<string | null>(null);
-  const [pendingIndustrialMime, setPendingIndustrialMime] = useState<string | null>(null);
-  
-  // Brainstorm Chat State
-  const [brainstormSessions, setBrainstormSessions] = useState<BrainstormSession[]>(() => {
-      try {
-       const saved = localStorage.getItem('erp_brainstorm_sessions');
-       return saved ? JSON.parse(saved) : [];
-      } catch (e) { return []; }
-  });
-  const [currentBrainstormId, setCurrentBrainstormId] = useState<string | null>(null);
-  const [brainstormInput, setBrainstormInput] = useState('');
-
-  // AI Command Center State
-  const [aiCmdTab, setAiCmdTab] = useState<'chat'|'industrial'|'brainstorm'|'skills'|'triple'>('chat');
-  const [savedSkills, setSavedSkills] = useState<{id:string, name:string, provider:'Claude'|'Gemini'|'NotebookLM', description:string, prompt:string, category:string, usageCount:number, createdAt:string}[]>(() => {
-    try {
-      const AI_STUDIO_SKILLS = [
-  {
-    "id": "AISTUDIO-biotech-facility-developer",
-    "name": "biotech-facility-developer",
-    "provider": "Gemini",
-    "description": "Workflow for developing integrated biotech and pharmaceutical-grade manufacturing facilities. Use for: regulatory map...",
-    "prompt": "---\nname: biotech-facility-developer\ndescription: \"Workflow for developing integrated biotech and pharmaceutical-grade manufacturing facilities. Use for: regulatory mapping, technical process design, financial modeling with land incentives, and GMP-compliant facility visualization.\"\n---\n\n# Biotech Facility Developer\n\nThis skill formalizes the end-to-end process for developing high-tech biotech facilities, from raw material sourcing to global export readiness.\n\n## 1. Strategic Discovery & Regulatory Mapping\n- **Identify Target Markets**: Map the regulatory requirements for all target regions (e.g., US FDA MoCRA, GCC SFDA, ASEAN ACD).\n- **Technical Parameters**: Define exact extraction and processing settings (e.g., pH, temperature, pressure for CO2 extraction).\n- **Resource**: Refer to `references/regulatory_mapping.md` for global standards.\n\n## 2. Financial Modeling & Land Strategy\n- **Incentive Analysis**: Evaluate land lease options (e.g., Madayn vs. Free-Zones) and incorporate grace periods into the cash flow model.\n- **CAPEX/OPEX**: Build a 5-year model including specialized machinery (Supercritical CO2, Hydrolysis reactors) and utility hubs.\n\n## 3. Facility Design & Visualization\n- **Unified Layout**: Design a single structure integrating Warehouse, Production, Labs, Utilities, and Admin.\n- **Zoning Compliance**: Implement the 3-Zone cascading pressure system (Negative $\\to$ Neutral $\\to$ Positive).\n- **Warehouse Integration**: Include Quarantine, QC Sampling, and Dispensing suites.\n- **Resource**: Refer to `references/facility_zoning.md` for detailed zoning and flow standards.\n\n## 4. Investor & Authority Presentation\n- **Scientific Sustainability**: Frame the narrative around circular economy, high-science clinicals, and unique value propositions (e.g., Halal-certified collagen).\n- **Visual Evidence**: Use 2D architectural plans and 3D isometric cutaways to demonstrate technical readiness.\n\n## Workflow Summary\n1. Analyze raw material and target market regulatory requirements.\n2. Optimize technical process parameters for pharmaceutical-grade output.\n3. Model financials including local land incentives and utility costs.\n4. Design a unified, GMP-compliant facility layout.\n5. Generate a high-stakes presentation script for investors and authorities.\n",
-    "category": "Operations",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-brainstorming_1",
-    "name": "brainstorming",
-    "provider": "Gemini",
-    "description": "Facilitate creative brainstorming sessions and organize/refine ideas using 'Deferred Judgment' principles. Use for: g...",
-    "prompt": "---\nname: brainstorming\ndescription: \"Facilitate creative brainstorming sessions and organize/refine ideas using 'Deferred Judgment' principles. Use for: guiding live brainstorming, generating creative ideas, and evaluating/refining concepts.\"\n---\n\n# Brainstorming Skill\n\nThis skill helps facilitate a high-volume idea generation process followed by a structured evaluation phase, based on the principles of Alex Osborn and IDEO.\n\n## Core Workflow\n\nBrainstorming is divided into two distinct phases to prevent premature criticism from stifling creativity.\n\n### Phase 1: Idea Generation (Divergent Thinking)\n\nThe goal is **quantity over quality**. Follow these rules:\n1.  **Defer Judgment**: No criticism or evaluation allowed.\n2.  **Encourage Wild Ideas**: The more unconventional, the better.\n3.  **Build on Others**: Use \"Yes, and...\" to expand on existing thoughts.\n4.  **Stay Focused**: Keep the session within a set time limit (e.g., 10-20 minutes).\n\n**Actionable Steps:**\n- Define the problem clearly before starting.\n- Record every idea immediately without filtering.\n- If the flow slows down, suggest a new angle or perspective.\n\n### Phase 2: Idea Evaluation (Convergent Thinking)\n\nOnce the generation phase ends, shift to refining and organizing the most promising concepts.\n\n**Actionable Steps:**\n1.  **Organize**: Group similar ideas into themes or categories.\n2.  **Discuss**: Briefly clarify any ambiguous ideas.\n3.  **Refine**: Combine or improve ideas based on feasibility and impact.\n4.  **Select**: Use voting or a matrix to identify actionable solutions.\n\n## Templates\n\n### Brainstorming Session Log\nUse the template in `templates/session_log.md` to record sessions.\n\n## References\n- **Methodology**: See `references/principles.md` for the history and theory behind effective brainstorming.\n- **Facilitation Tips**: See `references/facilitation.md` for advanced techniques to handle group dynamics.\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-collaborative-skill-builder",
-    "name": "collaborative-skill-builder",
-    "provider": "Gemini",
-    "description": "Guide for collaboratively creating new skills by defining scope, structuring content, and iteratively refining detail...",
-    "prompt": "---\nname: collaborative-skill-builder\ndescription: \"Guide for collaboratively creating new skills by defining scope, structuring content, and iteratively refining details with user input. Use for: developing new skills from scratch, enhancing existing skills, or formalizing complex workflows into reusable capabilities.\"\n---\n\n# Collaborative Skill Builder\n\nThis skill provides a structured, collaborative workflow for developing new Manus skills or enhancing existing ones. It leverages iterative feedback and progressive disclosure to ensure the created skill is comprehensive, well-organized, and directly addresses the user's needs. This process mirrors how Manus itself develops new capabilities with user guidance.\n\n## Core Workflow for Skill Creation\n\nThe collaborative skill building process follows these key phases:\n\n1.  **Understand User Requirements**: Begin by engaging the user to thoroughly understand the desired skill's purpose, scope, and specific functionalities. This involves asking clarifying questions and gathering concrete examples of how the skill will be used.\n    *   See [references/skill-definition-questions.md](references/skill-definition-questions.md) for a guide on effective questioning.\n\n2.  **Propose Initial Structure**: Based on the gathered requirements, propose a high-level structure for the skill, typically utilizing a progressive disclosure pattern. This includes outlining the main `SKILL.md` content and suggesting initial reference files for detailed information.\n\n3.  **Iterative Content Development**: Collaboratively develop the skill's content. This involves:\n    *   Drafting the `SKILL.md` with an overview and navigation to reference files.\n    *   Creating and populating specialized reference files (`references/`) with detailed information, workflows, or technical protocols.\n    *   Incorporating user feedback to refine existing content and add new sections (e.g., specific regulations, advanced technologies, utility requirements).\n    *   Ensuring content adheres to best practices for technical writing, including the use of paragraphs, tables, and inline citations where appropriate.\n\n4.  **Multi-Model Enhancement**: Leverage advanced AI models (Anthropic Claude and Google Gemini) to cross-check, expand, and refine the skill's content, particularly for SOPs, operational intelligence, and information cross-referencing.\n    *   See [references/multi-model-enhancement.md](references/multi-model-enhancement.md) for detailed protocols on using Claude and Gemini\n5.  **Validation and Delivery**: Once the content is developed and refined, validate the skill\\'s structure and YAML frontmatter using the `skill-creator`\\'s validation script. Finally, deliver the completed skill to the user.\n\n## How to Use This Skill\n\nTo initiate the collaborative skill building process, simply describe the new skill you wish to create. The agent will then guide you through the steps outlined above, asking for your input at each stage to ensure the skill is tailored to your exact specifications. Be prepared to provide details, examples, and feedback to shape the skill effectively.\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-electron-upgrade-advisor",
-    "name": "electron-upgrade-advisor",
-    "provider": "Gemini",
-    "description": "Guide the process of upgrading Chromium and Node.js within Electron applications. Use for: planning Electron upgrades...",
-    "prompt": "---\nname: electron-upgrade-advisor\ndescription: \"Guide the process of upgrading Chromium and Node.js within Electron applications. Use for: planning Electron upgrades, handling API deprecations, and managing native module compatibility.\"\n---\n\n# Electron Upgrade Advisor\n\nThis skill provides a step-by-step playbook for navigating the complex process of upgrading the Chromium engine and Node.js environment within Electron applications.\n\n## Usage Guidelines\n\nUse this skill when maintaining or upgrading an Electron-based application to ensure a smooth transition between versions.\n\n1. **Plan the Upgrade**: Follow a \"two-phase\" process for large version jumps (e.g., upgrading to an intermediate version first).\n2. **Handle Deprecations**: Identify and resolve API changes or removed features in the new Chromium/Electron version.\n3. **Manage Native Modules**: Audit and update native dependencies that may be affected by changes in the V8 engine or Node.js version.\n\n## Core Workflow\n\n- **Phase 1: Preparation**: Update Electron to the target version in `package.json` and identify immediate breaking changes.\n- **Phase 2: Implementation**: Resolve API deprecations, update build flags, and recompile native modules.\n- **Phase 3: Verification**: Run comprehensive tests to catch subtle behavior changes in the embedded browser.\n\n## Examples\n\n### Upgrade Planning\n- **User Request**: \"Help upgrade our Electron app from Chrome 100 to 110.\"\n- **Skill Action**: Outline the necessary Electron version jumps, list known API changes, and provide a checklist for updating native modules.\n\n### Troubleshooting\n- **User Request**: \"Audit what's needed to update Electron.\"\n- **Skill Action**: Review the current version, list replaced functions, and suggest updates to the build toolchain.\n\n## Limitations\n\n- **App Specificity**: May not account for highly custom native modules or non-standard hacks.\n- **Version Variance**: Steps may vary significantly depending on the specific version jump; always cross-reference with official Electron release notes.\n- **Testing Requirement**: Cannot guarantee behavior consistency; thorough manual and automated testing is always required after an upgrade.\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-facility-visualizer-compliance_1",
-    "name": "facility-visualizer-compliance",
-    "provider": "Gemini",
-    "description": "Professional visualization and regulatory compliance analysis for industrial and pharmaceutical facilities. Use for: ...",
-    "prompt": "---\nname: facility-visualizer-compliance\ndescription: \"Professional visualization and regulatory compliance analysis for industrial and pharmaceutical facilities. Use for: transforming blueprints into 2D/3D models, analyzing personnel/material flow, and ensuring US FDA (21 CFR 211) or other regulatory compliance. Integrates Google Gemini for advanced layout identification.\"\n---\n\n# Facility Visualizer & Compliance\n\nThis skill provides a structured workflow for transforming facility blueprints into professional visualizations while ensuring regulatory compliance and optimized operational flow.\n\n## Workflow\n\n### 1. Layout Analysis & Identification\n- **Advanced Identification**: Use the **Google Gemini API** (`GEMINI_API_KEY`) to analyze complex blueprints. Gemini is highly effective at identifying room labels, ISO classifications, and pressure differentials from scratch images.\n- Identify all functional areas (storage, production, labs, admin).\n- Map existing entry/exit points for personnel and materials.\n- Identify \"clean\" vs. \"dirty\" zones and pressure cascades.\n\n### 2. Regulatory Research\n- For pharmaceutical facilities, refer to `references/fda_compliance_211_42.md`.\n- Verify requirements for defined areas, segregation, and environmental controls.\n- Check for specific industry standards (e.g., cGMP, ISO 14644).\n\n### 3. Visualization Generation\n- **2D Enhancement**: Use `generate_image` to create a clean, CAD-style architectural plan. Refer to `templates/architectural_reference.png` for the desired professional standard (including legends, ISO grades, and flow arrows).\n- **3D Modeling**: Use `generate_image` with prompts for \"isometric cutaway view\" to show internal structure, equipment, and spatial relationships.\n\n### 4. Flow & Compliance Reporting\n- Analyze \"Man and Material\" movements.\n- Identify potential bottlenecks or contamination risks.\n- Provide operational recommendations (e.g., airlocks, gowning protocols, pressure differentials).\n\n## Best Practices for Prompts\n\n### 2D Layouts\n- \"Professional 2D architectural floor plan, CAD-style, clean lines, light gray palette, labeled rooms, flow arrows for personnel and materials. Style reference: templates/architectural_reference.png.\"\n\n### 3D Models\n- \"3D isometric cutaway view, architectural visualization, realistic lighting, epoxy floors, stainless steel equipment, high-angle perspective.\"\n\n## Tool Integration: Google Gemini\nWhen analyzing blueprints, use the following pattern with the Gemini API:\n1. Upload the blueprint image.\n2. Prompt Gemini to: \"Identify all rooms, their ISO classifications, pressure differentials (Pa), and the flow of materials (red arrows) and personnel (blue arrows) in this pharmaceutical facility layout.\"\n\n## Resources\n- `references/fda_compliance_211_42.md`: Detailed FDA 21 CFR 211.42 requirements.\n- `templates/architectural_reference.png`: High-standard architectural layout example.\n",
-    "category": "Operations",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-github-gem-seeker",
-    "name": "github-gem-seeker",
-    "provider": "Gemini",
-    "description": ">",
-    "prompt": "---\nname: github-gem-seeker\ndescription: >\n  Search GitHub for battle-tested solutions instead of reinventing the wheel. Use when\n  the user's problem is universal enough that open source developers have probably\n  solved it already—especially for: format conversion (video/audio/image/document),\n  media downloading, file manipulation, web scraping/archiving, automation scripts,\n  and CLI tools. Prefer this skill over writing custom code for well-trodden problems.\n---\n\n# GitHub Gem Seeker\n\nFind and use battle-tested open source projects on GitHub to solve the user's problem immediately. After successfully solving the problem, offer to package the solution into a reusable skill.\n\n## Core Philosophy\n\nClassic open source projects, tested by countless users over many years, are far more reliable than code written from scratch. **Solve the problem first, skill-ify later.**\n\n## Workflow\n\n### Step 1: Understand the Need\n\nClarify what the user wants to accomplish. Ask only if truly ambiguous:\n- What specific problem are you trying to solve?\n- What format/input/output do you expect?\n\n### Step 2: Find the Right Tool\n\nSearch for GitHub projects using effective query patterns:\n\n| Need Type | Query Pattern | Example |\n|-----------|---------------|---------|\n| Tool/utility | `github [task] tool` | `github video download tool` |\n| Library | `github [language] [function] library` | `github python pdf library` |\n| Alternative | `github [known-tool] alternative` | `github ffmpeg alternative` |\n\n### Step 3: Evaluate Quality (Quick Check)\n\nAssess candidates using key indicators:\n\n| Indicator | Gem Signal | Warning Signal |\n|-----------|------------|----------------|\n| Stars | 1k+ solid, 10k+ excellent, 50k+ legendary | <100 for mature projects |\n| Last commit | Within 6 months | >2 years ago |\n| Documentation | Clear README, examples | Sparse or outdated docs |\n\n### Step 4: Solve the Problem\n\n**This is the priority.** Install the tool and use it to solve the user's actual problem:\n\n1. Install the chosen tool (pip, npm, apt, or direct download)\n2. Run it with the user's input/files\n3. Deliver the result to the user\n4. Troubleshoot if needed—iterate until solved\n\n### Step 5: Credit the Gem & Offer Next Steps (Post-Success Only)\n\n**Only after the problem is successfully solved:**\n\n1. **Credit the open source project** — Always share the GitHub repo URL and encourage support:\n\n   > \"This was powered by **[Project Name]** — an amazing open source project!\n   > GitHub: [URL]\n   > If it helped you, consider giving it a ⭐ star to support the maintainers.\"\n\n2. **Offer to skill-ify** — Optionally mention:\n\n   > \"If you'll need this again, I can package it into a reusable skill for instant use next time.\"\n\nDo NOT skip crediting the project. Open source thrives on recognition.\n\n## Quality Tiers\n\n| Tier | Criteria | Examples |\n|------|----------|----------|\n| **Legendary** | 50k+ stars, industry standard | FFmpeg, ImageMagick, yt-dlp |\n| **Excellent** | 10k+ stars, strong community | Pake, ArchiveBox |\n| **Solid** | 1k+ stars, well-documented | Most maintained tools |\n| **Promising** | <1k stars, active development | Newer niche projects |\n\nPrefer higher tiers for reliability.\n\n## Example Interaction\n\n**User:** I need to download this YouTube video: [link]\n\n**Correct approach:**\n1. Identify yt-dlp as the legendary-tier solution\n2. Install yt-dlp\n3. Download the video for the user\n4. Deliver the downloaded file\n5. *After success:* \"This was powered by **yt-dlp** — https://github.com/yt-dlp/yt-dlp — give it a ⭐ if it helped! If you download videos often, I can turn this into a skill for instant use next time.\"\n\n**Wrong approach:**\n- ❌ \"I found yt-dlp, want me to make a skill for it?\"\n- ❌ Presenting options without solving the problem\n\n## Common Gems Reference\n\n| Category | Go-to Gems |\n|----------|------------|\n| Video/Audio processing | FFmpeg, yt-dlp |\n| Image processing | ImageMagick, sharp |\n| PDF manipulation | pdf-lib, PyMuPDF |\n| Web scraping | Playwright, Puppeteer, Scrapy |\n| Format conversion | Pandoc, FFmpeg |\n| Archiving | ArchiveBox |\n| Desktop app packaging | Electron, Tauri, Pake |\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-nextjs-cache-optimizer",
-    "name": "nextjs-cache-optimizer",
-    "provider": "Gemini",
-    "description": "Optimize Next.js caching and rendering strategies. Use for: implementing Partial Prerendering (PPR), configuring ISR/...",
-    "prompt": "---\nname: nextjs-cache-optimizer\ndescription: \"Optimize Next.js caching and rendering strategies. Use for: implementing Partial Prerendering (PPR), configuring ISR/SSG, and optimizing data fetching cache.\"\n---\n\n# Next.js Cache Optimizer\n\nThis skill specializes in optimizing Next.js applications by leveraging advanced caching and rendering features to ensure maximum performance.\n\n## Usage Guidelines\n\nUse this skill when tasked with improving the load speed or efficiency of a Next.js application.\n\n1. **Identify Caching Opportunities**: Analyze pages for static vs. dynamic content and suggest appropriate caching strategies (ISR, SSG, etc.).\n2. **Implement Advanced Features**: Guide the implementation of Partial Prerendering (PPR) and React Server Components.\n3. **Optimize Data Fetching**: Ensure proper use of the `cache()` wrapper and granular caching directives in `fetch` calls.\n\n## Core Strategies\n\n- **Partial Prerendering (PPR)**: Combine static shells with dynamic holes for fast initial loads.\n- **Granular Caching**: Use `export const revalidate` and specific cache tags to control data freshness.\n- **Server Components**: Maximize the use of Server Components to reduce client-side JavaScript and enable server-side caching.\n\n## Examples\n\n### Caching Audit\n- **User Request**: \"Review this Next.js page for caching issues.\"\n- **Skill Action**: Identify missing `revalidate` constants or opportunities to use `force-static`, and provide the necessary code changes.\n\n### Performance Optimization\n- **User Request**: \"Optimize my Next.js app for performance.\"\n- **Skill Action**: Suggest splitting pages into cached components and implementing PPR for dynamic sections.\n\n## Limitations\n\n- **Version Specific**: Best suited for recent versions of Next.js that support App Router and advanced caching features.\n- **Implementation Complexity**: Requires a deep understanding of the application's data flow to avoid stale data issues.\n",
-    "category": "Dev Tools",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-pharma-food-innovation",
-    "name": "pharma-food-innovation",
-    "provider": "Gemini",
-    "description": "Comprehensive skill for brainstorming, innovation, R&D, product implementation, and global regulatory compliance in P...",
-    "prompt": "---\nname: pharma-food-innovation\ndescription: \"Comprehensive skill for brainstorming, innovation, R&D, product implementation, and global regulatory compliance in Pharmaceuticals, Food, Multi-ingredient Extractions, and Cosmetic Development. This includes guidance on cGMP, US FDA, SFDA regulations, utility requirements, waste management, and production suitability. Use for: generating new product ideas, optimizing R&D processes, ensuring cGMP compliance, navigating international regulations for market registration, and establishing suitable production environments.\"\n---\n\n# Pharma-Food Innovation & Regulatory Compliance Skill\n\nThis skill provides a structured approach to innovation, research and development, and regulatory compliance for products in the Pharmaceutical, Food, Multi-ingredient Extraction, and Cosmetic sectors. It integrates best practices for ideation, technical development, quality assurance (cGMP), and market registration, alongside critical considerations for facility operations.\n\n## Core Workflows\n\nThis skill guides you through the following key phases:\n\n1.  **Ideation & Brainstorming**: Generate and refine new product concepts.\n    *   See [references/brainstorming.md](references/brainstorming.md) for detailed frameworks and techniques.\n\n2.  **Research & Development (R&D) and Implementation**: Conduct technical development, formulation, and process optimization.\n    *   See [references/rd-implementation.md](references/rd-implementation.md) for R&D workflows and cGMP integration.\n    *   See [references/technical-protocols.md](references/technical-protocols.md) for detailed extraction technologies, manufacturing protocols (lyophilization, spray drying), and raw material processing.\n\n3.  **Facility & Production Suitability**: Address critical aspects of manufacturing environment, utility management, and waste handling.\n    *   See [references/utility-requirements.md](references/utility-requirements.md) for guidelines on utilities (e.g., HVAC, WFI, clean steam).\n    *   See [references/waste-management.md](references/waste-management.md) for strategies on waste stream characterization and disposal.\n    *   See [references/production-suitability.md](references/production-suitability.md) for process validation, equipment qualification, and facility design principles.\n\n4.  **Regulatory Compliance & Market Registration**: Navigate complex regulatory landscapes for product approval and market entry.\n    *   See [references/regulatory-cgmp.md](references/regulatory-cgmp.md) for general cGMP principles.\n    *   See [references/regulatory-us-fda.md](references/regulatory-us-fda.md) for specific US FDA requirements.\n    *   See [references/regulatory-sfda.md](references/regulatory-sfda.md) for specific SFDA requirements.\n\n## How to Use This Skill\n\nBegin by identifying your current phase in the product lifecycle (ideation, R&D, facility setup, or regulatory). Then, consult the relevant reference document for detailed guidance, checklists, and best practices. This skill will help you generate ideas, structure your development process, ensure your products meet the stringent quality and safety standards required for global markets, and establish a compliant and efficient production environment.\n",
-    "category": "R&D",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-prompt-lookup",
-    "name": "prompt-lookup",
-    "provider": "Gemini",
-    "description": "Access a library of community-curated AI prompts from mcpmarket.com. Use for: finding proven prompt templates for mar...",
-    "prompt": "---\nname: prompt-lookup\ndescription: \"Access a library of community-curated AI prompts from mcpmarket.com. Use for: finding proven prompt templates for marketing, coding, data analysis, and general tasks to improve agent results.\"\n---\n\n# Prompt Lookup\n\nThis skill provides access to a vast library of community-curated AI prompts, acting as a prompt search engine to improve task execution by using proven patterns.\n\n## Usage Guidelines\n\nWhen a task requires a specific or complex prompt structure (e.g., writing a marketing email, analyzing a CSV, or specialized coding), use this skill to retrieve an appropriate template.\n\n1. **Search for Prompts**: Use the browser to search `mcpmarket.com` or other prompt repositories for the specific task.\n2. **Retrieve and Adapt**: Once a suitable prompt is found, adapt it to the current user's specific context and data.\n3. **Apply Best Practices**: Prioritize prompts that are highly rated or frequently used by the community.\n\n## Examples\n\n### Marketing Email\n- **User Request**: \"Write a cold email for my new SaaS product.\"\n- **Skill Action**: Look up \"cold email SaaS\" on prompt repositories, find a high-performing template, and fill in the product details.\n\n### Data Analysis\n- **User Request**: \"Analyze this CSV file for trends.\"\n- **Skill Action**: Look up \"CSV data analysis trends\" to find a structured prompt that guides the AI through systematic data exploration.\n\n## Limitations\n\n- **Niche Tasks**: May not have specific prompts for extremely niche or brand-new domains.\n- **Quality Variance**: Community prompts vary in quality; always review and refine the retrieved prompt before final use.\n- **Context Blindness**: The skill provides general templates and does not have inherent knowledge of the user's private data unless provided in the request.\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-react-best-practices_1",
-    "name": "react-best-practices",
-    "provider": "Gemini",
-    "description": "Optimize React and Next.js applications using Vercel's performance wisdom. Use for: auditing React components, refact...",
-    "prompt": "---\nname: react-best-practices\ndescription: \"Optimize React and Next.js applications using Vercel's performance wisdom. Use for: auditing React components, refactoring for performance, and enforcing Next.js best practices.\"\n---\n\n# React Best Practices (Vercel)\n\nThis skill encodes over 10 years of front-end performance wisdom from Vercel to help optimize React and Next.js applications.\n\n## Usage Guidelines\n\nUse this skill when auditing, refactoring, or building new React/Next.js projects to ensure high performance and code quality.\n\n1. **Performance Audit**: Review components for anti-patterns like heavy re-renders, large bundle sizes, or network waterfalls.\n2. **Refactoring**: Apply rules to optimize data fetching (e.g., parallel loading) and component structure.\n3. **Proactive Guidance**: Use these guidelines during the development of new pages to ensure optimal patterns from the start.\n\n## Core Rules\n\n- **Avoid Network Waterfalls**: Load data in parallel rather than sequentially where possible.\n- **Optimize Re-renders**: Use memoization and proper state management to prevent unnecessary updates.\n- **Reduce Bundle Size**: Identify and eliminate heavy dependencies or unused code.\n- **Next.js Optimization**: Leverage Next.js specific features like Server Components and optimized caching.\n\n## Examples\n\n### Component Audit\n- **User Request**: \"Review this React component for performance issues.\"\n- **Skill Action**: Analyze the code against performance rules, identify anti-patterns (e.g., sequential data fetching), and suggest fixes with code diffs.\n\n### Proactive Development\n- **User Request**: \"Build a new Next.js page for a dashboard.\"\n- **Skill Action**: Implement the page using parallel data fetching and efficient component structures as defined in the best practices.\n\n## Limitations\n\n- **Framework Specific**: Focused strictly on React and Next.js; not applicable to Vue, Angular, or back-end logic.\n- **Complexity of Fixes**: Identifies issues, but complex refactors may still require human judgment.\n- **Evolving Standards**: While extensive, it may not cover every edge case or the very latest experimental features.\n",
-    "category": "Dev Tools",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-skill-installer",
-    "name": "skill-installer",
-    "provider": "Gemini",
-    "description": "Discover and install other agent skills on the fly from mcpmarket.com or GitHub. Use for: finding if a skill exists f...",
-    "prompt": "---\nname: skill-installer\ndescription: \"Discover and install other agent skills on the fly from mcpmarket.com or GitHub. Use for: finding if a skill exists for a specific need and automatically fetching/installing it.\"\n---\n\n# Skill Installer & Lookup\n\nThis skill acts as a package manager for agent skills, allowing for the discovery and installation of new capabilities through natural language commands.\n\n## Usage Guidelines\n\nWhen a user requests a capability that is not currently available or asks for a specific skill to be installed, use this skill to find and set it up.\n\n1. **Search for Skills**: Use the browser to search `mcpmarket.com`, GitHub, or other skill registries for relevant keywords.\n2. **Evaluate and Install**: Report the best match to the user. If confirmed, download the skill into the local skills directory (`/home/ubuntu/skills/`).\n3. **Verify Installation**: Ensure the skill's `SKILL.md` is present and follows the required format.\n\n## Examples\n\n### Discovering a New Skill\n- **User Request**: \"Is there a skill for drawing UML diagrams? If so, install it.\"\n- **Skill Action**: Search for \"UML diagram skill\", find a suitable repository, and download it to the skills folder.\n\n### Installing a Specific Tool\n- **User Request**: \"Get me a skill that handles Excel analysis.\"\n- **Skill Action**: Look up \"Excel analysis agent skill\", identify the top-rated one, and perform the installation.\n\n## Limitations\n\n- **Registry Dependency**: Success depends on the availability and accuracy of skill indexes.\n- **Security Risks**: Installing community skills carries risks; always review the skill's description and instructions before execution.\n- **Configuration Requirements**: Some skills may require additional setup (e.g., API keys) after installation.\n- **Platform Compatibility**: Only skills compatible with the current agent platform can be installed successfully.\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-web-design-audit_1",
-    "name": "web-design-audit",
-    "provider": "Gemini",
-    "description": "Audit web applications for UI/UX quality and accessibility. Use for: checking accessibility (ARIA, contrast), respons...",
-    "prompt": "---\nname: web-design-audit\ndescription: \"Audit web applications for UI/UX quality and accessibility. Use for: checking accessibility (ARIA, contrast), responsive design, and general UI polish.\"\n---\n\n# Web Design Audit Guidelines (Vercel)\n\nThis skill provides a comprehensive checklist for auditing web applications to ensure high UI/UX quality and accessibility compliance.\n\n## Usage Guidelines\n\nUse this skill to critique web app implementations, focusing on accessibility, responsiveness, and design consistency.\n\n1. **Accessibility Check**: Verify ARIA labels, image alt text, color contrast, and heading structures.\n2. **UX & Polish**: Audit form behaviors, focus handling, typography, and dark mode support.\n3. **Responsive Audit**: Ensure layouts are mobile-friendly and use relative units (e.g., rem/em) for scalability.\n\n## Core Guidelines\n\n- **Accessibility**: Follow WCAG standards; ensure all interactive elements are keyboard accessible and screen-reader friendly.\n- **Typography**: Use relative units for font sizes; maintain proper hierarchy and readability.\n- **Forms**: Ensure all inputs have associated labels and clear error states.\n- **Responsive Design**: Test across multiple breakpoints; prioritize fluid layouts over fixed widths.\n\n## Examples\n\n### Accessibility Audit\n- **User Request**: \"Review my login page for accessibility.\"\n- **Skill Action**: Inspect the HTML/CSS for missing ARIA labels or low contrast, and provide specific recommendations for improvement.\n\n### Design Consistency\n- **User Request**: \"Check if this page follows modern UI best practices.\"\n- **Skill Action**: Evaluate the page's use of spacing, typography, and responsive behavior, flagging inconsistencies like hardcoded pixel values.\n\n## Limitations\n\n- **Subjective Aesthetics**: Does not judge visual \"beauty\" or subjective design choices; focuses on measurable standards.\n- **Code Access Required**: Most effective when the agent can inspect the actual HTML/CSS code.\n- **Manual Implementation**: Suggestions must be applied manually or via a coding environment.\n",
-    "category": "Dev Tools",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-excel-SKILL",
-    "name": "internet-skill-finder",
-    "provider": "Gemini",
-    "description": "Search and recommend Agent Skills from verified GitHub repositories. Use when users ask to find, discover, search for...",
-    "prompt": "---\nname: internet-skill-finder\ndescription: Search and recommend Agent Skills from verified GitHub repositories. Use when users ask to find, discover, search for, or recommend skills/plugins for specific tasks, domains, or workflows.\n---\n\n# Internet Skill Finder\n\nSearch 7 verified GitHub repositories for Agent Skills.\n\n## Workflow\n\n### 1. Fetch Skill List\n\n```bash\npython3 /home/ubuntu/skills/internet-skill-finder/scripts/fetch_skills.py --search \"keyword\"\n```\n\nOptions: `--list` (all skills), `--online` (real-time fetch), `--json` (structured output)\n\n### 2. Deep Dive (if needed)\n\n```bash\npython3 /home/ubuntu/skills/internet-skill-finder/scripts/fetch_skills.py --deep-dive REPO SKILL\n```\n\n### 3. Present Results\n\nWhen using cached data, prepend:\n\n> ℹ️ Using cached data. Enable GitHub Connector for real-time results.\n\nFormat each match:\n\n```markdown\n### [Skill Name]\n**Source**: [Repository] | ⭐ [Stars]\n**Description**: [From SKILL.md]\n👉 **[Import](import_url)**\n```\n\n### 4. No Matches\n\nSuggest `/skill-creator` for custom skill creation.\n\n## Data Access\n\nScript auto-detects and uses best method:\n\n| Priority | Method | Rate Limit | Behavior |\n|----------|--------|------------|----------|\n| 1 | GitHub Connector | 15000/hr | Auto real-time |\n| 2 | Offline cache | Unlimited | Fallback |\n| 3 | `GITHUB_TOKEN` env | 5000/hr | With `--online` |\n\nJSON output includes `\"using_cache\": true/false` to indicate data source.\n\nWhen cache is used, inform user: Enable GitHub Connector for real-time results.\n\n## Sources\n\n7 repositories: anthropics/skills, obra/superpowers, vercel-labs/agent-skills, K-Dense-AI/claude-scientific-skills, ComposioHQ/awesome-claude-skills, travisvn/awesome-claude-skills, BehiSecc/awesome-claude-skills\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-production-suitability",
-    "name": "production-suitability",
-    "provider": "Gemini",
-    "description": "AI Agent Skill",
-    "prompt": "# Production Suitability in Pharma, Food & Cosmetics Manufacturing\n\nThis document addresses the key elements required to ensure production suitability, including facility design, equipment qualification, and process validation, all critical for cGMP compliance in pharmaceutical, food, and cosmetic industries.\n\n## Facility Design Principles:\n\n### Layout & Flow\n[Principles of facility layout to ensure unidirectional flow of materials and personnel, preventing cross-contamination.]\n\n### Cleanroom Classification\n[ISO and cGMP classifications for cleanrooms and controlled environments, and their design requirements.]\n\n### Environmental Monitoring\n[Systems for monitoring temperature, humidity, particulate matter, and microbial contamination.]\n\n## Equipment Qualification:\n\n### User Requirement Specification (URS)\n[Developing detailed URS for new equipment.]\n\n### Design Qualification (DQ)\n[Verifying that the proposed design meets the URS and regulatory requirements.]\n\n### Installation Qualification (IQ)\n[Documenting that equipment is installed according to manufacturer's specifications and design drawings.]\n\n### Operational Qualification (OQ)\n[Confirming that equipment operates as intended within specified operating ranges.]\n\n### Performance Qualification (PQ)\n[Verifying that equipment consistently performs as intended under actual operating conditions.]\n\n## Process Validation:\n\n### Validation Master Plan (VMP)\n[Developing a VMP to define the scope, approach, and responsibilities for validation activities.]\n\n### Process Design\n[Understanding the process and identifying critical process parameters (CPPs) and critical quality attributes (CQAs).]\n\n### Process Qualification\n[Demonstrating that the process is capable of consistently delivering a quality product.]\n\n### Continued Process Verification (CPV)\n[Ongoing monitoring and evaluation of the process to ensure it remains in a state of control.]\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-rd-implementation",
-    "name": "rd-implementation",
-    "provider": "Gemini",
-    "description": "AI Agent Skill",
-    "prompt": "# Research & Development (R&D) and Implementation\n\nThis document provides guidance on conducting technical development, formulation, and process optimization for pharmaceutical, food, multi-ingredient extraction, and cosmetic products.\n\n## R&D Workflows:\n\n### Product Development Lifecycle\n[Stages of product development from concept to commercialization]\n\n### Formulation Development\n[Techniques for developing stable and effective formulations]\n\n### Process Development & Optimization\n[Methods for optimizing manufacturing processes, including scale-up considerations]\n\n## Extraction Methodologies:\n\n### Solvent Selection & Optimization\n[Guidance on choosing and optimizing extraction solvents]\n\n### Yield & Purity Optimization\n[Techniques for maximizing extraction yield and purity]\n\n## cGMP Integration in R&D:\n\n### Quality by Design (QbD)\n[Applying QbD principles throughout the R&D process]\n\n### Documentation & Traceability\n[Importance of robust documentation in R&D for regulatory compliance]\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-technical-protocols",
-    "name": "technical-protocols",
-    "provider": "Gemini",
-    "description": "AI Agent Skill",
-    "prompt": "# Technical Protocols: Extraction & Manufacturing\n\nThis document provides detailed technical protocols and technology overviews for the extraction and manufacturing of pharmaceuticals, nutraceuticals, and food processing raw materials.\n\n## 1. Advanced Extraction Technologies\n\n### Supercritical Fluid Extraction (SFE)\n- **Application**: High-purity extraction of essential oils, cannabinoids, and bioactive lipids.\n- **Protocol**:\n  1. Load raw material into the extraction vessel.\n  2. Pressurize CO2 to supercritical state (typically >73.8 bar, >31.1°C).\n  3. Adjust pressure/temperature to tune solvent selectivity.\n  4. Separate extract from CO2 in the collection vessel.\n  5. Recirculate CO2 for efficiency.\n\n### Ultrasonic-Assisted Extraction (UAE)\n- **Application**: Multi-ingredient extraction from plant matrices.\n- **Protocol**:\n  1. Mix raw material with appropriate solvent (ethanol/water).\n  2. Apply ultrasonic waves (20-100 kHz) to induce cavitation.\n  3. Maintain temperature control to prevent thermolabile degradation.\n  4. Filter and concentrate the extract.\n\n### Microwave-Assisted Extraction (MAE)\n- **Application**: Rapid extraction of polar compounds.\n\n## 2. Pharmaceutical & Nutraceutical Manufacturing Protocols\n\n### Standardized Manufacturing Process (SMP)\n- **Granulation**: Wet vs. Dry granulation protocols for tablet consistency.\n- **Encapsulation**: Hard shell vs. Softgel manufacturing for nutraceuticals.\n- **Coating**: Functional coating protocols for enteric release or taste masking.\n\n### Lyophilization (Freeze-Drying)\n- **Application**: Preservation of heat-sensitive pharmaceuticals and nutraceuticals.\n- **Protocol**:\n  1. **Freezing**: Solidify the product below its triple point.\n  2. **Primary Drying (Sublimation)**: Remove ice under vacuum.\n  3. **Secondary Drying (Desorption)**: Remove residual bound water.\n\n### Spray Drying\n- **Application**: Converting liquid extracts into stable powders.\n- **Parameters**: Inlet/outlet temperature control, feed rate, and atomizer speed.\n\n## 3. Food Processing Raw Materials Protocols\n\n### Raw Material Standardization\n- **Protocol**:\n  1. **Sourcing**: Qualification of suppliers based on GFSI standards.\n  2. **Cleaning/Sorting**: Removal of physical contaminants.\n  3. **Milling/Size Reduction**: Achieving uniform particle size for processing.\n  4. **Stabilization**: Heat treatment (Blanching/Pasteurization) or enzymatic inactivation.\n\n### Ingredient Fractionation\n- **Protocol**: Separation of proteins, fibers, and starches from complex food matrices using membrane filtration or centrifugal separation.\n\n## 4. Emerging Technologies\n- **Nanotechnology**: Nano-emulsions for enhanced bioavailability of nutraceuticals.\n- **Biotechnology**: Fermentation-based production of bioactive ingredients.\n- **Continuous Manufacturing**: Transitioning from batch to continuous flow for pharmaceuticals.\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  },
-  {
-    "id": "AISTUDIO-utility-requirements",
-    "name": "utility-requirements",
-    "provider": "Gemini",
-    "description": "AI Agent Skill",
-    "prompt": "# Utility Requirements for Pharma, Food & Cosmetics Facilities\n\nThis document outlines the critical utility requirements for manufacturing facilities in the pharmaceutical, food, and cosmetic industries, emphasizing cGMP compliance.\n\n## Key Utilities:\n\n### HVAC (Heating, Ventilation, and Air Conditioning)\n[Details on HVAC systems, air filtration (HEPA), pressure differentials, and environmental controls for cleanrooms and controlled environments.]\n\n### Water Systems\n[Guidance on Water for Injection (WFI), Purified Water (PW), and potable water systems, including generation, storage, distribution, and quality monitoring.]\n\n### Clean Steam\n[Requirements for clean steam generation and distribution for sterilization and humidification.]\n\n### Compressed Air & Other Gases\n[Specifications for medical air, process air, nitrogen, and other gases, including filtration and quality standards.]\n\n## Design & Qualification:\n\n### Facility Design Considerations\n[Layout, material flow, personnel flow, and segregation to prevent contamination.]\n\n### Utility Qualification (IQ, OQ, PQ)\n[Installation Qualification, Operational Qualification, and Performance Qualification for utility systems.]\n",
-    "category": "AI Innovation",
-    "usageCount": 0,
-    "createdAt": "2026-03-04"
-  }
-];
-      const s = localStorage.getItem('erp_saved_skills');
-      let parsed = s ? JSON.parse(s) : [
-        { id:'SK-001', name:'Operations Brief', provider:'Claude', description:'Daily operational summary with risks flagged', prompt:'You are the COO of Al Wajer Pharmaceuticals. Analyze current operations and provide a concise executive brief covering: production status, inventory alerts, financial position, and top 3 risks. Be direct and precise.', category:'Operations', usageCount:0, createdAt:'2026-02-27' },
-        { id:'SK-002', name:'Formulation Optimizer', provider:'Gemini', description:'Optimize pharmaceutical formulations for cost and quality', prompt:'You are a Senior Pharmaceutical Formulation Scientist. When given formulation data, analyze ingredient ratios, suggest cost-reducing substitutions, flag compatibility issues, and recommend quality improvements. Always reference BP/USP standards.', category:'R&D', usageCount:0, createdAt:'2026-02-27' },
-        { id:'SK-003', name:'Market Entry Analyst', provider:'Claude', description:'Analyze new pharmaceutical market opportunities', prompt:'You are a pharmaceutical market entry strategist for GCC/MENA region. When given a product or market, provide: regulatory pathway, competitive landscape, pricing benchmark, and go-to-market recommendation. Focus on Oman, UAE, Kuwait, Saudi Arabia.', category:'Business Dev', usageCount:0, createdAt:'2026-02-27' },
-      ];
-      
-      // Forcefully merge AI Studio skills
-      const merged = [...parsed];
-      AI_STUDIO_SKILLS.forEach(newSkill => {
-        if (!merged.find(existing => existing.id === newSkill.id)) {
-           merged.push(newSkill);
-        }
-      });
-      return merged; } catch { return []; }
-  });
-  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
-  const [newSkillData, setNewSkillData] = useState({ name:'', provider:'Claude' as 'Claude'|'Gemini'|'NotebookLM', description:'', prompt:'', category:'Operations' });
-  const [activeSkillId, setActiveSkillId] = useState<string|null>(null);
-  const [aiCmdInput, setAiCmdInput] = useState('');
-  const [activeChatId, setActiveChatId] = useState<string>('default');
-  const [chatSessions, setChatSessions] = useState<{id:string, title:string, provider:string, skillName?:string, messages:{role:'user'|'model',text:string,provider:string,skillName?:string}[], createdAt:string, archived:boolean}[]>(() => {
-    try { const s = localStorage.getItem('erp_chat_sessions_v2'); return s ? JSON.parse(s) : [
-      { id: 'default', title: 'New Chat', provider: 'Claude', messages: [], createdAt: new Date().toISOString(), archived: false }
-    ]; } catch { return [{ id: 'default', title: 'New Chat', provider: 'Claude', messages: [], createdAt: new Date().toISOString(), archived: false }]; }
-  });
-  const [aiCmdHistory, setAiCmdHistory] = useState<{role:'user'|'model', text:string, provider:string, skillName?:string}[]>([]);
-
-  // Inventory State
-  const [inventoryTab, setInventoryTab] = useState<'raw' | 'packing' | 'spares' | 'finished'>('raw');
-
-  // R&D State
-  const [rdSearch, setRdSearch] = useState('');
-  const [rdActiveTab, setRdActiveTab] = useState<'formulation'|'process'|'compare'|'spec'>('formulation');
-  const [compareRD, setCompareRD] = useState<RDProject | null>(null);
-  const [rdAiReport, setRdAiReport] = useState<string>('');
-  const [isRdModalOpen, setIsRdModalOpen] = useState(false);
-  const [rdModalMode, setRdModalMode] = useState<'addProduct'|'addIngredient'|'editIngredient'>('addProduct');
-  const [newProductData, setNewProductData] = useState<any>({
-    title: '', productCode: '', dosageForm: 'Capsule', strength: '', therapeuticCategory: '',
-    batchSize: 100, batchUnit: 'Kg', loss: 0.02, status: 'Formulation',
-    shelfLife: '24 Months', storageCondition: 'Below 25°C', qualityStandards: 'BP/USP',
-    regulatoryStatus: 'Dossier Prep', manufacturingProcess: ''
-  });
-  const [newIngData, setNewIngData] = useState<any>({ name: '', quantity: 0, unit: 'Kg', rateUSD: 0, role: 'API', supplier: '', grade: '', notes: '' });
-  const [editIngIdx, setEditIngIdx] = useState<number>(-1);
-  const [rdSpecLoading, setRdSpecLoading] = useState(false);
-
-  // File Analysis State
-  const [fileAnalysisLog, setFileAnalysisLog] = useState<FileAnalysisResult[]>([]);
-  
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'view' | 'edit' | 'add'>('view');
-  const [modalData, setModalData] = useState<any>({});
-  const [currentSection, setCurrentSection] = useState('');
-
-  // PO Generation State
-  const [isPOModalOpen, setIsPOModalOpen] = useState(false);
-  const [poItem, setPOItem] = useState<any>(null);
-  const [poVendor, setPOVendor] = useState('');
-  const [poQty, setPOQty] = useState('');
-  const [poUnitPrice, setPOUnitPrice] = useState('');
-  const [poPayment, setPOPayment] = useState('LC at Sight');
-  const [poShipping, setPOShipping] = useState('CIF by Air - Muscat Airport');
-  const [poETA, setPOETA] = useState('ASAP');
-  
-  // Expansion State
-  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const procurementFileRef = useRef<HTMLInputElement>(null);
-  const industrialFileRef = useRef<HTMLInputElement>(null);
-  const brainstormFileRef = useRef<HTMLInputElement>(null);
-  const rdFileRef = useRef<HTMLInputElement>(null);
-  const bdFileRef = useRef<HTMLInputElement>(null);
-
-  // NEW: Confirmation Dialog State
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    type: 'add' | 'delete';
-    itemType: string;
-    itemName: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-  }>({
-    isOpen: false,
-    type: 'add',
-    itemType: '',
-    itemName: '',
-    onConfirm: () => {},
-    onCancel: () => {}
-  });
-
-  // --- Effects ---
-
-  const fetchSupabaseData = async () => {
-    try {
-      // 1. Fetch Production Yields
-      const { data: bData } = await supabase.from('production_yields').select('*');
-      if (bData && bData.length > 0) {
-          setBatches(bData.map((b: any) => ({ 
-              ...b, 
-              actualYield: b.actual_yield, 
-              expectedYield: b.expected_yield 
-          })));
-      }
-      
-      // 2. Fetch Orders
-      const { data: oData } = await supabase.from('orders').select('*');
-      if (oData && oData.length > 0) {
-          setOrders(oData.map((o: any) => ({ 
-              ...o, 
-              sNo: o.s_no,
-              invoiceNo: o.invoice_no,
-              amountUSD: o.amount_usd,
-              amountOMR: o.amount_omr,
-              indentDate: o.indent_date 
-          })));
-      }
-
-      // 3. Fetch Inventory
-      const { data: iData } = await supabase.from('inventory').select('*');
-      if (iData && iData.length > 0) {
-          setInventory(iData.map((i: any) => ({
-              ...i,
-              sNo: i.s_no,
-              requiredForOrders: i.required_for_orders,
-              balanceToPurchase: i.balance_to_purchase,
-              stockDate: i.stock_date
-          })));
-      }
-
-      // 4. Fetch Markets
-      const { data: mData } = await supabase.from('markets').select('*');
-      if (mData && mData.length > 0) setMarkets(mData);
-
-      // 5. Fetch Audit Logs
-      const { data: lData } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(50);
-      if (lData && lData.length > 0) setAuditLogs(lData);
-
-      setDbStatus('connected');
-    } catch (e) {
-      console.warn("Supabase fetch error:", e);
-      setDbStatus('disconnected');
-    }
-  };
-
-  useEffect(() => { fetchSupabaseData(); }, []);
-  
-  // Persistence Effects - Safe Wrapper
-  const saveToLocalStorage = (key: string, value: any) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.warn(`LocalStorage quota exceeded for ${key}. Data not saved.`);
-    }
-  };
+  Gemini: [
+    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', note: 'Fast — default' },
+    { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro',   note: 'Deep analysis'  },
+  ],
+  Claude: [
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku',  note: 'Fast'              },
+    { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet', note: 'Balanced — default' },
+    { id: 'claude-opus-4-6',           label: 'Claude Opus',   note: 'Highest quality'   },
+  ],
+  Qwen: [
+    { id: 'qwen-turbo', label: 'Qwen Turbo', note: 'Fast & free'     },
+    { id: 'qwen-plus',  label: 'Qwen Plus',  note: 'Balanced default' },
+    { id: 'qwen-max',   label: 'Qwen Max',   note: 'Highest quality'  },
+  ],
+};
 
   useEffect(() => { saveToLocalStorage('erp_dashboard_widgets', visibleWidgets); }, [visibleWidgets]);
   useEffect(() => { saveToLocalStorage('erp_industrial_chat', industrialChat); }, [industrialChat]);
@@ -4141,14 +3756,17 @@ const renderProcurement = () => {
   const renderAIOps = () => {
     const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
     const providerColors: Record<string, string> = {
-      Claude: 'text-orange-400', Gemini: 'text-blue-400', DeepSeek: 'text-cyan-400', NotebookLM: 'text-purple-400'
-    };
+  Claude:     'text-orange-400',
+  Gemini:     'text-blue-400',
+  Qwen:       'text-purple-400',
+  NotebookLM: 'text-emerald-400',
+};
     const providerBg: Record<string, string> = {
-      Claude: 'bg-orange-500/10 border-orange-500/30',
-      Gemini: 'bg-blue-500/10 border-blue-500/30',
-      DeepSeek: 'bg-cyan-500/10 border-cyan-500/30',
-      NotebookLM: 'bg-purple-500/10 border-purple-500/30'
-    };
+  Claude:     'bg-orange-500/10 border-orange-500/30',
+  Gemini:     'bg-blue-500/10 border-blue-500/30',
+  Qwen:       'bg-purple-500/10 border-purple-500/30',
+  NotebookLM: 'bg-emerald-500/10 border-emerald-500/30',
+};
 
     return (
       <div className="flex flex-col animate-fadeIn pb-6 space-y-4">
@@ -4218,13 +3836,13 @@ const renderProcurement = () => {
             <div className="flex-1 flex flex-col gap-2 min-w-0">
               {/* Provider + Skills bar */}
               <div className="flex flex-wrap gap-1.5 items-center bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 shrink-0">
-                {(['Claude','Gemini','DeepSeek','NotebookLM'] as const).map(p => (
-                  <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all
-                      ${activeProvider === p && !activeSkillId ? providerBg[p] + ' ' + providerColors[p] : 'border-transparent text-slate-500 hover:text-white'}`}>
-                    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'DeepSeek' ? '🐳 DeepSeek' : '📚 NotebookLM'}
-                  </button>
-                ))}
+                {(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
+  <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
+    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all
+      ${activeProvider === p && !activeSkillId ? providerBg[p] + ' ' + providerColors[p] : 'border-transparent text-slate-500 hover:text-white'}`}>
+    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
+  </button>
+))}
                 <div className="w-px h-4 bg-white/10"/>
                 {savedSkills.slice(0, 3).map((sk: any) => (
                   <button key={sk.id}
@@ -4628,9 +4246,13 @@ const renderProcurement = () => {
                 <div>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">AI Provider</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {(['Claude','Gemini','DeepSeek','NotebookLM'] as const).map(p => (
-                      <button key={p}
-                        onClick={() => setNewSkillData((prev: any) => ({...prev, provider: p}))}
+                    {(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
+  <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
+    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all
+      ${activeProvider === p && !activeSkillId ? providerBg[p] + ' ' + providerColors[p] : 'border-transparent text-slate-500 hover:text-white'}`}>
+    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
+  </button>
+))}
                         className={`py-2.5 text-xs font-bold rounded-lg border transition-all text-center
                           ${newSkillData.provider === p
                             ? providerBg[p] + ' ' + providerColors[p]
