@@ -4242,22 +4242,14 @@ const renderProcurement = () => {
                     </select>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">AI Provider</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
-  <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
-    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all
-      ${activeProvider === p && !activeSkillId ? providerBg[p] + ' ' + providerColors[p] : 'border-transparent text-slate-500 hover:text-white'}`}>
-    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
-  </button>
-))}
+{(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
+                      <button key={p}
+                        onClick={() => setNewSkillData((prev: any) => ({...prev, provider: p}))}
                         className={`py-2.5 text-xs font-bold rounded-lg border transition-all text-center
                           ${newSkillData.provider === p
                             ? providerBg[p] + ' ' + providerColors[p]
                             : 'border-white/10 text-slate-500 hover:text-white'}`}>
-                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'DeepSeek' ? '🐳 DeepSeek' : '📚 NotebookLM'}
+                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
                       </button>
                     ))}
                   </div>
