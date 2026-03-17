@@ -4252,7 +4252,7 @@ const renderProcurement = () => {
                         {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
                       </button>
                     ))}
-</div>
+                    </div>
                     <p className="text-[10px] text-slate-500 mt-1.5">
                       {newSkillData.provider === 'Claude'
                         ? '🤖 Best for: Operations decisions, compliance, strategic analysis, writing'
