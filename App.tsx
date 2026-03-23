@@ -1,7 +1,6 @@
-
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { salesData } from './src/data/sales_data';
-import { supplyChainData } from './src/data/supply_chain_data';
+import { salesData } from './data/sales_data';
+import { supplyChainData } from './data/supply_chain_data';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -249,6 +248,126 @@ const App: React.FC = () => {
     { id: 'qwen-max',   label: 'Qwen Max',   note: 'Highest quality'  },
   ],
 };
+
+  // ── Helper: safe localStorage write ──
+  const saveToLocalStorage = (key: string, value: any) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  };
+
+  // ── UI / Navigation State ──
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [dbStatus, setDbStatus] = useState<'connected' | 'disconnected'>('connected');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [insights, setInsights] = useState<COOInsight[]>([]);
+  const [chatHistory, setChatHistory] = useState<{role: string; text: string}[]>([]);
+  const [chatMessage, setChatMessage] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+
+  // ── Upload Progress State ──
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
+    isUploading: false, fileName: '', progress: 0, status: 'uploading', message: ''
+  });
+  const [fileAnalysisLog, setFileAnalysisLog] = useState<FileAnalysisResult[]>([]);
+
+  // ── Industrial Studio State ──
+  const [industrialChat, setIndustrialChat] = useState<ChatMessage[]>(() => {
+    try { const s = localStorage.getItem('erp_industrial_chat'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [industrialInput, setIndustrialInput] = useState('');
+  const [pendingIndustrialImage, setPendingIndustrialImage] = useState<string|null>(null);
+  const [pendingIndustrialMime, setPendingIndustrialMime] = useState<string|null>(null);
+  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [imageSize, setImageSize] = useState('1K');
+
+  // ── Brainstorm State ──
+  const [brainstormSessions, setBrainstormSessions] = useState<BrainstormSession[]>(() => {
+    try { const s = localStorage.getItem('erp_brainstorm_sessions'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [brainstormInput, setBrainstormInput] = useState('');
+  const [currentBrainstormId, setCurrentBrainstormId] = useState<string|null>(null);
+
+  // ── AI Command / Chat Sessions State ──
+  const [chatSessions, setChatSessions] = useState<any[]>(() => {
+    try { const s = localStorage.getItem('erp_chat_sessions_v2'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [activeChatId, setActiveChatId] = useState<string|null>(null);
+  const [aiCmdHistory, setAiCmdHistory] = useState<any[]>([]);
+  const [aiCmdInput, setAiCmdInput] = useState('');
+  const [aiCmdTab, setAiCmdTab] = useState<'chat' | 'industrial' | 'brainstorm' | 'skills' | 'triple'>('chat');
+
+  // ── Skills State ──
+  const [savedSkills, setSavedSkills] = useState<any[]>(() => {
+    try { const s = localStorage.getItem('erp_saved_skills'); return s ? JSON.parse(s) : []; } catch { return []; }
+  });
+  const [activeSkillId, setActiveSkillId] = useState<string|null>(null);
+  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
+  const [newSkillData, setNewSkillData] = useState<any>({
+    name: '', provider: 'Claude', description: '', prompt: '', category: 'Operations'
+  });
+
+  // ── Triple Validation Chain State ──
+  const [tripleChainInput, setTripleChainInput] = useState('');
+  const [tripleChainLoading, setTripleChainLoading] = useState(false);
+  const [tripleChainResult, setTripleChainResult] = useState<any>(null);
+
+  // ── Production State ──
+  const [expandedBatchId, setExpandedBatchId] = useState<string|null>(null);
+
+  // ── Inventory State ──
+  const [inventoryTab, setInventoryTab] = useState<'raw' | 'packing' | 'spares' | 'finished'>('raw');
+
+  // ── Modal State ──
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'view' | 'edit' | 'add'>('view');
+  const [modalData, setModalData] = useState<any>({});
+  const [currentSection, setCurrentSection] = useState('');
+
+  // ── Confirmation Dialog State ──
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean; type: 'add' | 'delete'; itemType: string; itemName: string;
+    onConfirm: () => void; onCancel: () => void;
+  }>({
+    isOpen: false, type: 'delete', itemType: '', itemName: '',
+    onConfirm: () => {}, onCancel: () => {}
+  });
+
+  // ── Purchase Order Modal State ──
+  const [isPOModalOpen, setIsPOModalOpen] = useState(false);
+  const [poItem, setPOItem] = useState<any>(null);
+  const [poVendor, setPOVendor] = useState('');
+  const [poQty, setPOQty] = useState('');
+  const [poUnitPrice, setPOUnitPrice] = useState('');
+  const [poPayment, setPOPayment] = useState('LC at Sight');
+  const [poShipping, setPOShipping] = useState('CIF by Air - Muscat Airport');
+  const [poETA, setPOETA] = useState('ASAP');
+
+  // ── R&D Lab State ──
+  const [selectedRD, setSelectedRD] = useState<RDProject|null>(null);
+  const [rdSearch, setRdSearch] = useState('');
+  const [rdAiReport, setRdAiReport] = useState('');
+  const [rdActiveTab, setRdActiveTab] = useState<'formulation' | 'process' | 'compare' | 'spec'>('formulation');
+  const [rdModalMode, setRdModalMode] = useState<'addProduct' | 'addIngredient' | 'editIngredient'>('addProduct');
+  const [isRdModalOpen, setIsRdModalOpen] = useState(false);
+  const [newIngData, setNewIngData] = useState<any>({
+    name: '', quantity: 0, unit: 'Kg', rateUSD: 0, role: 'API', supplier: '', grade: '', notes: ''
+  });
+  const [newProductData, setNewProductData] = useState<any>({
+    title: '', productCode: '', dosageForm: 'Capsule', strength: '', therapeuticCategory: '',
+    batchSize: 100, batchUnit: 'Kg', loss: 0.02, status: 'Formulation',
+    shelfLife: '24 Months', storageCondition: 'Below 25°C',
+    qualityStandards: 'BP/USP', regulatoryStatus: 'Dossier Prep', manufacturingProcess: ''
+  });
+  const [editIngIdx, setEditIngIdx] = useState<number>(0);
+  const [compareRD, setCompareRD] = useState<RDProject|null>(null);
+  const [rdSpecLoading, setRdSpecLoading] = useState(false);
+
+  // ── Refs ──
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const rdFileRef = useRef<HTMLInputElement>(null);
+  const bdFileRef = useRef<HTMLInputElement>(null);
+  const brainstormFileRef = useRef<HTMLInputElement>(null);
+  const industrialFileRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder|null>(null);
 
   useEffect(() => { saveToLocalStorage('erp_dashboard_widgets', visibleWidgets); }, [visibleWidgets]);
   useEffect(() => { saveToLocalStorage('erp_industrial_chat', industrialChat); }, [industrialChat]);
