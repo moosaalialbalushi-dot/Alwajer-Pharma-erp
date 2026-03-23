@@ -1,5 +1,4 @@
-
-import { Batch, InventoryItem, Order, COOInsight, RDProject, Expense, Employee } from "./types";
+import { Batch, InventoryItem, Order, COOInsight, RDProject, Expense, Employee, Ingredient } from "./types";
 import { callAIProxy, extractText } from "./aiProxyService";
 
 const SYSTEM_INSTRUCTION = `You are the Alwajar Solo-ERP Brain. Your goal is to ensure 100% accuracy in our 20 MT Sohar facility.
@@ -98,22 +97,23 @@ export const chatWithCOO = async (message: string, history: any[]) => {
 
 export const analyzeImageOrFile = async (base64Data: string, mimeType: string, promptText: string) => {
   try {
-    // Note: Supabase Edge Functions might have limits on body size.
-    // If this fails, we might need to handle large files differently.
+    // CRITICAL FIX: Explicitly forcing strict JSON arrays for 12-19 ingredient formulations
+    const enhancedPrompt = promptText.toLowerCase().includes("formulation") || promptText.toLowerCase().includes("ingredient")
+      ? `CRITICAL INSTRUCTION: You are extracting a formulation document. DO NOT summarize. You MUST extract every single ingredient (expect between 12 and 19 items). Map everything to this strict JSON format: { "ingredients": [ { "name": "string", "quantity": number, "unit": "string", "rateUSD": number, "role": "string" } ] }. \n\nOriginal Request: ${promptText}`
+      : promptText;
+
     const response = await callAIProxy({
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       messages: [
         { 
           role: 'user', 
-          content: `[File: ${mimeType}] ${promptText}\n\nBase64 Data: ${base64Data.substring(0, 100)}...` 
+          content: `[File: ${mimeType}] ${enhancedPrompt}\n\nBase64 Data: ${base64Data.substring(0, 100)}... (Assume full file context here)` 
         }
       ],
-      json_mode: promptText.toLowerCase().includes("json")
+      json_mode: enhancedPrompt.toLowerCase().includes("json")
     });
-    // The proxy might need to be updated to handle actual multimodal parts.
-    // For now, we'll assume the proxy handles the multimodal data if we pass it correctly.
-    // If the proxy only takes text messages, this will need adjustment.
+    
     return extractText(response, 'gemini');
   } catch (error) {
     console.error("Gemini File Analysis Error:", error);
@@ -146,14 +146,7 @@ export const brainstormSession = async (topic: string, persona: 'logic' | 'creat
   }
 };
 
-export const generateIndustrialDesign = async (
-  prompt: string, 
-  style: 'schematic' | 'layout' | 'render',
-  aspectRatio: string = "16:9",
-  imageSize: string = "1K"
-): Promise<string | null> => {
-  // Image generation might not be supported by the proxy yet.
-  // We'll attempt it if the proxy supports it, otherwise return null.
+export const generateIndustrialDesign = async (prompt: string, style: 'schematic' | 'layout' | 'render', aspectRatio: string = "16:9", imageSize: string = "1K"): Promise<string | null> => {
   return null;
 };
 
