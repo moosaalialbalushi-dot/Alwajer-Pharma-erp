@@ -672,7 +672,7 @@ const handleDelete = async (type: string, id: string, name: string) => {
   </tbody>
 </table>
 
-<p class="bold">IN WORDS: - USD – ${totalWords} Only/-</p>
+<p class="bold">IN WORDS: - USD &ndash; ${totalWords} Only&#x2F;-</p>
 
 <!-- SHIPPING TABLE -->
 <table>
