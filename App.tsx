@@ -395,6 +395,96 @@ const App: React.FC = () => {
 
   useEffect(() => { fetchInsights(); }, [fetchInsights]);
 
+useEffect(() => {
+  const loadFromSupabase = async () => {
+    try {
+      const [ordersRes, inventoryRes, batchesRes, expensesRes, employeesRes] = await Promise.all([
+        supabase.from('orders').select('*'),
+        supabase.from('inventory').select('*'),
+        supabase.from('production_yields').select('*'),
+        supabase.from('expenses').select('*'),
+        supabase.from('employees').select('*'),
+      ]);
+
+      if (ordersRes.data && ordersRes.data.length > 0) {
+        setOrders(ordersRes.data.map((r: any) => ({
+          id: r.id,
+          sNo: r.s_no || '',
+          invoiceNo: r.invoice_no || '',
+          date: r.date || '',
+          customer: r.customer || '',
+          country: r.country || '',
+          product: r.product || '',
+          quantity: Number(r.quantity) || 0,
+          rateUSD: Number(r.rate_usd) || 0,
+          amountUSD: Number(r.amount_usd) || 0,
+          amountOMR: Number(r.amount_omr) || 0,
+          status: r.status || 'Pending',
+          paymentMethod: r.payment_method || '',
+          shippingMethod: r.shipping_method || '',
+          lcNo: r.lc_no || '',
+          market: r.market || '',
+          notes: r.notes || '',
+          deliveryDate: r.delivery_date || '',
+        })));
+      }
+
+      if (inventoryRes.data && inventoryRes.data.length > 0) {
+        setInventory(inventoryRes.data.map((r: any) => ({
+          id: r.id,
+          sNo: r.s_no || '',
+          name: r.name || '',
+          category: r.category || 'API',
+          stock: Number(r.stock) || 0,
+          requiredForOrders: Number(r.required_for_orders) || 0,
+          balanceToPurchase: Number(r.balance_to_purchase) || 0,
+          unit: r.unit || 'kg',
+          stockDate: r.stock_date || '',
+        })));
+      }
+
+      if (batchesRes.data && batchesRes.data.length > 0) {
+        setBatches(batchesRes.data.map((r: any) => ({
+          id: r.id,
+          product: r.product || '',
+          quantity: Number(r.quantity) || 0,
+          actualYield: Number(r.actual_yield) || 0,
+          expectedYield: Number(r.expected_yield) || 0,
+          status: r.status || '',
+          timestamp: r.timestamp || '',
+          dispatchDate: r.dispatch_date || '',
+        })));
+      }
+
+      if (expensesRes.data && expensesRes.data.length > 0) {
+        setExpenses(expensesRes.data.map((r: any) => ({
+          id: r.id,
+          description: r.description || '',
+          category: r.category || '',
+          amount: Number(r.amount) || 0,
+          status: r.status || '',
+          dueDate: r.due_date || '',
+        })));
+      }
+
+      if (employeesRes.data && employeesRes.data.length > 0) {
+        setEmployees(employeesRes.data.map((r: any) => ({
+          id: r.id,
+          name: r.name || '',
+          role: r.role || '',
+          department: r.department || '',
+          salary: Number(r.salary) || 0,
+          status: r.status || '',
+          joinDate: r.join_date || '',
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load data from Supabase:', err);
+    }
+  };
+  loadFromSupabase();
+}, []);
+
   // --- Helper Functions ---
   const downloadContent = (content: string, filename: string, type: 'text' | 'image') => {
       const link = document.createElement('a');
