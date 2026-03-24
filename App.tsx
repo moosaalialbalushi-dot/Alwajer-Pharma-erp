@@ -1,3 +1,4 @@
+
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { salesData } from './data/sales_data';
 import { supplyChainData } from './data/supply_chain_data';
@@ -784,32 +785,38 @@ const handleDelete = async (type: string, id: string, name: string) => {
       message: 'Uploading file...'
     });
 
-    const reader = new FileReader();
-    
-    // Track upload progress
-    reader.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percentComplete = (event.loaded / event.total) * 50; // First 50% for upload
+    try {
+        // 1. Direct Upload to Supabase (Bypasses Vercel 4.5MB Limit)
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('formulations') // IMPORTANT: Ensure you create a public bucket named 'formulations' in Supabase
+          .upload(fileName, file);
+
+        if (uploadError) {
+          console.error("Supabase Upload Error:", uploadError);
+          throw uploadError;
+        }
+
+        // 2. Get the public URL
+        const { data: urlData } = supabase.storage.from('formulations').getPublicUrl(uploadData.path);
+        const fileUrl = urlData.publicUrl;
+
+        // Update to processing
         setUploadProgress(prev => ({
           ...prev,
-          progress: percentComplete,
-          message: `Uploading: ${Math.round(percentComplete)}%`
+          progress: 50,
+          status: 'processing',
+          message: 'AI Processing Document...'
         }));
-      }
-    };
-    
-    reader.onload = async () => {
-      const base64String = reader.result as string;
-      const base64Content = base64String.split(',')[1];
-      const mimeType = file.type;
 
-      // Update to processing
-      setUploadProgress(prev => ({
-        ...prev,
-        progress: 50,
-        status: 'processing',
-        message: 'Processing file...'
-      }));
+        // 3. YOUR AI CALL GOES HERE
+        // Look directly below this block in your code. You will see a line like:
+        // const analysis = await analyzeImageOrFile(base64Content, mimeType, "...");
+        // 
+        // CHANGE that line to send the URL instead of the base64 string:
+        // const analysis = await analyzeImageOrFile(fileUrl, "text/plain", "Extract formulation data in JSON...");
 
       if (context === 'industrial') {
           setPendingIndustrialImage(base64String);
@@ -875,7 +882,7 @@ const handleDelete = async (type: string, id: string, name: string) => {
           message: 'AI analyzing content...'
         }));
 
-        const analysis = await analyzeImageOrFile(base64Content, mimeType, prompt);
+        const analysis = await analyzeImageOrFile(fileUrl, "text/plain", prompt + " (Read the document from this URL: " + fileUrl + ")");
         
         setUploadProgress(prev => ({
           ...prev,
@@ -1645,22 +1652,39 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
       timestamp: new Date().toISOString(),
       dispatch_date: newItem.dispatchDate
     };
-  } else if (section === 'sales') {
+   } else if (section === 'sales') {
     previousState = orders;
     setState = setOrders;
     table = 'orders';
+    
+    // 1. Strip commas and force strict database-safe numbers
+    const safeQty = parseFloat(String(newItem.quantity).replace(/,/g, '')) || 0;
+    const safeRateUSD = parseFloat(String(newItem.rateUSD).replace(/,/g, '')) || 0;
+    
+    // 2. Auto-calculate amounts if they are missing or broken
+    let safeAmountUSD = parseFloat(String(newItem.amountUSD).replace(/,/g, ''));
+    if (isNaN(safeAmountUSD) || safeAmountUSD === 0) {
+        safeAmountUSD = Number((safeQty * safeRateUSD).toFixed(3));
+    }
+
+    let safeAmountOMR = parseFloat(String(newItem.amountOMR).replace(/,/g, ''));
+    if (isNaN(safeAmountOMR) || safeAmountOMR === 0) {
+        // Standard OMR conversion rate
+        safeAmountOMR = Number((safeAmountUSD * 0.3845).toFixed(3)); 
+    }
+
     payload = {
       id: newItem.id,
-      invoice_no: newItem.invoiceNo,
-      date: newItem.date,
-      customer: newItem.customer,
-      country: newItem.country,
-      product: newItem.product,
-      quantity: Number(newItem.quantity),
-      rate_usd: Number(newItem.rateUSD) || 0,
-      amount_usd: Number(newItem.amountUSD),
-      amount_omr: Number(newItem.amountOMR),
-      status: newItem.status
+      invoice_no: newItem.invoiceNo || '',
+      date: newItem.date || new Date().toISOString().split('T')[0],
+      customer: newItem.customer || '',
+      country: newItem.country || '',
+      product: newItem.product || '',
+      quantity: safeQty,
+      rate_usd: safeRateUSD,
+      amount_usd: safeAmountUSD,
+      amount_omr: safeAmountOMR,
+      status: newItem.status || 'Pending'
     };
   } else if (section === 'accounting') {
     previousState = expenses;
