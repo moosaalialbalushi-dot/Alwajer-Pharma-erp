@@ -772,279 +772,222 @@ const handleDelete = async (type: string, id: string, name: string) => {
 
 
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, context: 'global' | 'procurement' | 'industrial' | 'brainstorm' | 'rd' | 'bd' = 'global') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, context: 'global' | 'procurement' | 'industrial' | 'brainstorm' | 'rd' | 'bd' = 'global') => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    // Initialize upload progress
-    setUploadProgress({
-      isUploading: true,
-      fileName: file.name,
-      progress: 0,
-      status: 'uploading',
-      message: 'Uploading file...'
+  setUploadProgress({
+    isUploading: true,
+    fileName: file.name,
+    progress: 0,
+    status: 'uploading',
+    message: 'Uploading file...'
+  });
+
+  // Helper: read file as base64 (fallback path only)
+  const readAsBase64 = (f: File): Promise<{ base64: string; mimeType: string }> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const [meta, base64] = result.split(',');
+        const mimeType = meta.match(/:(.*?);/)?.[1] || f.type || 'application/octet-stream';
+        resolve({ base64, mimeType });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
     });
 
+  // --- Step 1: Try Supabase direct upload (bypasses Vercel 4.5 MB limit) ---
+  let fileUrl: string | null = null;
+  let base64Fallback: string | null = null;
+  let mimeTypeFallback: string = file.type || 'application/octet-stream';
+
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 8)}.${fileExt}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('formulations')
+      .upload(fileName, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from('formulations').getPublicUrl(uploadData.path);
+    fileUrl = urlData.publicUrl;
+  } catch (supabaseErr) {
+    console.warn('Supabase upload failed, falling back to base64:', supabaseErr);
     try {
-        // 1. Direct Upload to Supabase (Bypasses Vercel 4.5MB Limit)
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random()}.${fileExt}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('formulations') // IMPORTANT: Ensure you create a public bucket named 'formulations' in Supabase
-          .upload(fileName, file);
+      const { base64, mimeType } = await readAsBase64(file);
+      base64Fallback = base64;
+      mimeTypeFallback = mimeType;
+    } catch (readerErr) {
+      console.error('FileReader fallback also failed:', readerErr);
+      setUploadProgress({ isUploading: false, fileName: file.name, progress: 0, status: 'error', message: 'Upload failed. Please try again.' });
+      setTimeout(() => setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'complete', message: '' }), 3000);
+      return;
+    }
+  }
 
-        if (uploadError) {
-          console.error("Supabase Upload Error:", uploadError);
-          throw uploadError;
+  // --- Step 2: Handle industrial context ---
+  if (context === 'industrial') {
+    setPendingIndustrialImage(fileUrl ?? base64Fallback ?? '');
+    setPendingIndustrialMime(mimeTypeFallback);
+    setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'complete', message: '' });
+    return;
+  }
+
+  // --- Step 3: Handle brainstorm context ---
+  if (context === 'brainstorm' && currentBrainstormId) {
+    const session = brainstormSessions.find(s => s.id === currentBrainstormId);
+    if (session) {
+      const newMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'user',
+        text: `Uploaded reference: ${file.name}`,
+        timestamp: Date.now()
+      };
+      const updatedSession = { ...session, messages: [...session.messages, newMsg] };
+      setBrainstormSessions(prev => prev.map(s => s.id === currentBrainstormId ? updatedSession : s));
+    }
+    setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'complete', message: '' });
+    return;
+  }
+
+  // --- Step 4: Run AI analysis ---
+  setUploadProgress(prev => ({ ...prev, progress: 50, status: 'processing', message: 'AI Processing Document...' }));
+  setIsAiLoading(true);
+
+  try {
+    let prompt = "Analyze this file for pharmaceutical ERP data.";
+    if (context === 'global') {
+      prompt = `Analyze this pharmaceutical document (could be an image or spreadsheet). 
+        It may contain multiple sections like Raw Materials, Packing Materials, R&D items, and Spare Parts.
+        Extract all items found into the following JSON structure:
+        {
+          "inventory": [
+            { "sNo": "string", "name": "string", "category": "API" | "Excipient" | "Packing" | "Finished" | "Spare", "required": number, "stock": number, "unit": "string", "date": "string" }
+          ],
+          "orders": [
+            { "customer": "string", "product": "string", "quantity": number, "amountUSD": number, "status": "string", "invoiceNo": "string", "date": "string" }
+          ]
         }
+        Note: If an item is in "Purchase For :- Spare", categorize it as "Spare". If in "PACKING MATERIALS", use "Packing". Default to "API" for raw materials.
+        Be extremely precise with numbers. Return ONLY valid JSON.`;
+    }
+    if (context === 'procurement') prompt = "Analyze this inventory requirement or PO file. Extract: S.No, Material Name, Required Quantity, Present Stock. Return JSON: { \"inventory\": [ { \"sNo\": \"string\", \"name\": \"string\", \"required\": number, \"stock\": number, \"unit\": \"string\" } ] }";
+    if (context === 'rd') prompt = "Analyze this pharmaceutical formulation/costing sheet. Extract: Raw Material, Unit, Per B. Qty, Rate USD. Also identify Batch Size (Output). Return JSON: { \"batchSize\": number, \"ingredients\": [ { \"name\": \"string\", \"unit\": \"string\", \"quantity\": number, \"rateUSD\": number } ] }";
+    if (context === 'bd') prompt = "Analyze this Sales Excel file. Extract: Party, Product, Qty (KG), Rate $, Amount $, Status. Return JSON: { \"orders\": [ { \"customer\": \"string\", \"product\": \"string\", \"quantity\": number, \"rateUSD\": number, \"amountUSD\": number, \"status\": \"string\" } ] }";
 
-        // 2. Get the public URL
-        const { data: urlData } = supabase.storage.from('formulations').getPublicUrl(uploadData.path);
-        const fileUrl = urlData.publicUrl;
+    setUploadProgress(prev => ({ ...prev, progress: 75, message: 'AI analyzing content...' }));
 
-        // Update to processing
-        setUploadProgress(prev => ({
-          ...prev,
-          progress: 50,
-          status: 'processing',
-          message: 'AI Processing Document...'
-        }));
+    // Use URL if Supabase upload succeeded; otherwise fall back to base64
+    const aiInput = fileUrl
+      ? (fileUrl + " (Read the document from this URL: " + fileUrl + ")")
+      : (base64Fallback ?? '');
+    const aiMime = fileUrl ? "text/plain" : mimeTypeFallback;
+    const analysis = await analyzeImageOrFile(aiInput, aiMime, prompt);
 
-        // 3. YOUR AI CALL GOES HERE
-        // Look directly below this block in your code. You will see a line like:
-        // const analysis = await analyzeImageOrFile(base64Content, mimeType, "...");
-        // 
-        // CHANGE that line to send the URL instead of the base64 string:
-        // const analysis = await analyzeImageOrFile(fileUrl, "text/plain", "Extract formulation data in JSON...");
+    setUploadProgress(prev => ({ ...prev, progress: 90, status: 'processing', message: 'Updating database...' }));
 
-      if (context === 'industrial') {
-          setPendingIndustrialImage(base64String);
-          setPendingIndustrialMime(mimeType);
-          setUploadProgress({
-            isUploading: false,
-            fileName: '',
-            progress: 0,
-            status: 'complete',
-            message: ''
-          });
-          return;
-      }
-      
-      if (context === 'brainstorm' && currentBrainstormId) {
-          const session = brainstormSessions.find(s => s.id === currentBrainstormId);
-          if (session) {
-              const newMsg: ChatMessage = {
-                  id: Date.now().toString(),
-                  role: 'user',
-                  text: `Uploaded reference: ${file.name}`,
-                  timestamp: Date.now()
-              };
-              const updatedSession = {...session, messages: [...session.messages, newMsg]};
-              setBrainstormSessions(prev => prev.map(s => s.id === currentBrainstormId ? updatedSession : s));
-          }
-          setUploadProgress({
-            isUploading: false,
-            fileName: '',
-            progress: 0,
-            status: 'complete',
-            message: ''
-          });
-          return;
-      }
-
-      setIsAiLoading(true);
+    if (analysis && analysis.includes('{')) {
       try {
-        let prompt = "Analyze this file for pharmaceutical ERP data.";
-        if (context === 'global') {
-          prompt = `Analyze this pharmaceutical document (could be an image or spreadsheet). 
-          It may contain multiple sections like Raw Materials, Packing Materials, R&D items, and Spare Parts.
-          Extract all items found into the following JSON structure:
-          {
-            "inventory": [
-              { "sNo": "string", "name": "string", "category": "API" | "Excipient" | "Packing" | "Finished" | "Spare", "required": number, "stock": number, "unit": "string", "date": "string" }
-            ],
-            "orders": [
-              { "customer": "string", "product": "string", "quantity": number, "amountUSD": number, "status": "string", "invoiceNo": "string", "date": "string" }
-            ]
-          }
-          Note: If an item is in "Purchase For :- Spare", categorize it as "Spare". If in "PACKING MATERIALS", use "Packing". Default to "API" for raw materials.
-          Be extremely precise with numbers. Return ONLY valid JSON.`;
-        }
-        if (context === 'procurement') prompt = "Analyze this inventory requirement or PO file. Extract: S.No, Material Name, Required Quantity, Present Stock. Return JSON: { \"inventory\": [ { \"sNo\": \"string\", \"name\": \"string\", \"required\": number, \"stock\": number, \"unit\": \"string\" } ] }";
-        if (context === 'rd') prompt = "Analyze this pharmaceutical formulation/costing sheet. Extract: Raw Material, Unit, Per B. Qty, Rate USD. Also identify Batch Size (Output). Return JSON: { \"batchSize\": number, \"ingredients\": [ { \"name\": \"string\", \"unit\": \"string\", \"quantity\": number, \"rateUSD\": number } ] }";
-        if (context === 'bd') prompt = "Analyze this Sales Excel file. Extract: Party, Product, Qty (KG), Rate $, Amount $, Status. Return JSON: { \"orders\": [ { \"customer\": \"string\", \"product\": \"string\", \"quantity\": number, \"rateUSD\": number, \"amountUSD\": number, \"status\": \"string\" } ] }";
+        const cleanJson = analysis.substring(analysis.indexOf('{'), analysis.lastIndexOf('}') + 1);
+        const jsonData = JSON.parse(cleanJson);
 
-        // Update progress during analysis
-        setUploadProgress(prev => ({
-          ...prev,
-          progress: 75,
-          message: 'AI analyzing content...'
-        }));
-
-        const analysis = await analyzeImageOrFile(fileUrl, "text/plain", prompt + " (Read the document from this URL: " + fileUrl + ")");
-        
-        setUploadProgress(prev => ({
-          ...prev,
-          progress: 90,
-          status: 'processing',
-          message: 'Updating database...'
-        }));
-
-        // Process AI analysis into system state if applicable
-        if (analysis && analysis.includes('{')) {
-          try {
-            const cleanJson = analysis.substring(analysis.indexOf('{'), analysis.lastIndexOf('}') + 1);
-            const jsonData = JSON.parse(cleanJson);
-            
-            // 1. Handle Inventory (Raw Materials, Packing, Spares)
-            if (jsonData.inventory && Array.isArray(jsonData.inventory)) {
-              const newItems = jsonData.inventory.map((item: any) => ({
-                id: `AI-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                sNo: item.sNo || '',
-                name: item.name || 'Unknown Item',
-                category: item.category || 'API',
-                stock: Number(item.stock) || 0,
-                requiredForOrders: Number(item.required) || 0,
-                balanceToPurchase: Math.max(0, (Number(item.required) || 0) - (Number(item.stock) || 0)),
-                unit: item.unit || 'kg',
-                stockDate: item.date || new Date().toLocaleDateString()
-              }));
-
-              if (newItems.length > 0) {
-                setInventory(prev => [...prev, ...newItems]);
-                // Batch sync to Supabase
-                for (const item of newItems) {
-                  await supabase.from('inventory').insert({
-                    id: item.id,
-                    s_no: item.sNo,
-                    name: item.name,
-                    category: item.category,
-                    stock: item.stock,
-                    required_for_orders: item.requiredForOrders,
-                    balance_to_purchase: item.balanceToPurchase,
-                    unit: item.unit,
-                    stock_date: item.stockDate
-                  });
-                }
-                await logAction('IMPORT', `AI imported ${newItems.length} inventory items from ${file.name}`);
-              }
-            }
-            
-            // 2. Handle Orders (Sales)
-            if (jsonData.orders && Array.isArray(jsonData.orders)) {
-              const newOrders = jsonData.orders.map((order: any) => ({
-                id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                date: order.date || new Date().toISOString().split('T')[0],
-                invoiceNo: order.invoiceNo || `AI-${Math.floor(Math.random()*1000)}`,
-                customer: order.customer,
-                country: order.country || '-',
-                product: order.product,
-                quantity: Number(order.quantity) || 0,
-                amountUSD: Number(order.amountUSD) || 0,
-                amountOMR: (Number(order.amountUSD) || 0) * 0.385,
-                status: order.status || 'Pending'
-              }));
-
-              if (newOrders.length > 0) {
-                setOrders(prev => [...prev, ...newOrders]);
-                for (const order of newOrders) {
-                  await supabase.from('orders').insert({
-                    id: order.id,
-                    invoice_no: order.invoiceNo,
-                    customer: order.customer,
-                    product: order.product,
-                    quantity: order.quantity,
-                    amount_usd: order.amountUSD,
-                    status: order.status,
-                    date: order.date
-                  });
-                }
-                await logAction('IMPORT', `AI imported ${newOrders.length} orders`);
-              }
-            }
-            
-            // 3. Handle R&D (Formulation)
-            if (context === 'rd' && jsonData.ingredients) {
-              const newProject: RDProject = calculateCosting({
-                id: `RD-${Date.now()}`,
-                title: `Imported: ${file.name}`,
-                status: 'Formulation',
-                optimizationScore: 85,
-                lastUpdated: new Date().toISOString(),
-                batchSize: Number(jsonData.batchSize) || 100,
-                batchUnit: 'Kg',
-                totalRMC: 0,
-                loss: 0.02,
-                totalFinalRMC: 0,
-                ingredients: jsonData.ingredients.map((ing: any) => ({
-                  name: ing.name,
-                  quantity: Number(ing.quantity) || 0,
-                  unit: ing.unit || 'Kg',
-                  rateUSD: Number(ing.rateUSD) || 0,
-                  cost: 0,
-                  role: 'Other'
-                }))
+        if (jsonData.inventory && Array.isArray(jsonData.inventory)) {
+          const newItems = jsonData.inventory.map((item: any) => ({
+            id: `AI-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            sNo: item.sNo || '',
+            name: item.name || 'Unknown Item',
+            category: item.category || 'API',
+            stock: Number(item.stock) || 0,
+            requiredForOrders: Number(item.required) || 0,
+            balanceToPurchase: Math.max(0, (Number(item.required) || 0) - (Number(item.stock) || 0)),
+            unit: item.unit || 'kg',
+            stockDate: item.date || new Date().toLocaleDateString()
+          }));
+          if (newItems.length > 0) {
+            setInventory(prev => [...prev, ...newItems]);
+            for (const item of newItems) {
+              await supabase.from('inventory').insert({
+                id: item.id, s_no: item.sNo, name: item.name, category: item.category,
+                stock: item.stock, required_for_orders: item.requiredForOrders,
+                balance_to_purchase: item.balanceToPurchase, unit: item.unit, stock_date: item.stockDate
               });
-              setRdProjects(prev => [newProject, ...prev]);
-              setSelectedRD(newProject);
-              await logAction('IMPORT', `AI imported formulation`);
             }
-          } catch (e) {
-            console.error("JSON parsing or sync failed:", e);
+            await logAction('IMPORT', `AI imported ${newItems.length} inventory items from ${file.name}`);
           }
         }
 
-        setUploadProgress(prev => ({
-          ...prev,
-          progress: 100,
-          status: 'complete',
-          message: 'System Synced Successfully!'
-        }));
+        if (jsonData.orders && Array.isArray(jsonData.orders)) {
+          const newOrders = jsonData.orders.map((order: any) => ({
+            id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            date: order.date || new Date().toISOString().split('T')[0],
+            invoiceNo: order.invoiceNo || `AI-${Math.floor(Math.random() * 1000)}`,
+            customer: order.customer,
+            country: order.country || '-',
+            product: order.product,
+            quantity: Number(order.quantity) || 0,
+            amountUSD: Number(order.amountUSD) || 0,
+            amountOMR: (Number(order.amountUSD) || 0) * 0.385,
+            status: order.status || 'Pending'
+          }));
+          if (newOrders.length > 0) {
+            setOrders(prev => [...prev, ...newOrders]);
+            for (const order of newOrders) {
+              await supabase.from('orders').insert({
+                id: order.id, invoice_no: order.invoiceNo, customer: order.customer,
+                product: order.product, quantity: order.quantity, amount_usd: order.amountUSD,
+                status: order.status, date: order.date
+              });
+            }
+            await logAction('IMPORT', `AI imported ${newOrders.length} orders`);
+          }
+        }
 
-        setFileAnalysisLog(prev => [{
-          fileName: file.name,
-          analysis: analysis || "Analysis complete.",
-          timestamp: new Date().toLocaleTimeString()
-        }, ...prev]);
-
-        // Hide progress after 2 seconds
-        setTimeout(() => {
-          setUploadProgress({
-            isUploading: false,
-            fileName: '',
-            progress: 0,
-            status: 'complete',
-            message: ''
+        if (context === 'rd' && jsonData.ingredients) {
+          const newProject: RDProject = calculateCosting({
+            id: `RD-${Date.now()}`,
+            title: `Imported: ${file.name}`,
+            status: 'Formulation',
+            optimizationScore: 85,
+            lastUpdated: new Date().toISOString(),
+            batchSize: Number(jsonData.batchSize) || 100,
+            batchUnit: 'Kg',
+            totalRMC: 0,
+            loss: 0.02,
+            totalFinalRMC: 0,
+            ingredients: jsonData.ingredients.map((ing: any) => ({
+              name: ing.name,
+              quantity: Number(ing.quantity) || 0,
+              unit: ing.unit || 'Kg',
+              rateUSD: Number(ing.rateUSD) || 0,
+              cost: 0,
+              role: 'Other'
+            }))
           });
-        }, 2000);
-
-      } catch (error) {
-        console.error("File error", error);
-        setUploadProgress({
-          isUploading: false,
-          fileName: file.name,
-          progress: 0,
-          status: 'error',
-          message: 'Upload failed. Please try again.'
-        });
-        
-        // Hide error after 3 seconds
-        setTimeout(() => {
-          setUploadProgress({
-            isUploading: false,
-            fileName: '',
-            progress: 0,
-            status: 'complete',
-            message: ''
-          });
-        }, 3000);
-      } finally {
-        setIsAiLoading(false);
+          setRdProjects(prev => [newProject, ...prev]);
+          setSelectedRD(newProject);
+          await logAction('IMPORT', `AI imported formulation`);
+        }
+      } catch (e) {
+        console.error("JSON parsing or sync failed:", e);
       }
-    };
-    reader.readAsDataURL(file);
-  };
+    }
+
+    setUploadProgress(prev => ({ ...prev, progress: 100, status: 'complete', message: 'System Synced Successfully!' }));
+    setFileAnalysisLog(prev => [{ fileName: file.name, analysis: analysis || "Analysis complete.", timestamp: new Date().toLocaleTimeString() }, ...prev]);
+    setTimeout(() => setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'complete', message: '' }), 2000);
+
+  } catch (error) {
+    console.error("File analysis error:", error);
+    setUploadProgress({ isUploading: false, fileName: file.name, progress: 0, status: 'error', message: 'Upload failed. Please try again.' });
+    setTimeout(() => setUploadProgress({ isUploading: false, fileName: '', progress: 0, status: 'complete', message: '' }), 3000);
+  } finally {
+    setIsAiLoading(false);
+  }
+};
 
   // Industrial Chat Handler
   const handleIndustrialChat = async () => {
@@ -1190,15 +1133,21 @@ Be specific, technical, and precise. Use metric measurements.`;
     setIsAiLoading(false);
   };
   
-  const calculateCosting = (project: RDProject) => {
-    const ingredients = project.ingredients.map(ing => ({
-      ...ing,
-      cost: Number((ing.quantity * ing.rateUSD).toFixed(3))
-    }));
-    const totalRMC = ingredients.reduce((sum, ing) => sum + ing.cost, 0);
-    const totalFinalRMC = Number(((totalRMC / project.batchSize) + project.loss).toFixed(3));
-    return { ...project, ingredients, totalRMC: Number(totalRMC.toFixed(3)), totalFinalRMC };
-  };
+const calculateCosting = (project: RDProject) => {
+  const safeNum = (val: any) => parseFloat(String(val).replace(/,/g, '')) || 0;
+  const batchSize = safeNum(project.batchSize);
+  const loss = safeNum(project.loss);
+  const ingredients = project.ingredients.map(ing => {
+    const quantity = safeNum(ing.quantity);
+    const rateUSD = safeNum(ing.rateUSD);
+    return { ...ing, quantity, rateUSD, cost: Number((quantity * rateUSD).toFixed(3)) };
+  });
+  const totalRMC = ingredients.reduce((sum, ing) => sum + ing.cost, 0);
+  const totalFinalRMC = batchSize > 0
+    ? Number(((totalRMC / batchSize) + loss).toFixed(3))
+    : 0;
+  return { ...project, ingredients, totalRMC: Number(totalRMC.toFixed(3)), totalFinalRMC };
+};
 
   const saveRDVersion = (project: RDProject, summary: string): RDProject => {
     const versionNum = `v${((project.versions?.length || 0) + 1).toString().padStart(2,'0')}`;
