@@ -97,30 +97,32 @@ export const chatWithCOO = async (message: string, history: any[]) => {
 
 export const analyzeImageOrFile = async (base64Data: string, mimeType: string, promptText: string) => {
   try {
-    // CRITICAL FIX: Explicitly forcing strict JSON arrays for 12-19 ingredient formulations
-    const enhancedPrompt = promptText.toLowerCase().includes("formulation") || promptText.toLowerCase().includes("ingredient")
-      ? `CRITICAL INSTRUCTION: You are extracting a formulation document. DO NOT summarize. You MUST extract every single ingredient (expect between 12 and 19 items). Map everything to this strict JSON format: { "ingredients": [ { "name": "string", "quantity": number, "unit": "string", "rateUSD": number, "role": "string" } ] }. \n\nOriginal Request: ${promptText}`
+    const isFormulation =
+      promptText.toLowerCase().includes("formulation") ||
+      promptText.toLowerCase().includes("ingredient");
+
+    const enhancedPrompt = isFormulation
+      ? `CRITICAL: DO NOT summarize. You MUST extract every single ingredient (expect between 12 and 19 items). Return strict JSON matching this structure exactly: { "ingredients": [ { "name": "string", "quantity": number, "unit": "string", "rateUSD": number, "role": "string" } ] }. Do not omit any ingredient. Do not add commentary outside the JSON object.\n\nOriginal Request: ${promptText}`
       : promptText;
 
     const response = await callAIProxy({
       provider: 'gemini',
       model: 'gemini-2.0-flash',
       messages: [
-        { 
-          role: 'user', 
-          content: `[File: ${mimeType}] ${enhancedPrompt}\n\nBase64 Data: ${base64Data.substring(0, 100)}... (Assume full file context here)` 
+        {
+          role: 'user',
+          content: `[File: ${mimeType}] ${enhancedPrompt}\n\nBase64 Data: ${base64Data.substring(0, 100)}... (Assume full file context here)`
         }
       ],
-      json_mode: enhancedPrompt.toLowerCase().includes("json")
+      json_mode: isFormulation
     });
-    
+
     return extractText(response, 'gemini');
   } catch (error) {
     console.error("Gemini File Analysis Error:", error);
     return "Error analyzing file.";
   }
 };
-
 export const brainstormSession = async (topic: string, persona: 'logic' | 'creative' | 'research') => {
   let systemInstruction = SYSTEM_INSTRUCTION;
 
