@@ -23,6 +23,14 @@ import {
 import type { ImportDataSchema } from './importSchemas';
 import { supabase } from './supabaseClient';
 import { exportToCSV } from './exportUtils';
+import {
+  mapOrderToSupabase, mapOrderFromSupabase,
+  mapInventoryToSupabase, mapInventoryFromSupabase,
+  mapProductionToSupabase, mapProductionFromSupabase,
+  mapExpenseToSupabase, mapExpenseFromSupabase,
+  mapEmployeeToSupabase, mapEmployeeFromSupabase,
+  mapAuditLogToSupabase,
+} from './lib/dbMapper';
 
 // --- INITIAL DATA ---
 
@@ -407,76 +415,23 @@ useEffect(() => {
       ]);
 
       if (ordersRes.data && ordersRes.data.length > 0) {
-        setOrders(ordersRes.data.map((r: any) => ({
-          id: r.id,
-          sNo: r.s_no || '',
-          invoiceNo: r.invoice_no || '',
-          date: r.date || '',
-          customer: r.customer || '',
-          country: r.country || '',
-          product: r.product || '',
-          quantity: Number(r.quantity) || 0,
-          rateUSD: Number(r.rate_usd) || 0,
-          amountUSD: Number(r.amount_usd) || 0,
-          amountOMR: Number(r.amount_omr) || 0,
-          status: r.status || 'Pending',
-          paymentMethod: r.payment_method || '',
-          shippingMethod: r.shipping_method || '',
-          lcNo: r.lc_no || '',
-          market: r.market || '',
-          notes: r.notes || '',
-          deliveryDate: r.delivery_date || '',
-        })));
+        setOrders(ordersRes.data.map(mapOrderFromSupabase));
       }
 
       if (inventoryRes.data && inventoryRes.data.length > 0) {
-        setInventory(inventoryRes.data.map((r: any) => ({
-          id: r.id,
-          sNo: r.s_no || '',
-          name: r.name || '',
-          category: r.category || 'API',
-          stock: Number(r.stock) || 0,
-          requiredForOrders: Number(r.required_for_orders) || 0,
-          balanceToPurchase: Number(r.balance_to_purchase) || 0,
-          unit: r.unit || 'kg',
-          stockDate: r.stock_date || '',
-        })));
+        setInventory(inventoryRes.data.map(mapInventoryFromSupabase));
       }
 
       if (batchesRes.data && batchesRes.data.length > 0) {
-        setBatches(batchesRes.data.map((r: any) => ({
-          id: r.id,
-          product: r.product || '',
-          quantity: Number(r.quantity) || 0,
-          actualYield: Number(r.actual_yield) || 0,
-          expectedYield: Number(r.expected_yield) || 0,
-          status: r.status || '',
-          timestamp: r.timestamp || '',
-          dispatchDate: r.dispatch_date || '',
-        })));
+        setBatches(batchesRes.data.map(mapProductionFromSupabase));
       }
 
       if (expensesRes.data && expensesRes.data.length > 0) {
-        setExpenses(expensesRes.data.map((r: any) => ({
-          id: r.id,
-          description: r.description || '',
-          category: r.category || '',
-          amount: Number(r.amount) || 0,
-          status: r.status || '',
-          dueDate: r.due_date || '',
-        })));
+        setExpenses(expensesRes.data.map(mapExpenseFromSupabase));
       }
 
       if (employeesRes.data && employeesRes.data.length > 0) {
-        setEmployees(employeesRes.data.map((r: any) => ({
-          id: r.id,
-          name: r.name || '',
-          role: r.role || '',
-          department: r.department || '',
-          salary: Number(r.salary) || 0,
-          status: r.status || '',
-          joinDate: r.join_date || '',
-        })));
+        setEmployees(employeesRes.data.map(mapEmployeeFromSupabase));
       }
     } catch (err) {
       console.error('Failed to load data from Supabase:', err);
@@ -556,12 +511,7 @@ useEffect(() => {
 
   // NEW: Log action helper
   const logAction = async (action: string, details: string) => {
-    const logEntry = {
-      action,
-      performed_by: 'Admin',
-      details,
-      timestamp: new Date().toISOString()
-    };
+    const logEntry = mapAuditLogToSupabase({ action, details });
     try {
       await supabase.from('audit_logs').insert(logEntry);
       setAuditLogs(prev => [logEntry as any, ...prev]);
@@ -1666,90 +1616,29 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     previousState = inventory;
     setState = setInventory;
     table = 'inventory';
-    payload = {
-      id: newItem.id,
-      s_no: newItem.sNo,
-      name: newItem.name,
-      category: newItem.category,
-      stock: Number(newItem.stock),
-      required_for_orders: Number(newItem.requiredForOrders) || 0,
-      balance_to_purchase: Number(newItem.balanceToPurchase) || 0,
-      unit: newItem.unit,
-      stock_date: newItem.stockDate || new Date().toLocaleDateString()
-    };
+    payload = mapInventoryToSupabase(newItem);
   } else if (section === 'production') {
     previousState = batches;
     setState = setBatches;
     table = 'production_yields';
-    payload = {
-      id: newItem.id,
-      product: newItem.product,
-      quantity: Number(newItem.quantity),
-      actual_yield: Number(newItem.actualYield),
-      expected_yield: Number(newItem.expectedYield),
-      status: newItem.status,
-      timestamp: new Date().toISOString(),
-      dispatch_date: newItem.dispatchDate
-    };
-   } else if (section === 'sales') {
+    payload = mapProductionToSupabase({ ...newItem, timestamp: new Date().toISOString() });
+  } else if (section === 'sales') {
     previousState = orders;
     setState = setOrders;
     table = 'orders';
-    
-    // 1. Strip commas and force strict database-safe numbers
-    const safeQty = parseFloat(String(newItem.quantity).replace(/,/g, '')) || 0;
-    const safeRateUSD = parseFloat(String(newItem.rateUSD).replace(/,/g, '')) || 0;
-    
-    // 2. Auto-calculate amounts if they are missing or broken
-    let safeAmountUSD = parseFloat(String(newItem.amountUSD).replace(/,/g, ''));
-    if (isNaN(safeAmountUSD) || safeAmountUSD === 0) {
-        safeAmountUSD = Number((safeQty * safeRateUSD).toFixed(3));
-    }
-
-    let safeAmountOMR = parseFloat(String(newItem.amountOMR).replace(/,/g, ''));
-    if (isNaN(safeAmountOMR) || safeAmountOMR === 0) {
-        // Standard OMR conversion rate
-        safeAmountOMR = Number((safeAmountUSD * 0.3845).toFixed(3)); 
-    }
-
-    payload = {
-      id: newItem.id,
-      invoice_no: newItem.invoiceNo || '',
-      date: newItem.date || new Date().toISOString().split('T')[0],
-      customer: newItem.customer || '',
-      country: newItem.country || '',
-      product: newItem.product || '',
-      quantity: safeQty,
-      rate_usd: safeRateUSD,
-      amount_usd: safeAmountUSD,
-      amount_omr: safeAmountOMR,
-      status: newItem.status || 'Pending'
-    };
+    // mapOrderToSupabase handles numeric sanitisation, auto-calc of amountUSD/OMR,
+    // AND maps all previously-missing fields (lc_no, s_no, payment_method, etc.)
+    payload = mapOrderToSupabase(newItem);
   } else if (section === 'accounting') {
     previousState = expenses;
     setState = setExpenses;
     table = 'expenses';
-    payload = {
-      id: newItem.id,
-      description: newItem.description,
-      category: newItem.category,
-      amount: Number(newItem.amount),
-      status: newItem.status,
-      due_date: newItem.dueDate
-    };
+    payload = mapExpenseToSupabase(newItem);
   } else if (section === 'hr') {
     previousState = employees;
     setState = setEmployees;
     table = 'employees';
-    payload = {
-      id: newItem.id,
-      name: newItem.name,
-      role: newItem.role,
-      department: newItem.department,
-      salary: Number(newItem.salary),
-      status: newItem.status,
-      join_date: newItem.joinDate
-    };
+    payload = mapEmployeeToSupabase(newItem);
   } else {
     return;
   }
@@ -1763,15 +1652,21 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
   try {
     if (modalType === 'add') {
       const { error } = await supabase.from(table).insert(payload);
-      if (error) throw error;
+      if (error) {
+        console.error('[dbMapper] Supabase INSERT failed:', error.message, { table, payload });
+        throw new Error(`Database insert error on table "${table}": ${error.message}. Halting retry loop.`);
+      }
       await logAction('CREATE', `Created ${section} item: ${newItem.name || newItem.id}`);
     } else {
       const { error } = await supabase.from(table).update(payload).eq('id', newItem.id);
-      if (error) throw error;
+      if (error) {
+        console.error('[dbMapper] Supabase UPDATE failed:', error.message, { table, payload });
+        throw new Error(`Database update error on table "${table}": ${error.message}. Halting retry loop.`);
+      }
       await logAction('UPDATE', `Updated ${section} item: ${newItem.name || newItem.id}`);
     }
   } catch (error: any) {
-    console.error('Save failed, rolling back', error);
+    console.error('[dbMapper] Save failed, rolling back UI state:', error.message);
     setState(previousState);
     setUploadProgress({
       isUploading: false,
