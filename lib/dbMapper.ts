@@ -43,22 +43,17 @@ const toNumOrNull = (val: any): number | null => {
  * country         ← country | COUNTRY
  * product         ← product | PRODUCT
  * quantity        ← quantity | qty | QTY | QUANTITY (numeric, KG)
- * rate_usd        ← rateUSD | rate_usd | RATE_USD | unitRate | Unit-rate (ALWAYS written)
- * "Unit-rate"     ← same as rate_usd — ALWAYS written in sync (original column in DB)
+ * rate_usd        ← rateUSD | rate_usd | RATE_USD | unitRate | Unit-rate
  * amount_usd      ← amountUSD | amount_usd | AMOUNT_USD (auto-calc if 0)
  * amount_omr      ← amountOMR | amount_omr | AMOUNT_OMR (auto-calc if 0)
  * status          ← status | STATUS
  * lc_number       ← lcNo | lc_no | lc_number | LC_NO | bicNo | BIC_NO
- *                   NOTE: lc_no is a GENERATED column in Postgres — never write to it.
- *                   Always write to lc_number (the real column).
  * pi_number       ← piNumber | pi_number | PI_NUMBER
  * payment_method  ← paymentMethod | payment_method | PAYMENT_METHOD
  * shipping_method ← shippingMethod | shipping_method | SHIPPING_METHOD
  * market          ← market | MARKET
  * notes           ← notes | remarks | NOTES | REMARKS
  * delivery_date   ← deliveryDate | delivery_date | DELIVERY_DATE
- * "Unit-rate"     ← rateUSD | unitRate | Unit-rate (KEPT IN SYNC with rate_usd)
- *                   The DB has two rate cols; we write both to stay consistent.
  */
 export function mapOrderToSupabase(d: any): Record<string, any> {
   const qty       = toNum(d.quantity ?? d.qty ?? d.QTY ?? d.QUANTITY);
@@ -84,12 +79,11 @@ export function mapOrderToSupabase(d: any): Record<string, any> {
     country:         d.country        ?? d.COUNTRY         ?? '',
     product:         d.product        ?? d.PRODUCT         ?? '',
     quantity:        qty,
-    'Unit-rate':     rateUSD,   // original column — kept in sync with rate_usd
-    rate_usd:        rateUSD,   // newer column — both always written with the same value
+    rate_usd:        rateUSD,
     amount_usd:      amountUSD,
     amount_omr:      amountOMR,
     status:          d.status         ?? d.STATUS          ?? 'Pending',
-    lc_number:       lcValue,          // REAL writable column (lc_no is generated/read-only)
+    lc_number:       lcValue,
     pi_number:       d.piNumber       ?? d.pi_number       ?? d.PI_NUMBER       ?? '',
     payment_method:  d.paymentMethod  ?? d.payment_method  ?? d.PAYMENT_METHOD  ?? '',
     shipping_method: d.shippingMethod ?? d.shipping_method ?? d.SHIPPING_METHOD ?? '',
@@ -104,9 +98,7 @@ export function mapOrderToSupabase(d: any): Record<string, any> {
  * Used in the SELECT/load path.
  */
 export function mapOrderFromSupabase(r: any) {
-  // rate_usd is verified correct (qty × rate_usd = amount_usd for 12/13 rows).
-  // Fall back to Unit-rate only when rate_usd is absent/zero.
-  const rateUSD = Number(r.rate_usd) || Number(r['Unit-rate']) || 0;
+  const rateUSD = Number(r.rate_usd) || 0;
 
   return {
     id:              r.id,
@@ -121,7 +113,7 @@ export function mapOrderFromSupabase(r: any) {
     amountUSD:       Number(r.amount_usd)  || 0,
     amountOMR:       Number(r.amount_omr)  || 0,
     status:          r.status          ?? 'Pending',
-    lcNo:            r.lc_number       ?? r.lc_no  ?? '',  // read real column first
+    lcNo:            r.lc_number       ?? '',
     piNumber:        r.pi_number       ?? '',
     paymentMethod:   r.payment_method  ?? '',
     shippingMethod:  r.shipping_method ?? '',
