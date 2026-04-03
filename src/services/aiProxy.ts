@@ -1,7 +1,7 @@
 export interface AIMessage { role: 'user' | 'assistant'; content: string; }
 
 export interface AIProxyRequest {
-  provider: 'gemini' | 'claude' | 'qwen';
+  provider: 'gemini' | 'claude' | 'openrouter';
   model: string;
   system?: string;
   messages: AIMessage[];
@@ -20,7 +20,7 @@ export function extractText(response: unknown, provider: string): string {
       const content = r.content as { text: string }[];
       return content?.[0]?.text ?? '';
     }
-    if (provider === 'qwen') {
+    if (provider === 'openrouter') {
       const choices = r.choices as { message: { content: string } }[];
       return choices?.[0]?.message?.content ?? '';
     }

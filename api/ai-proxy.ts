@@ -2,10 +2,10 @@
 // Vercel Serverless Function — all keys server-side only.
 //
 // Required Vercel Environment Variables:
-//   ANTHROPIC_API_KEY   → sk-ant-...
-//   GEMINI_API_KEY      → AIza...
-//   QWEN_API_KEY        → sk-... (from dashscope.aliyun.com)
-//   DEEPSEEK_API_KEY    → sk-... (optional, legacy)
+//   ANTHROPIC_API_KEY    → sk-ant-...
+//   GEMINI_API_KEY       → AIza...
+//   OPENROUTER_API_KEY   → sk-or-... (from openrouter.ai)
+//   DEEPSEEK_API_KEY     → sk-... (optional, legacy)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -68,23 +68,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
-    // ── QWEN (Alibaba) ────────────────────────────────────────────
-    if (provider === 'qwen' || provider === 'alibaba') {
-      const key = process.env.QWEN_API_KEY;
+    // ── OPENROUTER ────────────────────────────────────────────────
+    if (provider === 'openrouter') {
+      const key = process.env.OPENROUTER_API_KEY;
       if (!key) return res.status(500).json({
-        error: '⚠️ QWEN_API_KEY not set. Add it in Vercel → Settings → Environment Variables. Get your free key from dashscope.aliyun.com'
+        error: '⚠️ OPENROUTER_API_KEY not set. Add it in Vercel → Settings → Environment Variables. Get your free key from openrouter.ai'
       });
 
-      const qwenMessages = system
+      const orMessages = system
         ? [{ role: 'system', content: system }, ...messages]
         : messages;
 
-      const upstream = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+      const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,
+          'HTTP-Referer': 'https://alwajer-pharma-erp.vercel.app',
+          'X-Title': 'Al Wajer Pharma ERP',
+        },
         body: JSON.stringify({
-          model: model ?? 'qwen-plus',
-          messages: qwenMessages,
+          model: model ?? 'meta-llama/llama-3.3-70b-instruct',
+          messages: orMessages,
           max_tokens,
         }),
       });
@@ -96,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── DEEPSEEK (legacy kept for backward compatibility) ─────────
     if (provider === 'deepseek') {
       const key = process.env.DEEPSEEK_API_KEY;
-      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY not set. Consider switching to Qwen instead.' });
+      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY not set. Consider switching to OpenRouter instead.' });
 
       const deepMessages = system
         ? [{ role: 'system', content: system }, ...messages]
@@ -112,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
-    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, qwen` });
+    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, openrouter` });
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

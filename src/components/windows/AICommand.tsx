@@ -5,7 +5,7 @@ import {
 import type { ChatSession, ChatMessage } from '@/types';
 import { callAIProxy, extractText } from '@/services/aiProxy';
 
-const PROVIDERS = ['Gemini', 'Claude', 'Qwen'] as const;
+const PROVIDERS = ['Gemini', 'Claude', 'OpenRouter'] as const;
 type Provider = typeof PROVIDERS[number];
 
 const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
@@ -18,17 +18,20 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
     { id: 'claude-sonnet-4-6', label: 'Claude Sonnet' },
     { id: 'claude-opus-4-6', label: 'Claude Opus' },
   ],
-  Qwen: [
-    { id: 'qwen-turbo', label: 'Qwen Turbo' },
-    { id: 'qwen-plus', label: 'Qwen Plus' },
-    { id: 'qwen-max', label: 'Qwen Max' },
+  OpenRouter: [
+    { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
+    { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (Free)' },
+    { id: 'google/gemini-2.0-flash-exp:free', label: 'Gemini Flash (Free)' },
+    { id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
+    { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
+    { id: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku' },
   ],
 };
 
 const PROVIDER_COLORS: Record<Provider, string> = {
   Gemini: 'text-blue-400',
   Claude: 'text-orange-400',
-  Qwen: 'text-purple-400',
+  OpenRouter: 'text-emerald-400',
 };
 
 interface Props {
@@ -47,7 +50,7 @@ export const AICommand: React.FC<Props> = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
-    Gemini: 'gemini-2.0-flash', Claude: 'claude-sonnet-4-6', Qwen: 'qwen-plus',
+    Gemini: 'gemini-2.0-flash', Claude: 'claude-sonnet-4-6', OpenRouter: 'meta-llama/llama-3.3-70b-instruct',
   });
   const [isListening, setIsListening] = useState(false);
   const msgEndRef = useRef<HTMLDivElement>(null);
@@ -101,7 +104,7 @@ export const AICommand: React.FC<Props> = ({
       })) ?? [];
 
       const res = await callAIProxy({
-        provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'qwen',
+        provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'openrouter',
         model: selectedModel[activeProvider],
         system: 'You are an expert Al Wajer Pharmaceutical ERP assistant. Help with formulations, business strategy, regulatory, and operations.',
         messages: [...history, { role: 'user', content: userInput }],
@@ -162,8 +165,8 @@ export const AICommand: React.FC<Props> = ({
         <div className="flex flex-wrap gap-1.5 items-center bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 shrink-0">
           {PROVIDERS.map(p => (
             <button key={p} onClick={() => onSetProvider(p)}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? `bg-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'purple'}-500/10 border-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'purple'}-500/30 ${PROVIDER_COLORS[p]}` : 'border-transparent text-slate-500 hover:text-white'}`}>
-              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🌟 Qwen'}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? `bg-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/10 border-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/30 ${PROVIDER_COLORS[p]}` : 'border-transparent text-slate-500 hover:text-white'}`}>
+              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🔀 OpenRouter'}
             </button>
           ))}
           <div className="w-px h-4 bg-white/10 mx-1"/>
