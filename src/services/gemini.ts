@@ -26,6 +26,7 @@ Employees: ${JSON.stringify(employees)}
 Provide 3-5 operational insights covering production, finance, and staffing risks.
 JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'critical', actionTaken?: string }>`;
 
+  // Primary: Gemini
   try {
     const response = await callAIProxy({
       provider: 'gemini', model: 'gemini-2.0-flash',
@@ -34,13 +35,26 @@ JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'
     const text = extractText(response, 'gemini') || '[]';
     const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
-  } catch (e) {
-    console.error('Gemini insight error:', e);
-    return [];
+  } catch (geminiErr) {
+    console.warn('Gemini insight failed, falling back to Claude:', geminiErr);
+    // Fallback: Claude
+    try {
+      const response = await callAIProxy({
+        provider: 'claude', model: 'claude-haiku-4-5-20251001',
+        system: SYSTEM, messages: [{ role: 'user', content: prompt }],
+      });
+      const text = extractText(response, 'claude') || '[]';
+      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.error('Both Gemini and Claude failed:', e);
+      return [];
+    }
   }
 }
 
 export async function quickInsight(summary: string): Promise<string> {
+  // Primary: Gemini
   try {
     const response = await callAIProxy({
       provider: 'gemini', model: 'gemini-2.0-flash',
@@ -49,7 +63,17 @@ export async function quickInsight(summary: string): Promise<string> {
     });
     return extractText(response, 'gemini') || 'Status normal.';
   } catch {
-    return 'System operational.';
+    // Fallback: Claude
+    try {
+      const response = await callAIProxy({
+        provider: 'claude', model: 'claude-haiku-4-5-20251001',
+        system: 'You are a fast ERP assistant. Be brief and actionable.',
+        messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
+      });
+      return extractText(response, 'claude') || 'Status normal.';
+    } catch {
+      return 'System operational.';
+    }
   }
 }
 
@@ -58,14 +82,24 @@ export async function chatWithCOO(message: string, history: { role: string; text
     ...history.map(h => ({ role: h.role === 'user' ? 'user' as const : 'assistant' as const, content: h.text })),
     { role: 'user' as const, content: message },
   ];
+  // Primary: Gemini
   try {
     const response = await callAIProxy({
       provider: 'gemini', model: 'gemini-2.0-flash',
       system: SYSTEM, messages,
     });
     return extractText(response, 'gemini') || 'No response.';
-  } catch (e) {
-    return `Error: ${String(e)}`;
+  } catch {
+    // Fallback: Claude
+    try {
+      const response = await callAIProxy({
+        provider: 'claude', model: 'claude-sonnet-4-6',
+        system: SYSTEM, messages,
+      });
+      return extractText(response, 'claude') || 'No response.';
+    } catch (e) {
+      return `Error: ${String(e)}`;
+    }
   }
 }
 

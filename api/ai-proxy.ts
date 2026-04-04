@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'X-Title': 'Al Wajer Pharma ERP',
         },
         body: JSON.stringify({
-          model: model ?? 'meta-llama/llama-3.3-70b-instruct',
+          model: model ?? 'deepseek/deepseek-chat-v3-0324:free',
           messages: orMessages,
           max_tokens,
         }),

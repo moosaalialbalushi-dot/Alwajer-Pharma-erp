@@ -19,12 +19,12 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
     { id: 'claude-opus-4-6', label: 'Claude Opus' },
   ],
   OpenRouter: [
+    { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek V3 (Free)' },
+    { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
     { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
-    { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (Free)' },
-    { id: 'google/gemini-2.0-flash-exp:free', label: 'Gemini Flash (Free)' },
-    { id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
+    { id: 'mistralai/mistral-small-3.1-24b-instruct:free', label: 'Mistral Small (Free)' },
     { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
-    { id: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku' },
+    { id: 'qwen/qwen3-8b:free', label: 'Qwen3 8B (Free)' },
   ],
 };
 
@@ -50,7 +50,7 @@ export const AICommand: React.FC<Props> = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
-    Gemini: 'gemini-2.0-flash', Claude: 'claude-sonnet-4-6', OpenRouter: 'meta-llama/llama-3.3-70b-instruct',
+    Gemini: 'gemini-2.0-flash', Claude: 'claude-sonnet-4-6', OpenRouter: 'deepseek/deepseek-chat-v3-0324:free',
   });
   const [isListening, setIsListening] = useState(false);
   const msgEndRef = useRef<HTMLDivElement>(null);
