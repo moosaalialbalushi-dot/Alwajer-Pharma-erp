@@ -97,7 +97,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                 <div className="flex items-center gap-4">
                   <div className="text-right hidden sm:block">
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Batch RMC</p>
-                    <p className="text-sm text-[#D4AF37] font-bold font-mono">${project.totalRMC.toFixed(2)}</p>
+                    <p className="text-sm text-[#D4AF37] font-bold font-mono">${(project.totalRMC ?? 0).toFixed(2)}</p>
                   </div>
                   <div className="text-right hidden sm:block">
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Score</p>
@@ -127,9 +127,9 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
                       { label: 'Batch Size', value: `${project.batchSize} ${project.batchUnit}` },
-                      { label: 'Total RMC', value: `$${project.totalRMC.toFixed(2)}` },
+                      { label: 'Total RMC', value: `$${(project.totalRMC ?? 0).toFixed(2)}` },
                       { label: 'Loss Factor', value: project.loss },
-                      { label: 'Final RMC/Kg', value: `$${project.totalFinalRMC.toFixed(3)}` },
+                      { label: 'Final RMC/Kg', value: `$${(project.totalFinalRMC ?? 0).toFixed(3)}` },
                     ].map(s => (
                       <div key={s.label} className="bg-gray-50/40 rounded-lg p-3 border border-gray-200">
                         <p className="text-[9px] text-slate-500 uppercase font-bold">{s.label}</p>
@@ -173,7 +173,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                                 className="w-20 bg-gray-50 border border-gray-200 text-slate-900 rounded px-2 py-1 text-xs text-right focus:border-[#D4AF37]/50 focus:outline-none"
                               />
                             </td>
-                            <td className="py-2 px-2 text-right font-mono text-[#D4AF37] text-xs">{ing.cost.toFixed(2)}</td>
+                            <td className="py-2 px-2 text-right font-mono text-[#D4AF37] text-xs">{(ing.cost ?? 0).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>

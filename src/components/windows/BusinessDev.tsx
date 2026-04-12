@@ -21,7 +21,7 @@ export const BusinessDev: React.FC<Props> = ({ bdLeads, markets, onOpenModal, on
   });
 
   const pipelineTotal = bdLeads
-    .map(l => parseFloat(l.potentialValue.replace(/[^0-9.]/g, '') || '0'))
+    .map(l => parseFloat((l.potentialValue ?? '').replace(/[^0-9.]/g, '') || '0'))
     .reduce((s, v) => s + v, 0);
 
   return (
