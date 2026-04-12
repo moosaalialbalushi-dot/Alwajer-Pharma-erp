@@ -1,3 +1,4 @@
+// Al Wajer Pharma ERP v2
 import React, { useState, useCallback } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { Sidebar } from '@/components/layout/Sidebar';
