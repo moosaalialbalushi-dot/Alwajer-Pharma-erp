@@ -1,15 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   INITIAL_BATCHES, INITIAL_INVENTORY, INITIAL_ORDERS, INITIAL_EXPENSES,
   INITIAL_EMPLOYEES, INITIAL_VENDORS, INITIAL_BD, INITIAL_SAMPLES,
-  INITIAL_MARKETS, INITIAL_RD, ALL_WIDGETS,
+  INITIAL_MARKETS, INITIAL_RD, INITIAL_SHIPMENTS, ALL_WIDGETS,
 } from '@/data/initial';
 import type {
   Batch, InventoryItem, Order, Expense, Employee, Vendor,
-  BDLead, SampleStatus, Market, RDProject, AuditLog,
+  BDLead, SampleStatus, Market, RDProject, Shipment, AuditLog,
   COOInsight, TabId, WidgetId, ModalState, ApiConfig, CalcData, ChatSession,
 } from '@/types';
 import { generateId, today } from '@/lib/utils';
+import { loadTable, saveRow, deleteRow, appendRow } from '@/services/db';
 
 export function useAppState() {
   // ── Navigation ──────────────────────────────────────────────────────────────
@@ -27,8 +28,25 @@ export function useAppState() {
   const [samples, setSamples] = useState<SampleStatus[]>(INITIAL_SAMPLES);
   const [markets, setMarkets] = useState<Market[]>(INITIAL_MARKETS);
   const [rdProjects, setRdProjects] = useState<RDProject[]>(INITIAL_RD);
+  const [shipments, setShipments] = useState<Shipment[]>(INITIAL_SHIPMENTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [insights, setInsights] = useState<COOInsight[]>([]);
+
+  // ── Load from persistence on mount ─────────────────────────────────────────
+  useEffect(() => {
+    loadTable<Batch>('batches', INITIAL_BATCHES).then(setBatches).catch(() => {});
+    loadTable<InventoryItem>('inventory', INITIAL_INVENTORY).then(setInventory).catch(() => {});
+    loadTable<Order>('orders', INITIAL_ORDERS).then(setOrders).catch(() => {});
+    loadTable<Expense>('expenses', INITIAL_EXPENSES).then(setExpenses).catch(() => {});
+    loadTable<Employee>('employees', INITIAL_EMPLOYEES).then(setEmployees).catch(() => {});
+    loadTable<Vendor>('vendors', INITIAL_VENDORS).then(setVendors).catch(() => {});
+    loadTable<BDLead>('bd_leads', INITIAL_BD).then(setBdLeads).catch(() => {});
+    loadTable<SampleStatus>('samples', INITIAL_SAMPLES).then(setSamples).catch(() => {});
+    loadTable<Market>('markets', INITIAL_MARKETS).then(setMarkets).catch(() => {});
+    loadTable<RDProject>('rd_projects', INITIAL_RD).then(setRdProjects).catch(() => {});
+    loadTable<Shipment>('shipments', INITIAL_SHIPMENTS).then(setShipments).catch(() => {});
+    loadTable<AuditLog>('audit_logs', []).then(setAuditLogs).catch(() => {});
+  }, []);
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const [visibleWidgets, setVisibleWidgets] = useState<WidgetId[]>(() => {
@@ -73,9 +91,14 @@ export function useAppState() {
 
   // ── Audit logging ─────────────────────────────────────────────────────────
   const logAudit = useCallback((action: string, details: string) => {
-    setAuditLogs(prev => [{
+    const entry: AuditLog = {
       id: generateId('LOG'), action, user: 'Current User', details, timestamp: new Date().toISOString(),
-    }, ...prev]);
+    };
+    setAuditLogs(prev => {
+      const next = [entry, ...prev];
+      return next.length > 500 ? next.slice(0, 500) : next;
+    });
+    appendRow('audit_logs', entry).catch(() => {});
   }, []);
 
   // ── CRUD helpers ──────────────────────────────────────────────────────────
@@ -99,78 +122,109 @@ export function useAppState() {
 
   const handleSave = useCallback((type: ModalState['type'], data: Record<string, unknown>) => {
     const action = modal.mode === 'add' ? 'ADD' : 'EDIT';
+    const ensureId = (row: Record<string, unknown>, prefix: string) =>
+      (row.id ? row : { ...row, id: generateId(prefix) });
     switch (type) {
-      case 'production':
+      case 'production': {
+        const row = ensureId(data, 'BATCH') as Batch;
         setBatches(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as Batch]
-            : prev.map(b => b.id === (data as Batch).id ? { ...b, ...data } as Batch : b)
+          modal.mode === 'add' ? [...prev, row] : prev.map(b => b.id === row.id ? { ...b, ...row } : b)
         );
-        logAudit(`${action}_BATCH`, `Batch ${(data as Batch).id}`);
+        saveRow('batches', row).catch(() => {});
+        logAudit(`${action}_BATCH`, `Batch ${row.id}`);
         break;
-      case 'inventory':
+      }
+      case 'inventory': {
+        const row = ensureId(data, 'RM') as InventoryItem;
         setInventory(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as InventoryItem]
-            : prev.map(i => i.id === (data as InventoryItem).id ? { ...i, ...data } as InventoryItem : i)
+          modal.mode === 'add' ? [...prev, row] : prev.map(i => i.id === row.id ? { ...i, ...row } : i)
         );
-        logAudit(`${action}_INVENTORY`, `Item ${(data as InventoryItem).name}`);
+        saveRow('inventory', row).catch(() => {});
+        logAudit(`${action}_INVENTORY`, `Item ${row.name}`);
         break;
-      case 'sales':
+      }
+      case 'sales': {
+        const row = ensureId(data, 'ORD') as Order;
         setOrders(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as Order]
-            : prev.map(o => o.id === (data as Order).id ? { ...o, ...data } as Order : o)
+          modal.mode === 'add' ? [...prev, row] : prev.map(o => o.id === row.id ? { ...o, ...row } : o)
         );
-        logAudit(`${action}_ORDER`, `Order ${(data as Order).invoiceNo}`);
+        saveRow('orders', row).catch(() => {});
+        logAudit(`${action}_ORDER`, `Order ${row.invoiceNo}`);
         break;
+      }
       case 'vendors':
-      case 'procurement':
+      case 'procurement': {
+        const row = ensureId(data, 'V') as Vendor;
         setVendors(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as Vendor]
-            : prev.map(v => v.id === (data as Vendor).id ? { ...v, ...data } as Vendor : v)
+          modal.mode === 'add' ? [...prev, row] : prev.map(v => v.id === row.id ? { ...v, ...row } : v)
         );
-        logAudit(`${action}_VENDOR`, `Vendor ${(data as Vendor).name}`);
+        saveRow('vendors', row).catch(() => {});
+        logAudit(`${action}_VENDOR`, `Vendor ${row.name}`);
         break;
-      case 'accounting':
+      }
+      case 'accounting': {
+        const row = ensureId(data, 'EXP') as Expense;
         setExpenses(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as Expense]
-            : prev.map(e => e.id === (data as Expense).id ? { ...e, ...data } as Expense : e)
+          modal.mode === 'add' ? [...prev, row] : prev.map(e => e.id === row.id ? { ...e, ...row } : e)
         );
-        logAudit(`${action}_EXPENSE`, `${(data as Expense).description}`);
+        saveRow('expenses', row).catch(() => {});
+        logAudit(`${action}_EXPENSE`, `${row.description}`);
         break;
-      case 'hr':
+      }
+      case 'hr': {
+        const row = ensureId(data, 'EMP') as Employee;
         setEmployees(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as Employee]
-            : prev.map(e => e.id === (data as Employee).id ? { ...e, ...data } as Employee : e)
+          modal.mode === 'add' ? [...prev, row] : prev.map(e => e.id === row.id ? { ...e, ...row } : e)
         );
-        logAudit(`${action}_EMPLOYEE`, `${(data as Employee).name}`);
+        saveRow('employees', row).catch(() => {});
+        logAudit(`${action}_EMPLOYEE`, `${row.name}`);
         break;
-      case 'rd':
+      }
+      case 'rd': {
+        const row = ensureId(data, 'RD') as RDProject;
         setRdProjects(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as RDProject]
-            : prev.map(p => p.id === (data as RDProject).id ? { ...p, ...data } as RDProject : p)
+          modal.mode === 'add' ? [...prev, row] : prev.map(p => p.id === row.id ? { ...p, ...row } : p)
         );
-        logAudit(`${action}_RD`, `Project ${(data as RDProject).id}`);
+        saveRow('rd_projects', row).catch(() => {});
+        logAudit(`${action}_RD`, `Project ${row.id}`);
         break;
-      case 'bd':
+      }
+      case 'bd': {
+        const row = ensureId(data, 'BD') as BDLead;
         setBdLeads(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as BDLead]
-            : prev.map(l => l.id === (data as BDLead).id ? { ...l, ...data } as BDLead : l)
+          modal.mode === 'add' ? [...prev, row] : prev.map(l => l.id === row.id ? { ...l, ...row } : l)
         );
-        logAudit(`${action}_BD`, `Lead ${(data as BDLead).opportunity}`);
+        saveRow('bd_leads', row).catch(() => {});
+        logAudit(`${action}_BD`, `Lead ${row.opportunity}`);
         break;
-      case 'samples':
+      }
+      case 'samples': {
+        const row = ensureId(data, 'SMP') as SampleStatus;
         setSamples(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as SampleStatus]
-            : prev.map(s => s.id === (data as SampleStatus).id ? { ...s, ...data } as SampleStatus : s)
+          modal.mode === 'add' ? [...prev, row] : prev.map(s => s.id === row.id ? { ...s, ...row } : s)
         );
-        logAudit(`${action}_SAMPLE`, `Sample ${(data as SampleStatus).id}`);
+        saveRow('samples', row).catch(() => {});
+        logAudit(`${action}_SAMPLE`, `Sample ${row.id}`);
         break;
-      case 'markets':
+      }
+      case 'markets': {
+        const row = ensureId(data, 'M') as Market;
         setMarkets(prev =>
-          modal.mode === 'add' ? [...prev, data as unknown as Market]
-            : prev.map(m => m.id === (data as Market).id ? { ...m, ...data } as Market : m)
+          modal.mode === 'add' ? [...prev, row] : prev.map(m => m.id === row.id ? { ...m, ...row } : m)
         );
-        logAudit(`${action}_MARKET`, `Market ${(data as Market).name}`);
+        saveRow('markets', row).catch(() => {});
+        logAudit(`${action}_MARKET`, `Market ${row.name}`);
         break;
+      }
+      case 'logistics': {
+        const row = ensureId(data, 'SHP') as Shipment;
+        setShipments(prev =>
+          modal.mode === 'add' ? [...prev, row] : prev.map(s => s.id === row.id ? { ...s, ...row } : s)
+        );
+        saveRow('shipments', row).catch(() => {});
+        logAudit(`${action}_SHIPMENT`, `Shipment ${row.id}`);
+        break;
+      }
     }
     closeModal();
   }, [modal.mode, logAudit, closeModal]);
@@ -180,6 +234,12 @@ export function useAppState() {
       isOpen: true,
       message: `Delete "${name}"? This cannot be undone.`,
       onConfirm: () => {
+        const typeToTable: Record<string, Parameters<typeof deleteRow>[0]> = {
+          production: 'batches', inventory: 'inventory', sales: 'orders',
+          vendors: 'vendors', procurement: 'vendors', accounting: 'expenses',
+          hr: 'employees', rd: 'rd_projects', bd: 'bd_leads',
+          samples: 'samples', markets: 'markets', logistics: 'shipments',
+        };
         switch (type) {
           case 'production': setBatches(prev => prev.filter(b => b.id !== id)); break;
           case 'inventory':  setInventory(prev => prev.filter(i => i.id !== id)); break;
@@ -192,7 +252,10 @@ export function useAppState() {
           case 'bd':         setBdLeads(prev => prev.filter(l => l.id !== id)); break;
           case 'samples':    setSamples(prev => prev.filter(s => s.id !== id)); break;
           case 'markets':    setMarkets(prev => prev.filter(m => m.id !== id)); break;
+          case 'logistics':  setShipments(prev => prev.filter(s => s.id !== id)); break;
         }
+        const table = typeToTable[type];
+        if (table) deleteRow(table, id).catch(() => {});
         logAudit(`DELETE_${type.toUpperCase()}`, `Deleted: ${name} (id: ${id})`);
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
@@ -206,7 +269,8 @@ export function useAppState() {
     batches, setBatches, inventory, setInventory, orders, setOrders,
     expenses, setExpenses, employees, setEmployees, vendors, setVendors,
     bdLeads, setBdLeads, samples, setSamples, markets, setMarkets,
-    rdProjects, setRdProjects, auditLogs, insights, setInsights,
+    rdProjects, setRdProjects, shipments, setShipments,
+    auditLogs, insights, setInsights,
     // dashboard
     visibleWidgets, isCustomizeOpen, setIsCustomizeOpen, saveWidgets,
     // settings

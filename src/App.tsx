@@ -16,6 +16,7 @@ import { RDLab } from '@/components/windows/RDLab';
 import { IndustrialStudio } from '@/components/windows/IndustrialStudio';
 import { BusinessDev } from '@/components/windows/BusinessDev';
 import { Samples } from '@/components/windows/Samples';
+import { Logistics } from '@/components/windows/Logistics';
 import { Calculator } from '@/components/windows/Calculator';
 import { AICommand } from '@/components/windows/AICommand';
 import { AuditHistory } from '@/components/windows/AuditHistory';
@@ -105,7 +106,7 @@ const App: React.FC = () => {
   const criticalCount = state.insights.filter(i => i.severity === 'critical').length;
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="flex h-screen bg-gray-50 text-slate-900 overflow-hidden">
       <Sidebar activeTab={state.activeTab} onTabChange={state.setActiveTab}/>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -207,6 +208,13 @@ const App: React.FC = () => {
           {state.activeTab === 'samples' && (
             <Samples
               samples={state.samples}
+              onOpenModal={state.openModal}
+              onDelete={state.handleDelete}
+            />
+          )}
+          {state.activeTab === 'logistics' && (
+            <Logistics
+              shipments={state.shipments}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
             />

@@ -103,7 +103,7 @@ export const Dashboard: React.FC<Props> = ({
               <button
                 onClick={onQuickScan}
                 disabled={isScanning}
-                className="text-xs flex items-center gap-1 text-[#F4C430] hover:text-white transition-colors bg-[#F4C430]/10 px-2 py-1 rounded border border-[#F4C430]/20 disabled:opacity-50"
+                className="text-xs flex items-center gap-1 text-[#F4C430] hover:text-slate-900 transition-colors bg-[#F4C430]/10 px-2 py-1 rounded border border-[#F4C430]/20 disabled:opacity-50"
               >
                 <Bolt size={12}/> {isScanning ? 'Scanning…' : 'Fast Scan'}
               </button>
@@ -111,11 +111,11 @@ export const Dashboard: React.FC<Props> = ({
             {insights.length === 0 ? (
               <p className="text-slate-500 text-sm text-center py-4">No critical alerts. Operations normal.</p>
             ) : insights.map((insight, i) => (
-              <div key={i} className={`p-3 rounded-lg border flex gap-3 ${insight.severity === 'critical' ? 'bg-red-500/10 border-red-500/20' : 'bg-slate-800/50 border-white/5'}`}>
+              <div key={i} className={`p-3 rounded-lg border flex gap-3 ${insight.severity === 'critical' ? 'bg-red-500/10 border-red-500/20' : 'bg-gray-50 border-gray-200'}`}>
                 <AlertTriangle className={insight.severity === 'critical' ? 'text-red-400' : 'text-[#F4C430]'} size={16}/>
                 <div>
-                  <h4 className="text-[10px] font-bold text-white uppercase mb-0.5">{insight.type}</h4>
-                  <p className="text-xs text-slate-300">{insight.message}</p>
+                  <h4 className="text-[10px] font-bold text-slate-900 uppercase mb-0.5">{insight.type}</h4>
+                  <p className="text-xs text-slate-700">{insight.message}</p>
                 </div>
               </div>
             ))}
@@ -125,10 +125,10 @@ export const Dashboard: React.FC<Props> = ({
         return (
           <div className="space-y-2">
             {batches.slice(0, 3).map(b => (
-              <div key={b.id} className="flex justify-between items-center p-3 bg-slate-800/30 rounded border border-white/5">
+              <div key={b.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
                 <div>
                   <p className="text-[#D4AF37] text-xs font-mono">{b.id}</p>
-                  <p className="text-white text-sm font-bold truncate max-w-[160px]">{b.product}</p>
+                  <p className="text-slate-900 text-sm font-bold truncate max-w-[160px]">{b.product}</p>
                 </div>
                 <span className={`text-[9px] px-2 py-0.5 rounded-full border ${b.status === 'Completed' ? 'text-green-500 border-green-500/20' : 'text-blue-500 border-blue-500/20'}`}>{b.status}</span>
               </div>
@@ -139,12 +139,12 @@ export const Dashboard: React.FC<Props> = ({
         return (
           <div className="space-y-2">
             {orders.slice(0, 3).map(o => (
-              <div key={o.id} className="p-3 bg-slate-800/30 rounded border border-white/5">
+              <div key={o.id} className="p-3 bg-gray-50 rounded border border-gray-200">
                 <div className="flex justify-between">
                   <span className="text-[#D4AF37] text-xs font-bold">{o.customer}</span>
-                  <span className="text-xs text-slate-400">{o.status}</span>
+                  <span className="text-xs text-slate-600">{o.status}</span>
                 </div>
-                <p className="text-white text-xs mt-0.5 truncate">{o.product}</p>
+                <p className="text-slate-900 text-xs mt-0.5 truncate">{o.product}</p>
                 <p className="text-slate-500 text-[10px] font-mono">${Number(o.amountUSD).toLocaleString()}</p>
               </div>
             ))}
@@ -160,7 +160,7 @@ export const Dashboard: React.FC<Props> = ({
                 <div key={i.id} className="flex items-center gap-3 p-3 bg-red-500/10 rounded border border-red-500/20">
                   <AlertCircle className="text-red-400 shrink-0" size={14}/>
                   <div className="min-w-0">
-                    <p className="text-white text-xs font-bold truncate">{i.name}</p>
+                    <p className="text-slate-900 text-xs font-bold truncate">{i.name}</p>
                     <p className="text-[10px] text-red-300">Shortage: {i.balanceToPurchase} {i.unit}</p>
                   </div>
                 </div>
@@ -172,10 +172,10 @@ export const Dashboard: React.FC<Props> = ({
         return (
           <div className="space-y-2">
             {employees.slice(0, 3).map(e => (
-              <div key={e.id} className="flex items-center gap-3 p-3 bg-slate-800/30 rounded border border-white/5">
+              <div key={e.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded border border-gray-200">
                 <div className="w-8 h-8 rounded-full bg-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] font-bold text-xs shrink-0">{e.name.charAt(0)}</div>
                 <div>
-                  <p className="text-white text-xs font-bold">{e.name}</p>
+                  <p className="text-slate-900 text-xs font-bold">{e.name}</p>
                   <p className="text-[10px] text-slate-500">{e.role}</p>
                 </div>
               </div>
@@ -186,9 +186,9 @@ export const Dashboard: React.FC<Props> = ({
         return (
           <div className="space-y-2">
             {expenses.slice(0, 3).map(e => (
-              <div key={e.id} className="flex justify-between items-center p-3 bg-slate-800/30 rounded border border-white/5">
+              <div key={e.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
                 <div>
-                  <p className="text-white text-xs font-bold truncate max-w-[140px]">{e.description}</p>
+                  <p className="text-slate-900 text-xs font-bold truncate max-w-[140px]">{e.description}</p>
                   <p className="text-[10px] text-slate-500">{e.dueDate}</p>
                 </div>
                 <div className="text-right">
@@ -210,12 +210,12 @@ export const Dashboard: React.FC<Props> = ({
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <LayoutDashboard className="text-[#F4C430]" size={20}/> Executive Overview
         </h2>
         <button
           onClick={onOpenCustomize}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-white/10 text-sm font-bold transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-700 hover:text-slate-900 rounded-lg border border-gray-200 text-sm font-bold transition-all"
         >
           <Grip size={15}/> Customize
         </button>
@@ -237,8 +237,8 @@ export const Dashboard: React.FC<Props> = ({
       {activeFeeds.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {activeFeeds.map(id => (
-            <div key={id} className={`${feedSpan(id)} bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl p-5 gold-glow`}>
-              <h3 className="text-base font-bold text-white mb-4">{feedLabel(id)}</h3>
+            <div key={id} className={`${feedSpan(id)} bg-white border border-[#D4AF37]/30 shadow-sm rounded-xl p-5 gold-glow`}>
+              <h3 className="text-base font-bold text-slate-900 mb-4">{feedLabel(id)}</h3>
               {renderFeed(id)}
             </div>
           ))}
@@ -247,8 +247,8 @@ export const Dashboard: React.FC<Props> = ({
 
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-xl">
-          <h3 className="text-sm font-bold text-white mb-4">Revenue by Customer</h3>
+        <div className="bg-white border border-gray-200 shadow-sm p-5 rounded-xl">
+          <h3 className="text-sm font-bold text-slate-900 mb-4">Revenue by Customer</h3>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={customerChart}>
@@ -260,8 +260,8 @@ export const Dashboard: React.FC<Props> = ({
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-xl">
-          <h3 className="text-sm font-bold text-white mb-4">Expense Breakdown</h3>
+        <div className="bg-white border border-gray-200 shadow-sm p-5 rounded-xl">
+          <h3 className="text-sm font-bold text-slate-900 mb-4">Expense Breakdown</h3>
           <div className="h-56 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -276,7 +276,7 @@ export const Dashboard: React.FC<Props> = ({
       </div>
 
       {/* Quick Links */}
-      <div className="bg-slate-900/50 border border-[#D4AF37]/20 rounded-xl p-4">
+      <div className="bg-white border border-[#D4AF37]/20 shadow-sm rounded-xl p-4">
         <p className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-3">Quick Access</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
@@ -288,7 +288,7 @@ export const Dashboard: React.FC<Props> = ({
             <button
               key={q.tab}
               onClick={() => onNavigate(q.tab)}
-              className="px-3 py-2 bg-slate-800 hover:bg-[#D4AF37]/10 text-slate-300 hover:text-[#D4AF37] rounded-lg text-xs font-bold transition-all border border-white/5 hover:border-[#D4AF37]/30"
+              className="px-3 py-2 bg-gray-100 hover:bg-[#D4AF37]/10 text-slate-700 hover:text-[#D4AF37] rounded-lg text-xs font-bold transition-all border border-gray-200 hover:border-[#D4AF37]/30"
             >
               {q.label}
             </button>
@@ -298,17 +298,17 @@ export const Dashboard: React.FC<Props> = ({
 
       {/* Customize Modal */}
       {isCustomizeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
-            <div className="flex items-center justify-between p-5 border-b border-white/5">
-              <h2 className="text-base font-bold text-white">Customize Dashboard</h2>
-              <button onClick={onCloseCustomize} className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-all">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h2 className="text-base font-bold text-slate-900">Customize Dashboard</h2>
+              <button onClick={onCloseCustomize} className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-gray-100 transition-all">✕</button>
             </div>
             <div className="p-5 space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
               {ALL_WIDGETS.map(w => {
                 const active = visibleWidgets.includes(w.id);
                 return (
-                  <label key={w.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-all">
+                  <label key={w.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 cursor-pointer transition-all">
                     <input
                       type="checkbox" checked={active}
                       onChange={e => {
@@ -320,14 +320,14 @@ export const Dashboard: React.FC<Props> = ({
                       className="w-4 h-4 accent-[#D4AF37]"
                     />
                     <div>
-                      <p className="text-white text-sm font-medium">{w.label}</p>
+                      <p className="text-slate-900 text-sm font-medium">{w.label}</p>
                       <p className="text-slate-500 text-[10px]">{w.category} · {w.type}</p>
                     </div>
                   </label>
                 );
               })}
             </div>
-            <div className="p-4 border-t border-white/5 text-right">
+            <div className="p-4 border-t border-gray-200 text-right">
               <button onClick={onCloseCustomize} className="px-5 py-2 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 font-bold text-sm rounded-lg">Done</button>
             </div>
           </div>

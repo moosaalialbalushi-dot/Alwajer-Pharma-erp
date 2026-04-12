@@ -105,6 +105,24 @@ const FIELDS: Record<EntityType, FieldDef[]> = {
     { key: 'region', label: 'Region', type: 'text' },
     { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Exit'] },
   ],
+  logistics: [
+    { key: 'referenceNo', label: 'Reference No', type: 'text' },
+    { key: 'product', label: 'Product / Cargo', type: 'text' },
+    { key: 'quantity', label: 'Quantity', type: 'number' },
+    { key: 'unit', label: 'Unit', type: 'text' },
+    { key: 'carrier', label: 'Carrier', type: 'text' },
+    { key: 'trackingNumber', label: 'Tracking Number', type: 'text' },
+    { key: 'origin', label: 'Origin', type: 'text' },
+    { key: 'destination', label: 'Destination', type: 'text' },
+    { key: 'mode', label: 'Mode', type: 'select', options: ['Air', 'Sea', 'Road', 'Courier'] },
+    { key: 'status', label: 'Status', type: 'select', options: ['Scheduled', 'In Transit', 'Customs', 'Delivered', 'Delayed', 'Returned'] },
+    { key: 'dispatchDate', label: 'Dispatch Date', type: 'date' },
+    { key: 'estimatedArrival', label: 'Estimated Arrival', type: 'date' },
+    { key: 'actualArrival', label: 'Actual Arrival', type: 'date' },
+    { key: 'cost', label: 'Cost (USD)', type: 'number' },
+    { key: 'linkedOrderId', label: 'Linked Order ID', type: 'text' },
+    { key: 'remarks', label: 'Remarks', type: 'textarea' },
+  ],
 };
 
 interface Props {
@@ -136,12 +154,12 @@ export const Modal: React.FC<Props> = ({ modal, onSave, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+      <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/5">
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1.5 hover:bg-white/5 rounded-lg">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900 transition-colors p-1.5 hover:bg-gray-100 rounded-lg">
             <X size={18} />
           </button>
         </div>
@@ -150,18 +168,18 @@ export const Modal: React.FC<Props> = ({ modal, onSave, onClose }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {fields.map(field => (
               <div key={field.key} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                   {field.label}
                 </label>
                 {isView || field.readOnly ? (
-                  <div className="bg-slate-800/50 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-slate-300">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-slate-700">
                     {String(form[field.key] ?? '—')}
                   </div>
                 ) : field.type === 'select' ? (
                   <select
                     value={String(form[field.key] ?? '')}
                     onChange={e => handleChange(field.key, e.target.value)}
-                    className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none transition-colors"
+                    className="w-full bg-white border border-gray-300 text-slate-900 rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/40 focus:outline-none transition-colors"
                   >
                     <option value="">Select...</option>
                     {field.options?.map(o => <option key={o} value={o}>{o}</option>)}
@@ -171,22 +189,22 @@ export const Modal: React.FC<Props> = ({ modal, onSave, onClose }) => {
                     value={String(form[field.key] ?? '')}
                     onChange={e => handleChange(field.key, e.target.value)}
                     rows={3}
-                    className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none transition-colors resize-none"
+                    className="w-full bg-white border border-gray-300 text-slate-900 rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/40 focus:outline-none transition-colors resize-none"
                   />
                 ) : (
                   <input
                     type={field.type}
                     value={field.type === 'number' ? Number(form[field.key] ?? 0) : String(form[field.key] ?? '')}
                     onChange={e => handleChange(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)}
-                    className="w-full bg-slate-800/50 border border-white/10 text-white rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none transition-colors"
+                    className="w-full bg-white border border-gray-300 text-slate-900 rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/40 focus:outline-none transition-colors"
                   />
                 )}
               </div>
             ))}
           </div>
           {!isView && (
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/5">
-              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-all">
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-600 hover:text-slate-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all">
                 Cancel
               </button>
               <button type="submit" className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-slate-950 bg-[#D4AF37] hover:bg-[#c4a030] rounded-lg transition-all">

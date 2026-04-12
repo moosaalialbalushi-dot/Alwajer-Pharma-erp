@@ -7,8 +7,8 @@ html { font-size: 14px; }
 body {
   margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
-  background: #020617;
-  color: #f8fafc;
+  background: #f8fafc;
+  color: #0f172a;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -16,21 +16,21 @@ body {
 /* ── Scrollbar ───────────────────────────────────────── */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #1e293b transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
-.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* ── Gold glow utility ───────────────────────────────── */
 .gold-glow {
-  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.05),
-              0 4px 24px rgba(212, 175, 55, 0.04);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06),
+              0 4px 24px rgba(212, 175, 55, 0.08);
 }
 .gold-glow:hover {
-  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.1),
-              0 4px 32px rgba(212, 175, 55, 0.08);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1),
+              0 6px 32px rgba(212, 175, 55, 0.14);
 }
 
 /* ── Animations ──────────────────────────────────────── */
@@ -71,9 +71,9 @@ body {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: #1e293b;
-  color: #94a3b8;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 700;
@@ -82,8 +82,8 @@ body {
   white-space: nowrap;
 }
 .erp-btn-ghost:hover {
-  background: #334155;
-  color: #fff;
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 /* ── Luxury gradient ─────────────────────────────────── */

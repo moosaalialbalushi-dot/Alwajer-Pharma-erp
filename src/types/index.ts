@@ -3,7 +3,7 @@
 export type TabId =
   | 'dashboard' | 'production' | 'inventory' | 'sales'
   | 'procurement' | 'accounting' | 'hr' | 'rd'
-  | 'industrial' | 'bd' | 'samples' | 'costing'
+  | 'industrial' | 'bd' | 'samples' | 'logistics' | 'costing'
   | 'ai' | 'history';
 
 export interface Batch {
@@ -97,6 +97,26 @@ export interface SampleStatus {
   quantity: string;
   status: 'Requested' | 'Production' | 'QC Testing' | 'Dispatched' | 'Arrived';
   trackingNumber?: string;
+}
+
+export interface Shipment {
+  id: string;
+  referenceNo: string;
+  product: string;
+  quantity: number;
+  unit: string;
+  carrier: string;
+  trackingNumber?: string;
+  origin: string;
+  destination: string;
+  mode: 'Air' | 'Sea' | 'Road' | 'Courier';
+  status: 'Scheduled' | 'In Transit' | 'Customs' | 'Delivered' | 'Delayed' | 'Returned';
+  dispatchDate: string;
+  estimatedArrival: string;
+  actualArrival?: string;
+  cost: number;
+  linkedOrderId?: string;
+  remarks?: string;
 }
 
 export interface COOInsight {
@@ -233,7 +253,7 @@ export type ModalMode = 'add' | 'edit' | 'view';
 export type EntityType =
   | 'production' | 'inventory' | 'sales' | 'procurement'
   | 'accounting' | 'hr' | 'rd' | 'vendors' | 'bd'
-  | 'samples' | 'markets';
+  | 'samples' | 'markets' | 'logistics';
 
 export interface ModalState {
   isOpen: boolean;

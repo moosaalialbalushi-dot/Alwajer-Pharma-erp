@@ -1,6 +1,6 @@
 import type {
   Batch, InventoryItem, Order, Expense, Employee,
-  Vendor, BDLead, SampleStatus, Market, RDProject, WidgetId
+  Vendor, BDLead, SampleStatus, Market, RDProject, Shipment, WidgetId
 } from '@/types';
 
 export const INITIAL_BATCHES: Batch[] = [
@@ -56,6 +56,32 @@ export const INITIAL_SAMPLES: SampleStatus[] = [
 export const INITIAL_MARKETS: Market[] = [
   { id: 'M-01', name: 'UAE', region: 'GCC', status: 'Active' },
   { id: 'M-02', name: 'Saudi Arabia', region: 'GCC', status: 'Active' },
+];
+
+export const INITIAL_SHIPMENTS: Shipment[] = [
+  {
+    id: 'SHP-001', referenceNo: 'AWP-SHP-001', product: 'Esomeprazole EC Pellets 22.5%',
+    quantity: 5000, unit: 'Kg', carrier: 'DHL Global Forwarding', trackingNumber: 'DHL-8821-OM-KR',
+    origin: 'Sohar, Oman', destination: 'Karachi, Pakistan', mode: 'Sea',
+    status: 'In Transit', dispatchDate: '2026-03-28', estimatedArrival: '2026-04-18',
+    cost: 3200, linkedOrderId: 'ORD-01',
+    remarks: 'Temperature-controlled container; inspected at Sohar port.',
+  },
+  {
+    id: 'SHP-002', referenceNo: 'AWP-SHP-002', product: 'Omeprazole Samples',
+    quantity: 5, unit: 'Kg', carrier: 'Aramex', trackingNumber: 'ARX-2211-UAE',
+    origin: 'Sohar, Oman', destination: 'Dubai, UAE', mode: 'Air',
+    status: 'Delivered', dispatchDate: '2026-03-10', estimatedArrival: '2026-03-12',
+    actualArrival: '2026-03-12', cost: 420,
+    remarks: 'Ministry of Health sample batch.',
+  },
+  {
+    id: 'SHP-003', referenceNo: 'AWP-SHP-003', product: 'HPMC E5 (Raw Material)',
+    quantity: 2000, unit: 'Kg', carrier: 'Maersk', trackingNumber: 'MSK-4431-CN-OM',
+    origin: 'Shanghai, China', destination: 'Sohar, Oman', mode: 'Sea',
+    status: 'Customs', dispatchDate: '2026-03-02', estimatedArrival: '2026-04-20',
+    cost: 1850, remarks: 'Inbound procurement from Luzhou Chemicals.',
+  },
 ];
 
 function calcRDCosts(projects: RDProject[]): RDProject[] {
