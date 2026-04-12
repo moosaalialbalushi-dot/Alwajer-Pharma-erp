@@ -237,7 +237,7 @@ export const Dashboard: React.FC<Props> = ({
       {activeFeeds.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {activeFeeds.map(id => (
-            <div key={id} className={`${feedSpan(id)} bg-white border border-[#D4AF37]/30 shadow-sm rounded-xl p-5 gold-glow`}>
+            <div key={id} className={`${feedSpan(id)} bg-white shadow-sm border border-[#D4AF37]/30 shadow-sm rounded-xl p-5 gold-glow`}>
               <h3 className="text-base font-bold text-slate-900 mb-4">{feedLabel(id)}</h3>
               {renderFeed(id)}
             </div>
@@ -276,7 +276,7 @@ export const Dashboard: React.FC<Props> = ({
       </div>
 
       {/* Quick Links */}
-      <div className="bg-white border border-[#D4AF37]/20 shadow-sm rounded-xl p-4">
+      <div className="bg-white shadow-sm border border-[#D4AF37]/20 shadow-sm rounded-xl p-4">
         <p className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-3">Quick Access</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[

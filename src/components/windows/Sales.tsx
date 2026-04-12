@@ -30,7 +30,7 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal }) => {
   return (
     <div className="space-y-5 animate-fadeIn">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <BadgeDollarSign className="text-[#F4C430]" size={20}/> Sales & Orders
         </h2>
         <div className="flex gap-2">
@@ -50,9 +50,9 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal }) => {
           { label: 'Pending', value: pendingCount, color: 'text-yellow-400' },
           { label: 'Pipeline (USD)', value: '$' + totalPipeline.toLocaleString() },
         ].map(s => (
-          <div key={s.label} className="bg-slate-900/50 border border-[#D4AF37]/20 p-4 rounded-xl">
+          <div key={s.label} className="bg-white shadow-sm border border-[#D4AF37]/20 p-4 rounded-xl">
             <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{s.label}</p>
-            <p className={`text-xl font-bold mt-1 ${s.color ?? 'text-white'}`}>{s.value}</p>
+            <p className={`text-xl font-bold mt-1 ${s.color ?? 'text-slate-900'}`}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -60,15 +60,15 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal }) => {
       {/* Grouped by Invoice */}
       <div className="space-y-4">
         {Object.keys(grouped).length === 0 && (
-          <div className="bg-slate-900/50 border border-[#D4AF37]/20 p-8 rounded-xl text-center text-slate-500">No orders yet. Add your first order.</div>
+          <div className="bg-white shadow-sm border border-[#D4AF37]/20 p-8 rounded-xl text-center text-slate-500">No orders yet. Add your first order.</div>
         )}
         {Object.entries(grouped).map(([inv, invOrders]) => {
           const totalUSD = invOrders.reduce((s, o) => s + (Number(o.amountUSD) || 0), 0);
           const totalOMR = invOrders.reduce((s, o) => s + (Number(o.amountOMR) || 0), 0);
           const first = invOrders[0];
           return (
-            <div key={inv} className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
-              <div className="bg-slate-950/50 border-b border-white/5 px-5 py-4 flex flex-wrap justify-between items-center gap-3">
+            <div key={inv} className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
+              <div className="bg-gray-50/50 border-b border-gray-200 px-5 py-4 flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <span className="text-lg font-bold text-[#D4AF37]">{inv}</span>
                   <span className="ml-3 text-xs text-slate-500 font-mono">{first.date}</span>
@@ -76,33 +76,33 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal }) => {
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <p className="text-[9px] text-slate-500 uppercase font-bold">Total Value</p>
-                    <p className="text-sm font-bold text-white">${totalUSD.toLocaleString()} / OMR {totalOMR.toLocaleString()}</p>
+                    <p className="text-sm font-bold text-slate-900">${totalUSD.toLocaleString()} / OMR {totalOMR.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
               <table className="w-full text-left">
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-gray-200">
                   {invOrders.map(order => (
-                    <tr key={order.id} className="hover:bg-white/5 transition-all group">
+                    <tr key={order.id} className="hover:bg-gray-100 transition-all group">
                       <td className="p-4">
-                        <div className="font-bold text-white text-sm">{order.customer}</div>
+                        <div className="font-bold text-slate-900 text-sm">{order.customer}</div>
                         <div className="text-[10px] text-slate-500">{order.country}</div>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
-                        <div className="text-sm text-slate-300 truncate max-w-[200px]">{order.product}</div>
-                        <div className="text-xs font-bold text-white font-mono">{Number(order.quantity).toLocaleString()} KG</div>
+                        <div className="text-sm text-slate-700 truncate max-w-[200px]">{order.product}</div>
+                        <div className="text-xs font-bold text-slate-900 font-mono">{Number(order.quantity).toLocaleString()} KG</div>
                       </td>
                       <td className="p-4 hidden md:table-cell text-xs font-mono text-[#D4AF37]">
                         ${order.rateUSD || 0}/KG
                       </td>
                       <td className="p-4">
-                        <div className="text-sm font-bold text-white font-mono">${Number(order.amountUSD).toLocaleString()}</div>
+                        <div className="text-sm font-bold text-slate-900 font-mono">${Number(order.amountUSD).toLocaleString()}</div>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
                         <StatusBadge status={order.status}/>
                       </td>
                       <td className="p-4 text-right">
-                        <button onClick={() => onOpenModal('edit', 'sales', order as unknown as Record<string, unknown>)} className="p-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-all">
+                        <button onClick={() => onOpenModal('edit', 'sales', order as unknown as Record<string, unknown>)} className="p-2 text-slate-600 hover:text-slate-900 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all">
                           <Edit2 size={13}/>
                         </button>
                       </td>

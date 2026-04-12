@@ -50,16 +50,16 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
   return (
     <div className="space-y-5 animate-fadeIn pb-8">
       <div className="flex flex-wrap gap-3 justify-between items-center">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <Beaker className="text-[#F4C430]" size={20}/> R&D Formulation Lab
         </h2>
         <div className="flex flex-wrap gap-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13}/>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={13}/>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search projects…"
-              className="bg-slate-800/50 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none w-48"
+              className="bg-gray-50 border border-gray-200 text-slate-900 rounded-lg pl-8 pr-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none w-48"
             />
           </div>
           <button onClick={() => onOpenModal('add', 'rd', newProject())} className="erp-btn-gold">
@@ -71,24 +71,24 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
       {/* Project List */}
       <div className="space-y-4">
         {filtered.length === 0 && (
-          <div className="bg-slate-900/50 border border-[#D4AF37]/20 rounded-xl p-8 text-center text-slate-500">
+          <div className="bg-white shadow-sm border border-[#D4AF37]/20 rounded-xl p-8 text-center text-slate-500">
             No R&D projects match your search.
           </div>
         )}
         {filtered.map(project => {
           const isExpanded = expandedId === project.id;
           return (
-            <div key={project.id} className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
+            <div key={project.id} className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
               {/* Project Header */}
               <div
-                className="p-4 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-white/5 transition-all"
+                className="p-4 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-gray-100 transition-all"
                 onClick={() => setExpandedId(isExpanded ? null : project.id)}
               >
                 <div className="flex items-center gap-3">
-                  <ChevronDown size={16} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                  <ChevronDown size={16} className={`text-slate-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-white font-bold text-sm">{project.title}</h3>
+                      <h3 className="text-slate-900 font-bold text-sm">{project.title}</h3>
                       <StatusBadge status={project.status}/>
                     </div>
                     <p className="text-[10px] text-slate-500 mt-0.5">{project.id} · Updated {project.lastUpdated}</p>
@@ -122,7 +122,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
 
               {/* Expanded: Ingredient Table */}
               {isExpanded && (
-                <div className="border-t border-white/5 p-4 space-y-4">
+                <div className="border-t border-gray-200 p-4 space-y-4">
                   {/* Summary */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
@@ -131,7 +131,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                       { label: 'Loss Factor', value: project.loss },
                       { label: 'Final RMC/Kg', value: `$${project.totalFinalRMC.toFixed(3)}` },
                     ].map(s => (
-                      <div key={s.label} className="bg-slate-950/40 rounded-lg p-3 border border-white/5">
+                      <div key={s.label} className="bg-gray-50/40 rounded-lg p-3 border border-gray-200">
                         <p className="text-[9px] text-slate-500 uppercase font-bold">{s.label}</p>
                         <p className="text-[#D4AF37] font-bold text-sm">{s.value}</p>
                       </div>
@@ -142,7 +142,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="text-[9px] text-slate-500 uppercase border-b border-white/5">
+                        <tr className="text-[9px] text-slate-500 uppercase border-b border-gray-200">
                           <th className="pb-2 px-2">#</th>
                           <th className="pb-2 px-2">Ingredient</th>
                           <th className="pb-2 px-2">Role</th>
@@ -151,26 +151,26 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                           <th className="pb-2 px-2 text-right">Cost $</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/5">
+                      <tbody className="divide-y divide-gray-200">
                         {project.ingredients.map((ing, idx) => (
-                          <tr key={idx} className="hover:bg-white/5">
+                          <tr key={idx} className="hover:bg-gray-100">
                             <td className="py-2 px-2 text-slate-500 text-xs">{ing.sNo || idx + 1}</td>
-                            <td className="py-2 px-2 text-white font-medium text-xs">{ing.name}</td>
+                            <td className="py-2 px-2 text-slate-900 font-medium text-xs">{ing.name}</td>
                             <td className="py-2 px-2">
-                              <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">{ing.role}</span>
+                              <span className="text-[9px] bg-gray-100 text-slate-600 px-1.5 py-0.5 rounded">{ing.role}</span>
                             </td>
                             <td className="py-2 px-2 text-right">
                               <input
                                 type="number" value={ing.quantity}
                                 onChange={e => handleIngredientChange(project, idx, 'quantity', Number(e.target.value))}
-                                className="w-20 bg-slate-800/50 border border-white/10 text-white rounded px-2 py-1 text-xs text-right focus:border-[#D4AF37]/50 focus:outline-none"
+                                className="w-20 bg-gray-50 border border-gray-200 text-slate-900 rounded px-2 py-1 text-xs text-right focus:border-[#D4AF37]/50 focus:outline-none"
                               />
                             </td>
                             <td className="py-2 px-2 text-right">
                               <input
                                 type="number" value={ing.rateUSD}
                                 onChange={e => handleIngredientChange(project, idx, 'rateUSD', Number(e.target.value))}
-                                className="w-20 bg-slate-800/50 border border-white/10 text-white rounded px-2 py-1 text-xs text-right focus:border-[#D4AF37]/50 focus:outline-none"
+                                className="w-20 bg-gray-50 border border-gray-200 text-slate-900 rounded px-2 py-1 text-xs text-right focus:border-[#D4AF37]/50 focus:outline-none"
                               />
                             </td>
                             <td className="py-2 px-2 text-right font-mono text-[#D4AF37] text-xs">{ing.cost.toFixed(2)}</td>
@@ -188,7 +188,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                       </p>
                       {optimizing === project.id
                         ? <div className="animate-pulse text-slate-500 text-xs">Analyzing formulation…</div>
-                        : <p className="text-slate-300 text-xs whitespace-pre-wrap">{aiNotes[project.id]}</p>
+                        : <p className="text-slate-700 text-xs whitespace-pre-wrap">{aiNotes[project.id]}</p>
                       }
                     </div>
                   )}

@@ -42,7 +42,7 @@ export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, o
   return (
     <div className="space-y-5 animate-fadeIn">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <Boxes className="text-[#F4C430]" size={20}/> Inventory Control
         </h2>
         <div className="flex gap-2">
@@ -56,10 +56,10 @@ export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, o
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-1 border-b border-white/5 overflow-x-auto custom-scrollbar">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto custom-scrollbar">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`pb-2 px-4 text-sm font-bold whitespace-nowrap transition-all ${tab === t.id ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-white'}`}>
+            className={`pb-2 px-4 text-sm font-bold whitespace-nowrap transition-all ${tab === t.id ? 'text-[#F4C430] border-b-2 border-[#F4C430]' : 'text-slate-500 hover:text-slate-900'}`}>
             {t.label}
           </button>
         ))}
@@ -78,11 +78,11 @@ export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, o
         </div>
       )}
 
-      <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
+      <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-white/5 text-slate-500 text-[10px] uppercase">
+              <tr className="border-b border-gray-200 text-slate-500 text-[10px] uppercase">
                 <th className="pb-3 px-4 pt-4 font-bold">S.No</th>
                 <th className="pb-3 px-4 pt-4 font-bold">Material Name</th>
                 <th className="pb-3 px-4 pt-4 font-bold">Present Stock</th>
@@ -92,23 +92,23 @@ export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, o
                 <th className="pb-3 px-4 pt-4 font-bold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-gray-200">
               {filtered.length === 0 && (
                 <tr><td colSpan={isRaw ? 7 : 5} className="p-6 text-center text-slate-500 text-sm">No items in this category.</td></tr>
               )}
               {filtered.map(item => {
                 const isCritical = item.balanceToPurchase && item.balanceToPurchase > 0;
                 return (
-                  <tr key={item.id} className="hover:bg-white/5 transition-all">
+                  <tr key={item.id} className="hover:bg-gray-100 transition-all">
                     <td className="py-3 px-4 text-slate-500 font-mono text-xs">{item.sNo}</td>
-                    <td className="py-3 px-4 text-white font-bold text-sm">{item.name}</td>
+                    <td className="py-3 px-4 text-slate-900 font-bold text-sm">{item.name}</td>
                     <td className="py-3 px-4">
-                      <span className="text-white font-mono font-bold">{item.stock.toLocaleString()}</span>
+                      <span className="text-slate-900 font-mono font-bold">{item.stock.toLocaleString()}</span>
                       <span className="text-xs text-slate-500 ml-1">{item.unit}</span>
-                      {item.stockDate && <div className="text-[9px] text-slate-600 uppercase">DT: {item.stockDate}</div>}
+                      {item.stockDate && <div className="text-[9px] text-slate-500 uppercase">DT: {item.stockDate}</div>}
                     </td>
                     {isRaw && (
-                      <td className="py-3 px-4 text-slate-300 font-mono text-sm hidden sm:table-cell">
+                      <td className="py-3 px-4 text-slate-700 font-mono text-sm hidden sm:table-cell">
                         {item.requiredForOrders?.toLocaleString() || '—'} <span className="text-xs text-slate-500">{item.unit}</span>
                       </td>
                     )}

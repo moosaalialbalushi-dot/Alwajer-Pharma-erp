@@ -21,7 +21,7 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete 
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <Factory className="text-[#F4C430]" size={20}/> Manufacturing Operations
         </h2>
         <button onClick={() => onOpenModal('add', 'production', newBatch())} className="erp-btn-gold">
@@ -37,18 +37,18 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete 
           { label: 'Completed', value: batches.filter(b => b.status === 'Completed').length },
           { label: 'Avg Yield', value: batches.length ? (batches.reduce((s, b) => s + b.actualYield, 0) / batches.length).toFixed(1) + '%' : '—' },
         ].map(s => (
-          <div key={s.label} className="bg-slate-900/50 border border-[#D4AF37]/20 p-4 rounded-xl">
+          <div key={s.label} className="bg-white shadow-sm border border-[#D4AF37]/20 shadow-sm p-4 rounded-xl">
             <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{s.label}</p>
-            <p className="text-white text-2xl font-bold mt-1">{s.value}</p>
+            <p className="text-slate-900 text-2xl font-bold mt-1">{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-slate-900/50 border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
+      <div className="bg-white shadow-sm border border-[#D4AF37]/30 shadow-sm rounded-xl overflow-hidden gold-glow">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-white/5 text-slate-500 text-xs uppercase">
+              <tr className="border-b border-gray-200 text-slate-500 text-xs uppercase">
                 <th className="pb-3 px-4 font-bold pt-4">Batch ID</th>
                 <th className="pb-3 px-4 font-bold pt-4">Product</th>
                 <th className="pb-3 px-4 font-bold pt-4 hidden sm:table-cell">Qty (Kg)</th>
@@ -58,22 +58,22 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete 
                 <th className="pb-3 px-4 font-bold pt-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-gray-200">
               {batches.length === 0 && (
                 <tr><td colSpan={7} className="p-6 text-center text-slate-500 text-sm">No batches recorded. Add your first batch.</td></tr>
               )}
               {batches.map(batch => (
                 <React.Fragment key={batch.id}>
-                  <tr className={`hover:bg-white/5 transition-all ${expandedId === batch.id ? 'bg-white/5' : ''}`}>
+                  <tr className={`hover:bg-gray-100 transition-all ${expandedId === batch.id ? 'bg-gray-100' : ''}`}>
                     <td className="py-4 px-4 font-mono text-sm text-[#F4C430] cursor-pointer" onClick={() => setExpandedId(expandedId === batch.id ? null : batch.id)}>
                       <div className="flex items-center gap-2">
                         <ChevronDown size={13} className={`transition-transform ${expandedId === batch.id ? 'rotate-180' : ''}`}/>
                         {batch.id}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-white font-medium text-sm max-w-[200px] truncate">{batch.product}</td>
-                    <td className="py-4 px-4 text-white font-mono text-sm hidden sm:table-cell">{batch.quantity.toLocaleString()}</td>
-                    <td className="py-4 px-4 text-slate-300 text-sm hidden md:table-cell">{batch.dispatchDate || '—'}</td>
+                    <td className="py-4 px-4 text-slate-900 font-medium text-sm max-w-[200px] truncate">{batch.product}</td>
+                    <td className="py-4 px-4 text-slate-900 font-mono text-sm hidden sm:table-cell">{batch.quantity.toLocaleString()}</td>
+                    <td className="py-4 px-4 text-slate-700 text-sm hidden md:table-cell">{batch.dispatchDate || '—'}</td>
                     <td className="py-4 px-4">
                       <span className={`text-sm font-bold ${Math.abs(batch.actualYield - batch.expectedYield) > 2 ? 'text-red-400' : 'text-green-400'}`}>
                         {batch.actualYield}%
@@ -89,28 +89,28 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete 
                     </td>
                   </tr>
                   {expandedId === batch.id && (
-                    <tr className="bg-slate-950/40 border-l-2 border-[#D4AF37]">
+                    <tr className="bg-gray-50 border-l-2 border-[#D4AF37]">
                       <td colSpan={7} className="p-0">
                         <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-5">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-slate-900 border border-white/5 text-[#F4C430]"><BarChart3 size={16}/></div>
+                            <div className="p-2 rounded bg-white border border-gray-200 text-[#F4C430]"><BarChart3 size={16}/></div>
                             <div>
                               <p className="text-[10px] text-slate-500 uppercase font-bold">Yield Details</p>
-                              <p className="text-sm text-white">Actual: {batch.actualYield}% / Expected: {batch.expectedYield}%</p>
+                              <p className="text-sm text-slate-900">Actual: {batch.actualYield}% / Expected: {batch.expectedYield}%</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-slate-900 border border-white/5 text-[#F4C430]"><Factory size={16}/></div>
+                            <div className="p-2 rounded bg-white border border-gray-200 text-[#F4C430]"><Factory size={16}/></div>
                             <div>
                               <p className="text-[10px] text-slate-500 uppercase font-bold">Batch Date</p>
-                              <p className="text-sm text-white">{batch.timestamp}</p>
+                              <p className="text-sm text-slate-900">{batch.timestamp}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-slate-900 border border-white/5 text-[#F4C430]"><BarChart3 size={16}/></div>
+                            <div className="p-2 rounded bg-white border border-gray-200 text-[#F4C430]"><BarChart3 size={16}/></div>
                             <div>
                               <p className="text-[10px] text-slate-500 uppercase font-bold">Quantity</p>
-                              <p className="text-sm text-white">{batch.quantity.toLocaleString()} Kg</p>
+                              <p className="text-sm text-slate-900">{batch.quantity.toLocaleString()} Kg</p>
                             </div>
                           </div>
                         </div>

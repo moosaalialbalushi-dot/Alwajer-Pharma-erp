@@ -135,23 +135,23 @@ export const AICommand: React.FC<Props> = ({
         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1">
           {activeSessions.map(s => (
             <div key={s.id} onClick={() => { onSetActiveChat(s.id); onSetProvider(s.provider as Provider); }}
-              className={`group relative p-2.5 rounded-lg border cursor-pointer transition-all ${activeChatId === s.id ? 'bg-[#D4AF37]/10 border-[#D4AF37]/50' : 'bg-slate-900/50 border-white/5 hover:border-white/20'}`}>
-              <p className="text-xs font-bold text-white truncate pr-4">{s.title || 'New Chat'}</p>
+              className={`group relative p-2.5 rounded-lg border cursor-pointer transition-all ${activeChatId === s.id ? 'bg-[#D4AF37]/10 border-[#D4AF37]/50' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
+              <p className="text-xs font-bold text-slate-900 truncate pr-4">{s.title || 'New Chat'}</p>
               <p className={`text-[10px] font-bold ${PROVIDER_COLORS[s.provider as Provider] || 'text-slate-500'}`}>{s.provider}</p>
-              <p className="text-[9px] text-slate-600">{s.messages.length} msg</p>
+              <p className="text-[9px] text-slate-500">{s.messages.length} msg</p>
               <button onClick={e => { e.stopPropagation(); archiveChat(s.id); }}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"><X size={10}/></button>
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all"><X size={10}/></button>
             </div>
           ))}
           {archivedSessions.length > 0 && (
             <>
-              <p className="text-[9px] text-slate-600 uppercase font-bold px-1 pt-2">History</p>
+              <p className="text-[9px] text-slate-500 uppercase font-bold px-1 pt-2">History</p>
               {archivedSessions.map(s => (
                 <div key={s.id} onClick={() => { onSetSessions(prev => prev.map(x => x.id === s.id ? { ...x, archived: false } : x)); onSetActiveChat(s.id); }}
-                  className="group relative p-2 rounded-lg border border-white/5 bg-slate-900/20 cursor-pointer hover:border-white/10 transition-all">
+                  className="group relative p-2 rounded-lg border border-gray-200 bg-white/20 cursor-pointer hover:border-gray-200 transition-all">
                   <p className="text-[10px] text-slate-500 truncate pr-4">{s.title}</p>
                   <button onClick={e => { e.stopPropagation(); deleteChat(s.id); }}
-                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-slate-700 hover:text-red-400"><Trash2 size={9}/></button>
+                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-400"><Trash2 size={9}/></button>
                 </div>
               ))}
             </>
@@ -162,10 +162,10 @@ export const AICommand: React.FC<Props> = ({
       {/* Main chat */}
       <div className="flex-1 flex flex-col gap-2 min-w-0">
         {/* Provider bar */}
-        <div className="flex flex-wrap gap-1.5 items-center bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 shrink-0">
+        <div className="flex flex-wrap gap-1.5 items-center bg-white border border-gray-200 rounded-xl px-3 py-2 shrink-0">
           {PROVIDERS.map(p => (
             <button key={p} onClick={() => onSetProvider(p)}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? `bg-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/10 border-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/30 ${PROVIDER_COLORS[p]}` : 'border-transparent text-slate-500 hover:text-white'}`}>
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? `bg-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/10 border-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/30 ${PROVIDER_COLORS[p]}` : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
               {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🔀 OpenRouter'}
             </button>
           ))}
@@ -173,17 +173,17 @@ export const AICommand: React.FC<Props> = ({
           <select
             value={selectedModel[activeProvider]}
             onChange={e => setSelectedModel(prev => ({ ...prev, [activeProvider]: e.target.value }))}
-            className="bg-transparent text-slate-400 text-[11px] border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#D4AF37]/40"
+            className="bg-transparent text-slate-600 text-[11px] border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#D4AF37]/40"
           >
             {PROVIDER_MODELS[activeProvider].map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/30 border border-white/5 rounded-xl p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
           {!activeSession ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <BrainCircuit className="text-slate-700 mb-3" size={40}/>
+              <BrainCircuit className="text-slate-400 mb-3" size={40}/>
               <p className="text-slate-500 text-sm">Select a chat or create a new one to start.</p>
             </div>
           ) : activeSession.messages.length === 0 ? (
@@ -197,7 +197,7 @@ export const AICommand: React.FC<Props> = ({
                 <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
                   msg.role === 'user'
                     ? 'bg-[#D4AF37] text-slate-950 font-medium rounded-br-sm'
-                    : 'bg-slate-800/80 text-slate-200 border border-white/5 rounded-bl-sm'
+                    : 'bg-gray-100 text-slate-800 border border-gray-200 rounded-bl-sm'
                 }`}>
                   <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</p>
                 </div>
@@ -206,9 +206,9 @@ export const AICommand: React.FC<Props> = ({
           )}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-slate-800/80 border border-white/5 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
+              <div className="bg-gray-100 border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin text-[#D4AF37]"/>
-                <span className="text-slate-400 text-sm">Thinking…</span>
+                <span className="text-slate-600 text-sm">Thinking…</span>
               </div>
             </div>
           )}
@@ -217,12 +217,12 @@ export const AICommand: React.FC<Props> = ({
 
         {/* Input */}
         <div className="flex gap-2 shrink-0">
-          <button title="Attach file" className="p-2.5 text-slate-500 hover:text-white bg-slate-800 rounded-xl border border-white/10 transition-all">
+          <button title="Attach file" className="p-2.5 text-slate-500 hover:text-slate-900 bg-gray-100 rounded-xl border border-gray-200 transition-all">
             <Paperclip size={15}/>
           </button>
           <button
             onClick={() => setIsListening(l => !l)}
-            className={`p-2.5 rounded-xl border transition-all ${isListening ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-800 border-white/10 text-slate-500 hover:text-white'}`}
+            className={`p-2.5 rounded-xl border transition-all ${isListening ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-gray-100 border-gray-200 text-slate-500 hover:text-slate-900'}`}
             title="Voice input"
           >
             {isListening ? <MicOff size={15}/> : <Mic size={15}/>}
@@ -234,7 +234,7 @@ export const AICommand: React.FC<Props> = ({
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               placeholder="Ask anything… (Shift+Enter for newline)"
               rows={1}
-              className="w-full bg-slate-800/50 border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none resize-none custom-scrollbar"
+              className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none resize-none custom-scrollbar"
               style={{ maxHeight: '120px' }}
             />
           </div>
