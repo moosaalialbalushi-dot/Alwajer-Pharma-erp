@@ -23,6 +23,7 @@ import { AICommand } from '@/components/windows/AICommand';
 import { AuditHistory } from '@/components/windows/AuditHistory';
 import { analyzeOperations, optimizeFormulation } from '@/services/gemini';
 import { callAIProxy, extractText } from '@/services/aiProxy';
+import { saveRow } from '@/services/db';
 import type { RDProject, ChatSession } from '@/types';
 
 const App: React.FC = () => {
@@ -191,7 +192,10 @@ const App: React.FC = () => {
               rdProjects={state.rdProjects}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
-              onUpdateProject={p => state.setRdProjects(prev => prev.map(x => x.id === p.id ? p : x))}
+              onUpdateProject={p => {
+                state.setRdProjects(prev => prev.map(x => x.id === p.id ? p : x));
+                saveRow('rd_projects', p).catch(() => {});
+              }}
               onOptimize={handleOptimizeRD}
             />
           )}
