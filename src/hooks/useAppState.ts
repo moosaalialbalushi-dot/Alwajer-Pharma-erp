@@ -122,11 +122,11 @@ export function useAppState() {
 
   const handleSave = useCallback((type: ModalState['type'], data: Record<string, unknown>) => {
     const action = modal.mode === 'add' ? 'ADD' : 'EDIT';
-    const ensureId = (row: Record<string, unknown>, prefix: string) =>
-      (row.id ? row : { ...row, id: generateId(prefix) });
+    const ensureId = <T extends { id: string }>(row: Record<string, unknown>, prefix: string): T =>
+      ({ ...row, id: (row.id as string) || generateId(prefix) }) as unknown as T;
     switch (type) {
       case 'production': {
-        const row = ensureId(data, 'BATCH') as Batch;
+        const row = ensureId<Batch>(data, "BATCH");
         setBatches(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(b => b.id === row.id ? { ...b, ...row } : b)
         );
@@ -135,7 +135,7 @@ export function useAppState() {
         break;
       }
       case 'inventory': {
-        const row = ensureId(data, 'RM') as InventoryItem;
+        const row = ensureId<InventoryItem>(data, "RM");
         setInventory(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(i => i.id === row.id ? { ...i, ...row } : i)
         );
@@ -144,7 +144,7 @@ export function useAppState() {
         break;
       }
       case 'sales': {
-        const row = ensureId(data, 'ORD') as Order;
+        const row = ensureId<Order>(data, "ORD");
         setOrders(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(o => o.id === row.id ? { ...o, ...row } : o)
         );
@@ -154,7 +154,7 @@ export function useAppState() {
       }
       case 'vendors':
       case 'procurement': {
-        const row = ensureId(data, 'V') as Vendor;
+        const row = ensureId<Vendor>(data, "V");
         setVendors(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(v => v.id === row.id ? { ...v, ...row } : v)
         );
@@ -163,7 +163,7 @@ export function useAppState() {
         break;
       }
       case 'accounting': {
-        const row = ensureId(data, 'EXP') as Expense;
+        const row = ensureId<Expense>(data, "EXP");
         setExpenses(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(e => e.id === row.id ? { ...e, ...row } : e)
         );
@@ -172,7 +172,7 @@ export function useAppState() {
         break;
       }
       case 'hr': {
-        const row = ensureId(data, 'EMP') as Employee;
+        const row = ensureId<Employee>(data, "EMP");
         setEmployees(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(e => e.id === row.id ? { ...e, ...row } : e)
         );
@@ -181,7 +181,7 @@ export function useAppState() {
         break;
       }
       case 'rd': {
-        const row = ensureId(data, 'RD') as RDProject;
+        const row = ensureId<RDProject>(data, "RD");
         setRdProjects(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(p => p.id === row.id ? { ...p, ...row } : p)
         );
@@ -190,7 +190,7 @@ export function useAppState() {
         break;
       }
       case 'bd': {
-        const row = ensureId(data, 'BD') as BDLead;
+        const row = ensureId<BDLead>(data, "BD");
         setBdLeads(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(l => l.id === row.id ? { ...l, ...row } : l)
         );
@@ -199,7 +199,7 @@ export function useAppState() {
         break;
       }
       case 'samples': {
-        const row = ensureId(data, 'SMP') as SampleStatus;
+        const row = ensureId<SampleStatus>(data, "SMP");
         setSamples(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(s => s.id === row.id ? { ...s, ...row } : s)
         );
@@ -208,7 +208,7 @@ export function useAppState() {
         break;
       }
       case 'markets': {
-        const row = ensureId(data, 'M') as Market;
+        const row = ensureId<Market>(data, "M");
         setMarkets(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(m => m.id === row.id ? { ...m, ...row } : m)
         );
@@ -217,7 +217,7 @@ export function useAppState() {
         break;
       }
       case 'logistics': {
-        const row = ensureId(data, 'SHP') as Shipment;
+        const row = ensureId<Shipment>(data, "SHP");
         setShipments(prev =>
           modal.mode === 'add' ? [...prev, row] : prev.map(s => s.id === row.id ? { ...s, ...row } : s)
         );
