@@ -43,7 +43,9 @@ export function useAppState() {
     loadTable<BDLead>('bd_leads', INITIAL_BD).then(setBdLeads).catch(() => {});
     loadTable<SampleStatus>('samples', INITIAL_SAMPLES).then(setSamples).catch(() => {});
     loadTable<Market>('markets', INITIAL_MARKETS).then(setMarkets).catch(() => {});
-    loadTable<RDProject>('rd_projects', INITIAL_RD).then(setRdProjects).catch(() => {});
+    loadTable<RDProject>('rd_projects', INITIAL_RD).then(rows =>
+      setRdProjects(rows.map(p => ({ ...p, ingredients: p.ingredients ?? [] })))
+    ).catch(() => {});
     loadTable<Shipment>('shipments', INITIAL_SHIPMENTS).then(setShipments).catch(() => {});
     loadTable<AuditLog>('audit_logs', []).then(setAuditLogs).catch(() => {});
   }, []);
@@ -52,7 +54,8 @@ export function useAppState() {
   const [visibleWidgets, setVisibleWidgets] = useState<WidgetId[]>(() => {
     try {
       const s = localStorage.getItem('erp_v2_widgets');
-      return s ? JSON.parse(s) : ALL_WIDGETS.filter(w => w.default).map(w => w.id);
+      const parsed = s ? JSON.parse(s) : null;
+      return Array.isArray(parsed) ? parsed : ALL_WIDGETS.filter(w => w.default).map(w => w.id);
     } catch { return ALL_WIDGETS.filter(w => w.default).map(w => w.id); }
   });
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);

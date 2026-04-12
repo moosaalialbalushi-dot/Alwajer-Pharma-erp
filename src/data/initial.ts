@@ -86,7 +86,7 @@ export const INITIAL_SHIPMENTS: Shipment[] = [
 
 function calcRDCosts(projects: RDProject[]): RDProject[] {
   return projects.map(p => {
-    const ings = p.ingredients.map(i => ({ ...i, cost: Number((i.quantity * i.rateUSD).toFixed(3)) }));
+    const ings = (p.ingredients ?? []).map(i => ({ ...i, cost: Number((i.quantity * i.rateUSD).toFixed(3)) }));
     const totalRMC = Number(ings.reduce((s, i) => s + i.cost, 0).toFixed(3));
     const totalFinalRMC = Number(((totalRMC / p.batchSize) + p.loss).toFixed(3));
     return { ...p, ingredients: ings, totalRMC, totalFinalRMC };

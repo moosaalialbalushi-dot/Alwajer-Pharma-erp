@@ -30,7 +30,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
   };
 
   const handleIngredientChange = (project: RDProject, idx: number, field: keyof Ingredient, value: unknown) => {
-    const ings = project.ingredients.map((ing, i) => {
+    const ings = (project.ingredients ?? []).map((ing, i) => {
       if (i !== idx) return ing;
       const updated = { ...ing, [field]: value };
       updated.cost = Number((Number(updated.quantity) * Number(updated.rateUSD)).toFixed(3));
@@ -152,7 +152,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {project.ingredients.map((ing, idx) => (
+                        {(project.ingredients ?? []).map((ing, idx) => (
                           <tr key={idx} className="hover:bg-gray-100">
                             <td className="py-2 px-2 text-slate-500 text-xs">{ing.sNo || idx + 1}</td>
                             <td className="py-2 px-2 text-slate-900 font-medium text-xs">{ing.name}</td>
