@@ -227,7 +227,7 @@ export const Dashboard: React.FC<Props> = ({
           {activeStats.map(id => {
             const s = statMap[id];
             return (
-              <StatCard key={id} title={s.title} value={s.value} icon={s.icon as React.ComponentType<{ size?: number; className?: string }>} color={s.color} />
+              <StatCard key={id} title={s.title} value={s.value} icon={s.icon as import('lucide-react').LucideIcon} color={s.color} />
             );
           })}
         </div>
@@ -268,7 +268,7 @@ export const Dashboard: React.FC<Props> = ({
                 <Pie data={expenseChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
                   {expenseChart.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]}/>)}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(v: number) => [`$${v.toLocaleString()}`, 'Amount']}/>
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(v) => [`$${Number(v).toLocaleString()}`, 'Amount']}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
