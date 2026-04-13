@@ -87,7 +87,7 @@ export function useAppState() {
   // ── Calculator ────────────────────────────────────────────────────────────
   const [calcData, setCalcData] = useState<CalcData>({
     product: '', volume: 0, targetPrice: 0, rmc: 0,
-    labor: 0, packing: 0, logistics: 0, shippingCost: 0,
+    labor: 0, packing: 0, logistics: 0, overheadPct: 0,
     shippingMethod: 'CIF by Air - Muscat Airport',
   });
   const [calcResults, setCalcResults] = useState<Record<string, number> | null>(null);

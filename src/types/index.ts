@@ -236,6 +236,15 @@ export interface UploadProgress {
   message: string;
 }
 
+export interface CalcItem {
+  product: string;
+  volume: number;
+  targetPrice: number;
+  rmc: number;
+  labor: number;
+  packing: number;
+}
+
 export interface CalcData {
   product: string;
   volume: number;
@@ -244,8 +253,9 @@ export interface CalcData {
   labor: number;
   packing: number;
   logistics: number;
-  shippingCost: number;
+  overheadPct: number;
   shippingMethod: string;
+  extraItems?: CalcItem[];
 }
 
 export type ModalMode = 'add' | 'edit' | 'view';

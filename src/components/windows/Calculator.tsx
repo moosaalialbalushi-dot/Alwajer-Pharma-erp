@@ -1,6 +1,6 @@
 import React from 'react';
-import { Calculator as CalcIcon, RefreshCw } from 'lucide-react';
-import type { CalcData, RDProject } from '@/types';
+import { Calculator as CalcIcon, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import type { CalcData, CalcItem, RDProject } from '@/types';
 
 interface Props {
   calcData: CalcData;
@@ -16,28 +16,71 @@ const SHIPPING_METHODS = [
   'FOB Sohar', 'DDP - Destination', 'EXW - Sohar Plant',
 ];
 
+const emptyItem = (): CalcItem => ({ product: '', volume: 0, targetPrice: 0, rmc: 0, labor: 0, packing: 0 });
+
 export const Calculator: React.FC<Props> = ({ calcData, calcResults, rdProjects, onDataChange, onCalculate, onReset }) => {
   const set = (key: keyof CalcData, v: unknown) => onDataChange({ ...calcData, [key]: v });
+  const extras = calcData.extraItems ?? [];
 
-  const Field = ({ label, field, type = 'number' }: { label: string; field: keyof CalcData; type?: string }) => (
+  const setItem = (idx: number, key: keyof CalcItem, v: unknown) => {
+    const updated = extras.map((item, i) => i === idx ? { ...item, [key]: v } : item);
+    onDataChange({ ...calcData, extraItems: updated });
+  };
+
+  const addItem = () => onDataChange({ ...calcData, extraItems: [...extras, emptyItem()] });
+  const removeItem = (idx: number) => onDataChange({ ...calcData, extraItems: extras.filter((_, i) => i !== idx) });
+
+  const NumField = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
     <div>
       <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">{label}</label>
-      {type === 'select' ? (
-        <select
-          value={String(calcData[field])}
-          onChange={e => set(field, e.target.value)}
-          className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none"
-        >
-          {SHIPPING_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-      ) : (
-        <input
-          type={type}
-          value={type === 'number' ? Number(calcData[field]) : String(calcData[field])}
-          onChange={e => set(field, type === 'number' ? Number(e.target.value) : e.target.value)}
-          className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none"
-        />
-      )}
+      <input
+        type="number" value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"
+      />
+    </div>
+  );
+
+  const ProductSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+    <div className="sm:col-span-2">
+      <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Product</label>
+      <select
+        value={value} onChange={e => onChange(e.target.value)}
+        className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"
+      >
+        <option value="">Select or type product…</option>
+        {rdProjects.map(p => <option key={p.id} value={p.title}>{p.title}</option>)}
+      </select>
+    </div>
+  );
+
+  const ItemBlock = ({
+    label, product, volume, targetPrice, rmc, labor, packing,
+    onProduct, onVolume, onTargetPrice, onRmc, onLabor, onPacking,
+    onRemove,
+  }: {
+    label: string; product: string; volume: number; targetPrice: number;
+    rmc: number; labor: number; packing: number;
+    onProduct: (v: string) => void; onVolume: (v: number) => void;
+    onTargetPrice: (v: number) => void; onRmc: (v: number) => void;
+    onLabor: (v: number) => void; onPacking: (v: number) => void;
+    onRemove?: () => void;
+  }) => (
+    <div className="border border-[#D4AF37]/20 rounded-xl p-4 space-y-3 bg-gray-50/30">
+      <div className="flex justify-between items-center">
+        <p className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">{label}</p>
+        {onRemove && (
+          <button onClick={onRemove} className="p-1 text-red-400 hover:bg-red-50 rounded transition-all"><Trash2 size={13}/></button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <ProductSelect value={product} onChange={onProduct}/>
+        <NumField label="Volume (Kg)" value={volume} onChange={onVolume}/>
+        <NumField label="Target Price ($/Kg)" value={targetPrice} onChange={onTargetPrice}/>
+        <NumField label="RMC ($/Kg)" value={rmc} onChange={onRmc}/>
+        <NumField label="Labor ($/Kg)" value={labor} onChange={onLabor}/>
+        <NumField label="Packing ($/Kg)" value={packing} onChange={onPacking}/>
+      </div>
     </div>
   );
 
@@ -50,31 +93,78 @@ export const Calculator: React.FC<Props> = ({ calcData, calcResults, rdProjects,
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Input Panel */}
         <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 border-b border-gray-200 pb-3">Input Parameters</h3>
+          <h3 className="text-sm font-bold text-slate-900 border-b border-gray-200 pb-3">Product Lines</h3>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Product</label>
-            <select
-              value={calcData.product}
-              onChange={e => set('product', e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none"
+          {/* Primary item */}
+          <ItemBlock
+            label="Product Line 1 (Primary)"
+            product={calcData.product} volume={calcData.volume}
+            targetPrice={calcData.targetPrice} rmc={calcData.rmc}
+            labor={calcData.labor} packing={calcData.packing}
+            onProduct={v => set('product', v)} onVolume={v => set('volume', v)}
+            onTargetPrice={v => set('targetPrice', v)} onRmc={v => set('rmc', v)}
+            onLabor={v => set('labor', v)} onPacking={v => set('packing', v)}
+          />
+
+          {/* Extra items */}
+          {extras.map((item, idx) => (
+            <ItemBlock
+              key={idx}
+              label={`Product Line ${idx + 2}`}
+              product={item.product} volume={item.volume}
+              targetPrice={item.targetPrice} rmc={item.rmc}
+              labor={item.labor} packing={item.packing}
+              onProduct={v => setItem(idx, 'product', v)} onVolume={v => setItem(idx, 'volume', v)}
+              onTargetPrice={v => setItem(idx, 'targetPrice', v)} onRmc={v => setItem(idx, 'rmc', v)}
+              onLabor={v => setItem(idx, 'labor', v)} onPacking={v => setItem(idx, 'packing', v)}
+              onRemove={() => removeItem(idx)}
+            />
+          ))}
+
+          {/* Add product line button (max 3 lines total) */}
+          {extras.length < 2 && (
+            <button
+              onClick={addItem}
+              className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-bold text-[#D4AF37] border border-dashed border-[#D4AF37]/40 rounded-xl hover:bg-[#D4AF37]/5 transition-all"
             >
-              <option value="">Select product or type…</option>
-              {rdProjects.map(p => <option key={p.id} value={p.title}>{p.title}</option>)}
-            </select>
-          </div>
+              <Plus size={13}/> Add Product Line {extras.length + 2}
+            </button>
+          )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Volume (Kg)" field="volume"/>
-            <Field label="Target Price ($/Kg)" field="targetPrice"/>
-            <Field label="RMC ($/Kg)" field="rmc"/>
-            <Field label="Labor ($/Kg)" field="labor"/>
-            <Field label="Packing ($/Kg)" field="packing"/>
-            <Field label="Logistics ($/Kg)" field="logistics"/>
-            <Field label="Shipping Cost ($)" field="shippingCost"/>
+          {/* Shared parameters */}
+          <div className="border-t border-gray-200 pt-4 space-y-3">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Shared Parameters</p>
+            <div className="grid grid-cols-2 gap-3">
+              <NumField label="Logistics ($/Kg)" value={calcData.logistics} onChange={v => set('logistics', v)}/>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                  Overhead (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number" min="0" max="100" value={calcData.overheadPct}
+                    onChange={e => set('overheadPct', Number(e.target.value))}
+                    className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-bold">%</span>
+                </div>
+                {calcData.rmc + calcData.labor + calcData.packing + calcData.logistics > 0 && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    = ${(((calcData.rmc + calcData.labor + calcData.packing + calcData.logistics) * calcData.overheadPct / 100)).toFixed(3)}/Kg overhead
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Shipping Method</label>
+              <select
+                value={calcData.shippingMethod} onChange={e => set('shippingMethod', e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"
+              >
+                {SHIPPING_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
           </div>
-
-          <Field label="Shipping Method" field="shippingMethod" type="select"/>
 
           <div className="flex gap-3 pt-2">
             <button onClick={onCalculate} className="flex-1 erp-btn-gold justify-center py-2.5">
@@ -91,17 +181,20 @@ export const Calculator: React.FC<Props> = ({ calcData, calcResults, rdProjects,
           {calcResults ? (
             <>
               <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
-                <h3 className="text-sm font-bold text-slate-900 border-b border-gray-200 pb-3 mb-4">Results</h3>
+                <h3 className="text-sm font-bold text-slate-900 border-b border-gray-200 pb-3 mb-4">
+                  Results {extras.length > 0 && <span className="text-xs text-slate-500 font-normal ml-1">(combined {1 + extras.length} products)</span>}
+                </h3>
                 <div className="space-y-3">
                   {Object.entries(calcResults).map(([key, val]) => (
-                    <div key={key} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                    <div key={key} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
                       <span className="text-slate-600 text-sm">{key}</span>
                       <span className={`text-sm font-bold font-mono ${
                         key.includes('Profit') || key.includes('Margin')
-                          ? Number(val) >= 0 ? 'text-green-400' : 'text-red-400'
+                          ? Number(val) >= 0 ? 'text-green-500' : 'text-red-500'
+                          : key.includes('Overhead') ? 'text-amber-600'
                           : 'text-slate-900'
                       }`}>
-                        {key.includes('%') || key.includes('Margin') ? `${Number(val).toFixed(1)}%` : `$${Number(val).toLocaleString()}`}
+                        {key.includes('%') || key.includes('Margin') ? `${Number(val).toFixed(1)}%` : `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                       </span>
                     </div>
                   ))}
@@ -120,14 +213,15 @@ export const Calculator: React.FC<Props> = ({ calcData, calcResults, rdProjects,
                    (calcResults['Gross Margin %'] ?? 0) >= 0 ? '⚠ Marginal — Review' : '✕ Loss — Renegotiate'}
                 </p>
                 <p className="text-slate-600 text-xs">
-                  Gross margin: {(calcResults['Gross Margin %'] ?? 0).toFixed(1)}% on {calcData.volume.toLocaleString()} Kg @ ${calcData.targetPrice}/Kg
+                  Blended margin: {(calcResults['Gross Margin %'] ?? 0).toFixed(1)}% · Overhead: {calcData.overheadPct}% · Method: {calcData.shippingMethod}
                 </p>
               </div>
             </>
           ) : (
             <div className="bg-white shadow-sm border border-[#D4AF37]/20 rounded-xl p-8 text-center">
-              <CalcIcon className="text-slate-500 mx-auto mb-3" size={36}/>
+              <CalcIcon className="text-slate-400 mx-auto mb-3" size={36}/>
               <p className="text-slate-500 text-sm">Enter values and click Calculate to see results.</p>
+              <p className="text-slate-400 text-xs mt-1">Supports up to 3 product lines per invoice.</p>
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Truck, Plus, Edit2, Trash2, Plane, Ship, Package,
-  MapPin, Clock, CheckCircle2, AlertCircle, Filter,
+  MapPin, Clock, CheckCircle2, AlertCircle, Filter, ArrowDownToLine, ArrowUpFromLine,
 } from 'lucide-react';
 import type { Shipment, ModalState } from '@/types';
 
@@ -21,14 +21,16 @@ const STATUS_STYLES: Record<Shipment['status'], string> = {
 };
 
 const MODE_ICONS: Record<Shipment['mode'], React.ElementType> = {
-  Air:     Plane,
-  Sea:     Ship,
-  Road:    Truck,
-  Courier: Package,
+  Air: Plane, Sea: Ship, Road: Truck, Courier: Package,
 };
 
+const isOman = (loc: string) => /oman|sohar|muscat|salalah/i.test(loc);
+
+type Direction = 'all' | 'outbound' | 'inbound';
+
 export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete }) => {
-  const [filter, setFilter] = useState<'all' | Shipment['status']>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | Shipment['status']>('all');
+  const [direction, setDirection] = useState<Direction>('all');
 
   const stats = useMemo(() => ({
     total: shipments.length,
@@ -36,26 +38,24 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
     delivered: shipments.filter(s => s.status === 'Delivered').length,
     delayed: shipments.filter(s => s.status === 'Delayed' || s.status === 'Customs').length,
     totalCost: shipments.reduce((sum, s) => sum + (s.cost || 0), 0),
+    outbound: shipments.filter(s => isOman(s.origin) && !isOman(s.destination)).length,
+    inbound: shipments.filter(s => !isOman(s.origin) && isOman(s.destination)).length,
   }), [shipments]);
 
-  const visible = filter === 'all' ? shipments : shipments.filter(s => s.status === filter);
+  const visible = shipments.filter(s => {
+    const statusOk = statusFilter === 'all' || s.status === statusFilter;
+    const dirOk = direction === 'all'
+      || (direction === 'outbound' && isOman(s.origin) && !isOman(s.destination))
+      || (direction === 'inbound' && !isOman(s.origin) && isOman(s.destination));
+    return statusOk && dirOk;
+  });
 
   const newShipment = (): Record<string, unknown> => ({
-    id: `SHP-${Date.now()}`,
-    referenceNo: '',
-    product: '',
-    quantity: 0,
-    unit: 'Kg',
-    carrier: '',
-    trackingNumber: '',
-    origin: 'Sohar, Oman',
-    destination: '',
-    mode: 'Sea',
-    status: 'Scheduled',
+    id: `SHP-${Date.now()}`, referenceNo: '', product: '', quantity: 0, unit: 'Kg',
+    carrier: '', trackingNumber: '', origin: 'Sohar, Oman', destination: '',
+    mode: 'Sea', status: 'Scheduled',
     dispatchDate: new Date().toISOString().split('T')[0],
-    estimatedArrival: '',
-    cost: 0,
-    remarks: '',
+    estimatedArrival: '', cost: 0, remarks: '',
   });
 
   return (
@@ -75,23 +75,47 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <StatCard label="Total Shipments" value={stats.total} tone="slate"/>
+        <StatCard label="Total" value={stats.total} tone="slate"/>
         <StatCard label="In Transit" value={stats.inTransit} tone="blue" icon={Truck}/>
         <StatCard label="Delivered" value={stats.delivered} tone="emerald" icon={CheckCircle2}/>
-        <StatCard label="Delayed / Customs" value={stats.delayed} tone="amber" icon={AlertCircle}/>
-        <StatCard label="Total Cost (USD)" value={stats.totalCost.toLocaleString()} tone="gold"/>
+        <StatCard label="Delayed/Customs" value={stats.delayed} tone="amber" icon={AlertCircle}/>
+        <StatCard label="Total Cost (USD)" value={'$' + stats.totalCost.toLocaleString()} tone="gold"/>
       </div>
 
-      {/* Filter bar */}
+      {/* Direction tabs */}
+      <div className="flex gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm flex-wrap">
+        {([
+          { key: 'all', label: 'All Shipments', icon: Package, count: stats.total },
+          { key: 'outbound', label: 'Export (Outbound)', icon: ArrowUpFromLine, count: stats.outbound },
+          { key: 'inbound', label: 'Import (Inbound)', icon: ArrowDownToLine, count: stats.inbound },
+        ] as { key: Direction; label: string; icon: React.ElementType; count: number }[]).map(({ key, label, icon: Icon, count }) => (
+          <button
+            key={key}
+            onClick={() => setDirection(key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all ${
+              direction === key
+                ? 'bg-[#D4AF37] text-slate-950 border-[#D4AF37]'
+                : 'bg-gray-50 text-slate-600 border-gray-200 hover:bg-gray-100'
+            }`}
+          >
+            <Icon size={12}/> {label}
+            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              direction === key ? 'bg-slate-950/20 text-slate-950' : 'bg-gray-200 text-slate-600'
+            }`}>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Status filter */}
       <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
         <Filter size={14} className="text-slate-500"/>
-        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Filter</span>
+        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</span>
         {(['all', 'Scheduled', 'In Transit', 'Customs', 'Delivered', 'Delayed', 'Returned'] as const).map(f => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => setStatusFilter(f)}
             className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-              filter === f
+              statusFilter === f
                 ? 'bg-[#D4AF37] text-slate-950 border-[#D4AF37]'
                 : 'bg-gray-50 text-slate-600 border-gray-200 hover:bg-gray-100'
             }`}
@@ -110,6 +134,8 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
         )}
         {visible.map(shipment => {
           const ModeIcon = MODE_ICONS[shipment.mode];
+          const dir = isOman(shipment.origin) && !isOman(shipment.destination) ? 'outbound'
+                    : !isOman(shipment.origin) && isOman(shipment.destination) ? 'inbound' : null;
           return (
             <div key={shipment.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
               <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
@@ -122,39 +148,28 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
                     <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-slate-700 bg-gray-100 border border-gray-200 rounded-full">
                       <ModeIcon size={11}/> {shipment.mode}
                     </span>
+                    {dir && (
+                      <span className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                        dir === 'outbound'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {dir === 'outbound' ? <ArrowUpFromLine size={10}/> : <ArrowDownToLine size={10}/>}
+                        {dir === 'outbound' ? 'Export' : 'Import'}
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-slate-900 font-bold mt-1.5">{shipment.product}</h3>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    {shipment.quantity} {shipment.unit} · {shipment.carrier}
-                  </p>
+                  <p className="text-xs text-slate-600 mt-0.5">{shipment.quantity} {shipment.unit} · {shipment.carrier}</p>
                 </div>
 
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => onOpenModal('view', 'logistics', shipment as unknown as Record<string, unknown>)}
-                    className="p-1.5 rounded hover:bg-gray-100 text-slate-500"
-                    title="View"
-                  >
-                    <Package size={14}/>
-                  </button>
-                  <button
-                    onClick={() => onOpenModal('edit', 'logistics', shipment as unknown as Record<string, unknown>)}
-                    className="p-1.5 rounded hover:bg-amber-100 text-[#D4AF37]"
-                    title="Edit"
-                  >
-                    <Edit2 size={14}/>
-                  </button>
-                  <button
-                    onClick={() => onDelete('logistics', shipment.id, shipment.referenceNo || shipment.id)}
-                    className="p-1.5 rounded hover:bg-red-100 text-red-500"
-                    title="Delete"
-                  >
-                    <Trash2 size={14}/>
-                  </button>
+                  <button onClick={() => onOpenModal('view', 'logistics', shipment as unknown as Record<string, unknown>)} className="p-1.5 rounded hover:bg-gray-100 text-slate-500" title="View"><Package size={14}/></button>
+                  <button onClick={() => onOpenModal('edit', 'logistics', shipment as unknown as Record<string, unknown>)} className="p-1.5 rounded hover:bg-amber-100 text-[#D4AF37]" title="Edit"><Edit2 size={14}/></button>
+                  <button onClick={() => onDelete('logistics', shipment.id, shipment.referenceNo || shipment.id)} className="p-1.5 rounded hover:bg-red-100 text-red-500" title="Delete"><Trash2 size={14}/></button>
                 </div>
               </div>
 
-              {/* Route */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 <div className="flex items-start gap-2">
                   <MapPin size={14} className="text-emerald-500 mt-0.5 shrink-0"/>
@@ -180,17 +195,13 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
                   <div>
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Cost & Tracking</p>
                     <p className="text-slate-800 font-medium">${shipment.cost.toLocaleString()}</p>
-                    {shipment.trackingNumber && (
-                      <p className="text-[10px] text-[#D4AF37] font-mono mt-0.5">{shipment.trackingNumber}</p>
-                    )}
+                    {shipment.trackingNumber && <p className="text-[10px] text-[#D4AF37] font-mono mt-0.5">{shipment.trackingNumber}</p>}
                   </div>
                 </div>
               </div>
 
               {shipment.remarks && (
-                <p className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-slate-500 italic">
-                  {shipment.remarks}
-                </p>
+                <p className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-slate-500 italic">{shipment.remarks}</p>
               )}
             </div>
           );
@@ -200,21 +211,12 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
   );
 };
 
-interface StatCardProps {
-  label: string;
-  value: number | string;
-  tone: 'slate' | 'blue' | 'emerald' | 'amber' | 'gold';
-  icon?: React.ElementType;
-}
-
+interface StatCardProps { label: string; value: number | string; tone: 'slate'|'blue'|'emerald'|'amber'|'gold'; icon?: React.ElementType; }
 const TONE_STYLES: Record<StatCardProps['tone'], string> = {
-  slate:   'bg-white border-gray-200 text-slate-900',
-  blue:    'bg-blue-50 border-blue-200 text-blue-900',
-  emerald: 'bg-emerald-50 border-emerald-200 text-emerald-900',
-  amber:   'bg-amber-50 border-amber-200 text-amber-900',
-  gold:    'bg-[#D4AF37]/10 border-[#D4AF37]/40 text-slate-900',
+  slate:'bg-white border-gray-200 text-slate-900', blue:'bg-blue-50 border-blue-200 text-blue-900',
+  emerald:'bg-emerald-50 border-emerald-200 text-emerald-900', amber:'bg-amber-50 border-amber-200 text-amber-900',
+  gold:'bg-[#D4AF37]/10 border-[#D4AF37]/40 text-slate-900',
 };
-
 const StatCard: React.FC<StatCardProps> = ({ label, value, tone, icon: Icon }) => (
   <div className={`border rounded-xl p-3 shadow-sm ${TONE_STYLES[tone]}`}>
     <div className="flex items-center justify-between">

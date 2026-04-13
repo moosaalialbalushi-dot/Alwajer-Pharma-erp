@@ -47,29 +47,35 @@ const App: React.FC = () => {
   // ── Calculator ──────────────────────────────────────────────────────────────
   const handleCalculate = useCallback(() => {
     const d = state.calcData;
-    const totalCostPerKg = d.rmc + d.labor + d.packing + d.logistics;
-    const shippingPerKg = d.volume > 0 ? d.shippingCost / d.volume : 0;
-    const totalCostWithShipping = totalCostPerKg + shippingPerKg;
-    const grossProfit = (d.targetPrice - totalCostWithShipping) * d.volume;
-    const grossMarginPct = d.targetPrice > 0 ? ((d.targetPrice - totalCostWithShipping) / d.targetPrice) * 100 : 0;
-    const totalRevenue = d.targetPrice * d.volume;
-    const totalCost = totalCostWithShipping * d.volume;
-
+    const calcOne = (vol: number, tPrice: number, rmc: number, labor: number, packing: number) => {
+      const base = rmc + labor + packing + d.logistics;
+      const overhead = base * (d.overheadPct / 100);
+      const costPerKg = base + overhead;
+      return { revenue: tPrice * vol, cost: costPerKg * vol, profit: (tPrice - costPerKg) * vol, costPerKg, overhead };
+    };
+    const primary = calcOne(d.volume, d.targetPrice, d.rmc, d.labor, d.packing);
+    const extras = (d.extraItems ?? []).map(i => calcOne(i.volume, i.targetPrice, i.rmc, i.labor, i.packing));
+    const all = [primary, ...extras];
+    const totalRevenue = all.reduce((s, i) => s + i.revenue, 0);
+    const totalCost = all.reduce((s, i) => s + i.cost, 0);
+    const totalProfit = all.reduce((s, i) => s + i.profit, 0);
+    const blendedMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
     state.setCalcResults({
       'Revenue': totalRevenue,
       'Total Cost': totalCost,
-      'Gross Profit': grossProfit,
-      'Gross Margin %': grossMarginPct,
-      'Cost / Kg': totalCostWithShipping,
-      'Shipping / Kg': shippingPerKg,
+      'Gross Profit': totalProfit,
+      'Gross Margin %': blendedMargin,
+      'Cost / Kg (Primary)': primary.costPerKg,
+      'Overhead / Kg (Primary)': primary.overhead,
     });
   }, [state]);
 
   const handleCalcReset = useCallback(() => {
     state.setCalcData({
       product: '', volume: 0, targetPrice: 0, rmc: 0,
-      labor: 0, packing: 0, logistics: 0, shippingCost: 0,
+      labor: 0, packing: 0, logistics: 0, overheadPct: 0,
       shippingMethod: 'CIF by Air - Muscat Airport',
+      extraItems: [],
     });
     state.setCalcResults(null);
   }, [state]);
@@ -163,6 +169,7 @@ const App: React.FC = () => {
             <Sales
               orders={state.orders}
               onOpenModal={state.openModal}
+              onDelete={state.handleDelete}
             />
           )}
           {state.activeTab === 'procurement' && (

@@ -39,10 +39,11 @@ const FIELDS: Record<EntityType, FieldDef[]> = {
     { key: 'product', label: 'Product', type: 'text' },
     { key: 'quantity', label: 'Quantity (Kg)', type: 'number' },
     { key: 'rateUSD', label: 'Rate (USD/Kg)', type: 'number' },
-    { key: 'amountUSD', label: 'Amount (USD)', type: 'number' },
-    { key: 'amountOMR', label: 'Amount (OMR)', type: 'number' },
+    { key: 'amountUSD', label: 'Amount (USD) — auto', type: 'number', readOnly: true },
+    { key: 'amountOMR', label: 'Amount (OMR @ 0.3845) — auto', type: 'number', readOnly: true },
     { key: 'status', label: 'Status', type: 'select', options: ['Pending', 'Confirmed', 'Dispatched', 'Delivered', 'Cancelled'] },
     { key: 'paymentTerms', label: 'Payment Terms', type: 'text' },
+    { key: 'lcNo', label: 'LC No', type: 'text' },
     { key: 'remarks', label: 'Remarks', type: 'textarea' },
   ],
   procurement: [
@@ -145,7 +146,16 @@ export const Modal: React.FC<Props> = ({ modal, onSave, onClose }) => {
   const title = isView ? 'View Details' : modal.mode === 'add' ? 'Add New' : 'Edit';
 
   const handleChange = (key: string, value: unknown) => {
-    setForm(prev => ({ ...prev, [key]: value }));
+    setForm(prev => {
+      const next = { ...prev, [key]: value };
+      if (modal.type === 'sales' && (key === 'quantity' || key === 'rateUSD')) {
+        const qty = Number(key === 'quantity' ? value : prev.quantity) || 0;
+        const rate = Number(key === 'rateUSD' ? value : prev.rateUSD) || 0;
+        next.amountUSD = Number((qty * rate).toFixed(2));
+        next.amountOMR = Number(((qty * rate) * 0.3845).toFixed(3));
+      }
+      return next;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
