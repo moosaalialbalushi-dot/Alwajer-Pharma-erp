@@ -132,11 +132,16 @@ export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
             skill.systemPrompt,
           );
         } else {
+          const skillKey = skill.provider === 'Gemini' ? apiConfig.geminiKey
+            : skill.provider === 'Claude' ? apiConfig.claudeKey
+            : skill.provider === 'Groq' ? (apiConfig.groqKey || import.meta.env.VITE_GROQ_KEY)
+            : undefined;
           const res = await callAIProxy({
             provider: skill.provider.toLowerCase() as 'gemini' | 'claude' | 'groq',
             model: skill.model,
             system: skill.systemPrompt,
             messages: [{ role: 'user', content: current }],
+            apiKey: skillKey,
           });
           current = extractText(res, skill.provider.toLowerCase()) || current;
         }

@@ -14,7 +14,8 @@ Respond in JSON for data updates; concise professional messages for alerts.`;
 
 export async function analyzeOperations(
   batches: Batch[], inventory: InventoryItem[], orders: Order[],
-  expenses: Expense[] = [], employees: Employee[] = []
+  expenses: Expense[] = [], employees: Employee[] = [],
+  apiKeys?: { geminiKey?: string; claudeKey?: string }
 ): Promise<COOInsight[]> {
   const prompt = `Current State:
 Batches: ${JSON.stringify(batches)}
@@ -31,6 +32,7 @@ JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'
     const response = await callAIProxy({
       provider: 'gemini', model: 'gemini-2.0-flash',
       system: SYSTEM, messages: [{ role: 'user', content: prompt }], json_mode: true,
+      apiKey: apiKeys?.geminiKey,
     });
     const text = extractText(response, 'gemini') || '[]';
     const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -42,6 +44,7 @@ JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'
       const response = await callAIProxy({
         provider: 'claude', model: 'claude-haiku-4-5-20251001',
         system: SYSTEM, messages: [{ role: 'user', content: prompt }],
+        apiKey: apiKeys?.claudeKey,
       });
       const text = extractText(response, 'claude') || '[]';
       const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -103,7 +106,7 @@ export async function chatWithCOO(message: string, history: { role: string; text
   }
 }
 
-export async function optimizeFormulation(rdData: unknown): Promise<string> {
+export async function optimizeFormulation(rdData: unknown, geminiKey?: string): Promise<string> {
   try {
     const response = await callAIProxy({
       provider: 'gemini', model: 'gemini-2.5-pro',
@@ -112,6 +115,7 @@ export async function optimizeFormulation(rdData: unknown): Promise<string> {
         role: 'user',
         content: `Analyze and optimize this pharmaceutical formulation:\n${JSON.stringify(rdData, null, 2)}\n\nProvide:\n1. Optimization recommendations\n2. Cost reduction opportunities\n3. Quality improvements\n4. Regulatory considerations`,
       }],
+      apiKey: geminiKey,
     });
     return extractText(response, 'gemini') || 'No optimization data.';
   } catch (e) {

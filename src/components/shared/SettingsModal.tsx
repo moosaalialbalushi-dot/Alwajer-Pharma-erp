@@ -12,6 +12,8 @@ interface Props {
 export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose }) => {
   const [form, setForm] = useState<ApiConfig>({
     claudeKey: config.claudeKey ?? '',
+    geminiKey: config.geminiKey ?? '',
+    groqKey: config.groqKey ?? '',
     notebookLmSource: config.notebookLmSource ?? '',
     supabaseUrl: config.supabaseUrl ?? '',
     supabaseKey: config.supabaseKey ?? '',
@@ -65,12 +67,12 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               <Key size={11}/> Cloud AI Keys
             </p>
-            <Field field="claudeKey" label="Claude API Key (Optional)" placeholder="sk-ant-..." type="password"/>
-            <div>
-              <p className="text-[10px] text-slate-500 mt-1">
-                Gemini key is set via <code className="bg-gray-100 px-1 rounded">VITE_GEMINI_KEY</code> in Vercel environment variables.
-              </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-[10px] text-blue-700 leading-relaxed">
+              Enter your API keys here to use AI features. Get free keys at: <strong>aistudio.google.com</strong> (Gemini), <strong>console.groq.com</strong> (Groq — fastest &amp; free), <strong>console.anthropic.com</strong> (Claude).
             </div>
+            <Field field="geminiKey" label="Gemini API Key" placeholder="AIza..." type="password"/>
+            <Field field="groqKey" label="Groq API Key (Fast &amp; Free)" placeholder="gsk_..." type="password"/>
+            <Field field="claudeKey" label="Claude API Key" placeholder="sk-ant-..." type="password"/>
           </div>
 
           {/* Ollama (local AI) */}

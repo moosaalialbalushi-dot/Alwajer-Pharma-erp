@@ -223,13 +223,14 @@ export interface ChatSession {
 
 export interface ApiConfig {
   claudeKey: string;
+  geminiKey?: string;
+  groqKey?: string;
   notebookLmSource: string;
   supabaseUrl: string;
   supabaseKey: string;
   ollamaUrl: string;
   ollamaModel: string;
   logoUrl: string;
-  groqKey?: string;
 }
 
 export interface UploadProgress {

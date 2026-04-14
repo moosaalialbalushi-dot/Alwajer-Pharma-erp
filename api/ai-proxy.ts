@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { provider, system, messages, max_tokens = 2048, model, json_mode = false } = req.body ?? {};
+  const { provider, system, messages, max_tokens = 2048, model, json_mode = false, clientApiKey } = req.body ?? {};
 
   if (!provider || !messages?.length) {
     return res.status(400).json({ error: 'Missing required fields: provider, messages' });
@@ -28,9 +28,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // ── ANTHROPIC CLAUDE ──────────────────────────────────────────
-    if (provider === 'anthropic') {
-      const key = process.env.ANTHROPIC_API_KEY;
-      if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in Vercel → Settings → Environment Variables.' });
+    if (provider === 'anthropic' || provider === 'claude') {
+      const key = process.env.ANTHROPIC_API_KEY || clientApiKey;
+      if (!key) return res.status(500).json({ error: 'Claude API key not set. Enter your key in Settings (gear icon) or add ANTHROPIC_API_KEY in Vercel → Settings → Environment Variables.' });
 
       const body: Record<string, unknown> = { model: model ?? 'claude-sonnet-4-6', max_tokens, messages };
       if (system) body.system = system;
@@ -47,8 +47,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── GOOGLE GEMINI ─────────────────────────────────────────────
     if (provider === 'gemini') {
-      const key = process.env.GEMINI_API_KEY;
-      if (!key) return res.status(500).json({ error: 'GEMINI_API_KEY not set in Vercel → Settings → Environment Variables.' });
+      const key = process.env.GEMINI_API_KEY || clientApiKey;
+      if (!key) return res.status(500).json({ error: 'Gemini API key not set. Enter your key in Settings (gear icon) or add GEMINI_API_KEY in Vercel → Settings → Environment Variables.' });
 
       const geminiModel = model ?? 'gemini-2.0-flash';
       const contents = messages.map((m: { role: string; content: string }) => ({
