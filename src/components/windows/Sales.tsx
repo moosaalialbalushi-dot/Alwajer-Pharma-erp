@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { BadgeDollarSign, Plus, Edit2, Trash2, Download, FileText, Package } from 'lucide-react';
-import type { Order, ModalState } from '@/types';
+import { BadgeDollarSign, Plus, Edit2, Trash2, Download, FileText, Package, ReceiptText } from 'lucide-react';
+import type { Order, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { DocPreview } from '@/components/shared/DocPreview';
 import { exportToCSV } from '@/services/export';
 
 interface Props {
   orders: Order[];
+  apiConfig: ApiConfig;
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
 }
@@ -36,16 +38,7 @@ function amountInWords(amount: number): string {
   return result + ' Only';
 }
 
-function printDocument(html: string) {
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => w.print(), 400);
-}
-
-function buildInvoiceHTML(invoiceNo: string, orders: Order[]): string {
+function buildInvoiceHTML(invoiceNo: string, orders: Order[], logoUrl: string): string {
   const date = orders[0]?.date || new Date().toISOString().split('T')[0];
   const customer = orders[0]?.customer || '';
   const country = orders[0]?.country || '';
@@ -88,6 +81,7 @@ function buildInvoiceHTML(invoiceNo: string, orders: Order[]): string {
   </style></head><body>
   <div class="lh">
     <div>
+      ${logoUrl ? `<img src="${logoUrl}" alt="Al Wajer Logo" style="height:50px;object-fit:contain;margin-bottom:4px;display:block">` : ''}
       <div class="ar">الوجـر لصناعة الأدويـة ش.م.م</div>
       <div class="co">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div>
       <div class="addr">PO BOX 98, PC-327, PHASE-5, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN<br>
@@ -168,7 +162,7 @@ function buildInvoiceHTML(invoiceNo: string, orders: Order[]): string {
   </body></html>`;
 }
 
-function buildPackingListHTML(invoiceNo: string, orders: Order[]): string {
+function buildPackingListHTML(invoiceNo: string, orders: Order[], logoUrl: string): string {
   const date = orders[0]?.date || new Date().toISOString().split('T')[0];
   const customer = orders[0]?.customer || '';
   const country = orders[0]?.country || '';
@@ -203,6 +197,7 @@ function buildPackingListHTML(invoiceNo: string, orders: Order[]): string {
   </style></head><body>
   <div class="lh">
     <div>
+      ${logoUrl ? `<img src="${logoUrl}" alt="Al Wajer Logo" style="height:50px;object-fit:contain;margin-bottom:4px;display:block">` : ''}
       <div class="ar">الوجـر لصناعة الأدويـة ش.م.م</div>
       <div class="co">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div>
       <div style="font-size:8.5px;color:#333">PO BOX 98, PC-327, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN</div>
@@ -246,7 +241,124 @@ function buildPackingListHTML(invoiceNo: string, orders: Order[]): string {
   </body></html>`;
 }
 
-export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
+function buildQuotationHTML(quotNo: string, validUntil: string, incoterms: string, orders: Order[], logoUrl: string): string {
+  const date = new Date().toISOString().split('T')[0];
+  const customer = orders[0]?.customer || '';
+  const country = orders[0]?.country || '';
+  const lcNo = orders[0]?.lcNo || '';
+  const paymentTerms = orders[0]?.paymentTerms || 'T/T IN ADVANCE';
+  const totalUSD = orders.reduce((s, o) => s + numOrZero(o.amountUSD), 0);
+
+  const rows = orders.map((o, i) => `
+    <tr>
+      <td style="border:1px solid #000;padding:6px;text-align:center;">${i + 1}</td>
+      <td style="border:1px solid #000;padding:6px;"><strong>${o.product}</strong></td>
+      <td style="border:1px solid #000;padding:6px;text-align:center;">3004.90</td>
+      <td style="border:1px solid #000;padding:6px;text-align:right;">${numOrZero(o.quantity).toLocaleString()}</td>
+      <td style="border:1px solid #000;padding:6px;text-align:right;">$${numOrZero(o.rateUSD).toFixed(2)}</td>
+      <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">$${numOrZero(o.amountUSD).toLocaleString()}</td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html><html><head><title>Commercial Quotation - ${quotNo}</title>
+  <style>
+    @page{size:A4;margin:15mm}
+    *{box-sizing:border-box}
+    body{font-family:Arial,sans-serif;font-size:10px;color:#000;margin:0;padding:0}
+    .lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double #000;padding-bottom:8px;margin-bottom:10px}
+    .co{font-size:13px;font-weight:bold;color:#1a3c6e;letter-spacing:0.5px}
+    .ar{font-size:12px;direction:rtl;margin-bottom:3px;color:#555}
+    .addr{font-size:8.5px;line-height:1.6;color:#333}
+    .title{text-align:center;font-size:15px;font-weight:bold;letter-spacing:3px;text-decoration:underline;margin:10px 0}
+    table{width:100%;border-collapse:collapse;margin-bottom:6px}
+    .info td{border:1px solid #000;padding:4px 7px;font-size:9px;vertical-align:top}
+    .goods th{border:1px solid #000;padding:5px 7px;background:#e8e8e8;font-size:9px;text-align:center}
+    .goods td{border:1px solid #000;padding:5px 7px;font-size:9px}
+    .total-row td{background:#f0f0f0;font-weight:bold;border:1px solid #000;padding:5px 7px}
+    .bank{margin-top:8px;font-size:8.5px;line-height:1.7;border:1px solid #ccc;padding:8px;background:#fafafa}
+    .sig{display:flex;justify-content:space-between;margin-top:20px}
+    .sig-box{border-top:1px solid #000;width:43%;text-align:center;padding-top:5px;font-size:9px}
+    .foot{margin-top:15px;border-top:1px solid #999;padding-top:6px;font-size:8px;text-align:center;color:#666}
+    @media print{body{margin:0}}
+  </style></head><body>
+  <div class="lh">
+    <div>
+      ${logoUrl ? `<img src="${logoUrl}" alt="Al Wajer Logo" style="height:50px;object-fit:contain;margin-bottom:4px;display:block">` : ''}
+      <div class="ar">الوجـر لصناعة الأدويـة ش.م.م</div>
+      <div class="co">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div>
+      <div class="addr">PO BOX 98, PC-327, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN<br>
+        Tel: +968 22372677
+      </div>
+    </div>
+  </div>
+  <div class="title">COMMERCIAL QUOTATION</div>
+  <table class="info">
+    <tr>
+      <td width="50%"><span style="font-size:8px;font-weight:bold;color:#555">QUOTATION NO. &amp; DATE</span><br>
+        <strong>${quotNo}</strong> &nbsp;&nbsp; ${date}</td>
+      <td width="50%"><span style="font-size:8px;font-weight:bold;color:#555">REFERENCE / INQUIRY NO.</span><br>
+        ${lcNo || '—'}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><span style="font-size:8px;font-weight:bold;color:#555">BUYER</span><br>
+        <strong>${customer}</strong> &nbsp; | &nbsp; ${country}
+      </td>
+    </tr>
+    <tr>
+      <td><span style="font-size:8px;font-weight:bold;color:#555">VALID UNTIL</span><br>${validUntil}</td>
+      <td><span style="font-size:8px;font-weight:bold;color:#555">INCOTERMS</span><br>${incoterms}</td>
+    </tr>
+  </table>
+
+  <table class="goods">
+    <thead>
+      <tr>
+        <th style="width:5%">#</th>
+        <th>Product Description</th>
+        <th style="width:10%">HS Code</th>
+        <th style="width:12%">Qty (Kg)</th>
+        <th style="width:14%">Rate/Kg</th>
+        <th style="width:16%">Total USD</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+      <tr class="total-row">
+        <td colspan="5" style="text-align:right">TOTAL AMOUNT (USD)</td>
+        <td style="text-align:right">$${totalUSD.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="font-size:9px;margin:6px 0;padding:5px 7px;border:1px solid #ccc;background:#fffce8">
+    <strong>AMOUNT IN WORDS:</strong> ${amountInWords(totalUSD)}
+  </div>
+
+  <div style="margin-top:8px;font-size:9px">
+    <strong>PAYMENT TERMS:</strong> ${paymentTerms}<br>
+    <strong>DELIVERY:</strong> As per L/C requirement<br>
+  </div>
+
+  <div class="bank">
+    <strong>BANK DETAILS — BENEFICIARY: AL WAJER PHARMACEUTICALS INDUSTRY LLC</strong><br>
+    Bank: BANK NIZWA &nbsp;|&nbsp; Account No.: 00150000174002<br>
+    IBAN: OM45033000150000174002 &nbsp;|&nbsp; SWIFT/BIC: BNZWOMRXXXX
+  </div>
+
+  <div class="sig">
+    <div class="sig-box">Signature &amp; Date<br><br><br></div>
+    <div class="sig-box">For Al Wajer Pharmaceuticals<br><br>Authorized Signatory</div>
+  </div>
+  <div class="foot">C.R NO: 1145026, TEL: 22372677, SOHAR, SULTANATE OF OMAN</div>
+  </body></html>`;
+}
+
+export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelete }) => {
+  const [preview, setPreview] = useState<{ title: string; html: string; filename: string } | null>(null);
+  const [quotTarget, setQuotTarget] = useState<{ inv: string; orders: Order[] } | null>(null);
+  const [quotForm, setQuotForm] = useState({
+    quotNo: '', validUntil: '', incoterms: 'FOB SOHAR PORT, OMAN', refInquiry: '', paymentTerms: 'T/T IN ADVANCE',
+  });
+
   const grouped = orders.reduce<Record<string, Order[]>>((acc, o) => {
     const key = o.invoiceNo || 'Draft';
     if (!acc[key]) acc[key] = [];
@@ -264,6 +376,18 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
   const totalPipeline = orders.reduce((s, o) => s + numOrZero(o.amountUSD), 0);
   const pendingCount = orders.filter(o => o.status === 'Pending').length;
 
+  const handleQuotation = (inv: string, invOrders: Order[]) => {
+    const defaultValidUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    setQuotTarget({ inv, orders: invOrders });
+    setQuotForm({
+      quotNo: `AWP/QT/${inv}`,
+      validUntil: defaultValidUntil,
+      incoterms: 'FOB SOHAR PORT, OMAN',
+      refInquiry: invOrders[0]?.lcNo || '',
+      paymentTerms: invOrders[0]?.paymentTerms || 'T/T IN ADVANCE',
+    });
+  };
+
   return (
     <div className="space-y-5 animate-fadeIn">
       <div className="flex justify-between items-center flex-wrap gap-2">
@@ -280,7 +404,6 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
         </div>
       </div>
 
-      {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Total Orders', value: orders.length },
@@ -294,7 +417,6 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
         ))}
       </div>
 
-      {/* Grouped by Invoice */}
       <div className="space-y-4">
         {Object.keys(grouped).length === 0 && (
           <div className="bg-white shadow-sm border border-[#D4AF37]/20 p-8 rounded-xl text-center text-slate-500">
@@ -307,7 +429,6 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
           const first = invOrders[0];
           return (
             <div key={inv} className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl overflow-hidden gold-glow">
-              {/* Invoice header */}
               <div className="bg-gray-50/50 border-b border-gray-200 px-5 py-4 flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <span className="text-lg font-bold text-[#D4AF37]">{inv}</span>
@@ -322,27 +443,29 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
                       {totalOMR > 0 && <span className="text-xs text-slate-500 ml-1">/ OMR {totalOMR.toLocaleString()}</span>}
                     </p>
                   </div>
-                  {/* Document generation buttons */}
                   <div className="flex gap-1.5">
                     <button
-                      onClick={() => printDocument(buildInvoiceHTML(inv, invOrders))}
+                      onClick={() => setPreview({ title: 'Proforma Invoice', html: buildInvoiceHTML(inv, invOrders, apiConfig.logoUrl), filename: `Invoice-${inv}` })}
                       className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold transition-all"
-                      title="Generate Proforma Invoice"
                     >
                       <FileText size={12}/> Invoice
                     </button>
                     <button
-                      onClick={() => printDocument(buildPackingListHTML(inv, invOrders))}
+                      onClick={() => setPreview({ title: 'Packing List', html: buildPackingListHTML(inv, invOrders, apiConfig.logoUrl), filename: `PackingList-${inv}` })}
                       className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold transition-all"
-                      title="Generate Packing List"
                     >
                       <Package size={12}/> Packing List
+                    </button>
+                    <button
+                      onClick={() => handleQuotation(inv, invOrders)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold transition-all"
+                    >
+                      <ReceiptText size={12}/> Quotation
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Order rows */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
@@ -387,18 +510,8 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex gap-1 justify-end">
-                            <button
-                              onClick={() => onOpenModal('edit', 'sales', order as unknown as Record<string, unknown>)}
-                              className="p-1.5 text-slate-500 hover:text-[#D4AF37] hover:bg-yellow-50 rounded-lg transition-all"
-                            >
-                              <Edit2 size={13}/>
-                            </button>
-                            <button
-                              onClick={() => onDelete('sales', order.id, `${order.invoiceNo} – ${order.product}`)}
-                              className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <Trash2 size={13}/>
-                            </button>
+                            <button onClick={() => onOpenModal('edit', 'sales', order as unknown as Record<string, unknown>)} className="p-1.5 text-slate-500 hover:text-[#D4AF37] hover:bg-yellow-50 rounded-lg transition-all"><Edit2 size={13}/></button>
+                            <button onClick={() => onDelete('sales', order.id, `${order.invoiceNo} – ${order.product}`)} className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={13}/></button>
                           </div>
                         </td>
                       </tr>
@@ -410,6 +523,55 @@ export const Sales: React.FC<Props> = ({ orders, onOpenModal, onDelete }) => {
           );
         })}
       </div>
+
+      {preview && <DocPreview title={preview.title} html={preview.html} filename={preview.filename} onClose={() => setPreview(null)} />}
+
+      {quotTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Commercial Quotation</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Quotation No.</label>
+                <input value={quotForm.quotNo} onChange={e => setQuotForm(prev => ({ ...prev, quotNo: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Valid Until</label>
+                <input type="date" value={quotForm.validUntil} onChange={e => setQuotForm(prev => ({ ...prev, validUntil: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Incoterms</label>
+                <select value={quotForm.incoterms} onChange={e => setQuotForm(prev => ({ ...prev, incoterms: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none">
+                  <option>FOB SOHAR PORT, OMAN</option>
+                  <option>CIF PORT OF DISCHARGE</option>
+                  <option>C&F PORT OF DISCHARGE</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-3 border-t border-gray-200">
+              <button onClick={() => setQuotTarget(null)} className="flex-1 px-4 py-2 text-sm font-bold text-slate-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+              <button
+                onClick={() => {
+                  if (quotTarget) {
+                    setPreview({
+                      title: 'Commercial Quotation',
+                      html: buildQuotationHTML(quotForm.quotNo, quotForm.validUntil, quotForm.incoterms, quotTarget.orders, apiConfig.logoUrl),
+                      filename: `Quotation-${quotForm.quotNo}`
+                    });
+                    setQuotTarget(null);
+                  }
+                }}
+                className="flex-1 px-4 py-2 text-sm font-bold text-slate-950 bg-[#D4AF37] rounded-lg hover:bg-[#c4a030]"
+              >
+                Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
