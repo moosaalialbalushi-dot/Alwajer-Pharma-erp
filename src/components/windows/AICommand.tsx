@@ -152,11 +152,16 @@ export const AICommand: React.FC<Props> = ({
           systemPrompt,
         );
       } else {
+        const providerKey = activeProvider === 'Gemini' ? apiConfig.geminiKey
+          : activeProvider === 'Claude' ? apiConfig.claudeKey
+          : activeProvider === 'Groq' ? (apiConfig.groqKey || import.meta.env.VITE_GROQ_KEY)
+          : undefined;
         const res = await callAIProxy({
           provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'groq',
           model: selectedModel[activeProvider],
           system: systemPrompt,
           messages: [...history, { role: 'user', content: userInput }],
+          apiKey: providerKey,
         });
         text = extractText(res, activeProvider.toLowerCase()) || 'No response.';
       }

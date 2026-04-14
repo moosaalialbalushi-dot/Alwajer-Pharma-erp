@@ -37,7 +37,8 @@ const App: React.FC = () => {
     try {
       const results = await analyzeOperations(
         state.batches, state.inventory, state.orders,
-        state.expenses, state.employees
+        state.expenses, state.employees,
+        { geminiKey: state.apiConfig.geminiKey, claudeKey: state.apiConfig.claudeKey }
       );
       state.setInsights(results);
     } catch {/* ignore */} finally {
@@ -83,8 +84,8 @@ const App: React.FC = () => {
 
   // ── R&D Optimize ────────────────────────────────────────────────────────────
   const handleOptimizeRD = useCallback(async (project: RDProject): Promise<string> => {
-    return optimizeFormulation(project);
-  }, []);
+    return optimizeFormulation(project, state.apiConfig.geminiKey);
+  }, [state.apiConfig.geminiKey]);
 
   // ── Industrial file analysis ────────────────────────────────────────────────
   const handleAnalyzeFile = useCallback(async (file: File): Promise<string> => {
@@ -100,6 +101,7 @@ const App: React.FC = () => {
           role: 'user',
           content: `Analyze this pharmaceutical document:\n\nFilename: ${file.name}\n\nContent:\n${preview}\n\nProvide: 1) Document type 2) Key data points 3) Quality/compliance flags 4) Action items`,
         }],
+        apiKey: state.apiConfig.geminiKey,
       });
       return extractText(res, 'gemini') || 'Analysis complete.';
     } catch (e) {

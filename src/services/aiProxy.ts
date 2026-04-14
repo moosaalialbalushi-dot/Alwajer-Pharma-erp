@@ -7,6 +7,7 @@ export interface AIProxyRequest {
   messages: AIMessage[];
   json_mode?: boolean;
   max_tokens?: number;
+  apiKey?: string;  // user-provided key from Settings (forwarded to server as clientApiKey)
 }
 
 export function extractText(response: unknown, provider: string): string {
@@ -33,10 +34,11 @@ export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
   if (req.provider === 'groq') {
     return callGroqDirect(req);
   }
+  const { apiKey, ...rest } = req;
   const res = await fetch('/api/ai-proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
+    body: JSON.stringify({ ...rest, clientApiKey: apiKey }),
   });
   if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
   return res.json();
@@ -44,7 +46,7 @@ export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
 
 /** Call Groq directly from browser (OpenAI-compatible endpoint, no proxy needed) */
 async function callGroqDirect(req: AIProxyRequest): Promise<unknown> {
-  const apiKey = import.meta.env.VITE_GROQ_KEY || '';
+  const apiKey = req.apiKey || import.meta.env.VITE_GROQ_KEY || '';
   if (!apiKey) throw new Error('Groq API key not set. Add VITE_GROQ_KEY to your environment variables.');
   const messages: { role: string; content: string }[] = [];
   if (req.system) messages.push({ role: 'system', content: req.system });
