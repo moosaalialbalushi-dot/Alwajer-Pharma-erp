@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Truck, Plus, Edit2, Trash2, AlertTriangle, BadgeDollarSign, Globe, Star, UserPlus, X, Printer } from 'lucide-react';
-import type { InventoryItem, Vendor, ModalState } from '@/types';
+import type { InventoryItem, Vendor, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { DocPreview } from '@/components/shared/DocPreview';
 
 interface Props {
   inventory: InventoryItem[];
   vendors: Vendor[];
+  apiConfig: ApiConfig;
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
 }
@@ -32,28 +34,20 @@ function saveRates(rates: MarketRate[]) {
   localStorage.setItem('erp_v2_market_rates', JSON.stringify(rates));
 }
 
-function printDocument(html: string) {
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => w.print(), 400);
-}
-
 interface POForm {
   poNumber: string; poDate: string; supplier: string; supplierAddress: string;
   itemDesc: string; qty: string; unitPrice: string; countryOfOrigin: string;
   eta: string; shipVia: string; paymentTerms: string; formOfPayment: string; requestedBy: string;
 }
 
-function buildPOHTML(form: POForm, vendor: string): string {
+function buildPOHTML(form: POForm, vendor: string, logoUrl: string): string {
   const total = Number(form.qty) * Number(form.unitPrice);
   const totalWords = total > 0 ? `USD ${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '.00';
   const annexure = `
     <div style="page-break-before:always;padding:20px">
       <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double #000;padding-bottom:8px;margin-bottom:15px">
         <div>
+          ${logoUrl ? `<img src="${logoUrl}" alt="Al Wajer Logo" style="height:40px;object-fit:contain;margin-bottom:4px;display:block">` : ''}
           <div style="font-size:11px;direction:rtl;color:#555">الوجـر لصناعة الأدويـة ش.م.م</div>
           <strong style="font-size:13px;color:#1a3c6e">AL WAJER PHARMACEUTICALS INDUSTRY LLC</strong>
         </div>
@@ -91,6 +85,7 @@ function buildPOHTML(form: POForm, vendor: string): string {
   </style></head><body>
   <div class="lh">
     <div>
+      ${logoUrl ? `<img src="${logoUrl}" alt="Al Wajer Logo" style="height:45px;object-fit:contain;margin-bottom:4px;display:block">` : ''}
       <div class="ar">الوجـر لصناعة الأدويـة ش.م.م</div>
       <div class="co">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div>
       <div style="font-size:8px;color:#444;line-height:1.5">PO BOX 98, PC-327, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN<br>
@@ -184,8 +179,9 @@ function buildPOHTML(form: POForm, vendor: string): string {
   </body></html>`;
 }
 
-export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, onDelete }) => {
+export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, onOpenModal, onDelete }) => {
   const [isPOOpen, setIsPOOpen] = useState(false);
+  const [preview, setPreview] = useState<{ title: string; html: string; filename: string } | null>(null);
   const [poForm, setPoForm] = useState<POForm>({
     poNumber: String(Date.now()).slice(-6),
     poDate: new Date().toISOString().split('T')[0],
@@ -196,7 +192,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
   });
   const [poVendor, setPoVendor] = useState('');
 
-  // Editable market rates (API/Excipient only)
   const [rates, setRates] = useState<MarketRate[]>(loadRates);
   const [showAddRate, setShowAddRate] = useState(false);
   const [newRate, setNewRate] = useState<Partial<MarketRate>>({ category: 'API', unit: 'kg', change: 'Stable', up: null });
@@ -222,7 +217,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
   };
 
   const setPoField = (k: keyof POForm, v: string) => setPoForm(prev => ({ ...prev, [k]: v }));
-
   const selectedVendorName = vendors.find(v => v.id === poVendor)?.name ?? '';
 
   return (
@@ -242,7 +236,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Shortages */}
         <div className="space-y-4">
           <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
             <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
@@ -270,7 +263,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
             }
           </div>
 
-          {/* Market Rates — API & Excipient only */}
           <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -284,7 +276,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
               </button>
             </div>
 
-            {/* Add rate inline form */}
             {showAddRate && (
               <div className="mb-4 p-3 bg-gray-50 border border-[#D4AF37]/20 rounded-xl space-y-2">
                 <div className="grid grid-cols-2 gap-2">
@@ -346,7 +337,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
           </div>
         </div>
 
-        {/* Vendors */}
         <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
           <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
             <Globe className="text-[#F4C430]" size={16}/> Approved Suppliers
@@ -379,7 +369,6 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
         </div>
       </div>
 
-      {/* PO Modal */}
       {isPOOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh]">
@@ -479,15 +468,24 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, onOpenModal, 
             <div className="flex justify-end gap-3 p-5 border-t border-gray-200 shrink-0">
               <button onClick={() => setIsPOOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
               <button
-                onClick={() => { printDocument(buildPOHTML(poForm, selectedVendorName)); setIsPOOpen(false); }}
+                onClick={() => {
+                  setPreview({
+                    title: 'Purchase Order',
+                    html: buildPOHTML(poForm, selectedVendorName, apiConfig.logoUrl),
+                    filename: `PO-${poForm.poNumber}`
+                  });
+                  setIsPOOpen(false);
+                }}
                 className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-slate-950 bg-[#D4AF37] hover:bg-[#c4a030] rounded-lg"
               >
-                <Printer size={14}/> Print PO
+                <Printer size={14}/> Preview PO
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {preview && <DocPreview title={preview.title} html={preview.html} filename={preview.filename} onClose={() => setPreview(null)} />}
     </div>
   );
 };
