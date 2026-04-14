@@ -5,48 +5,66 @@ import {
 import type { ChatSession, ChatMessage, ApiConfig } from '@/types';
 import { callAIProxy, callOllama, extractText } from '@/services/aiProxy';
 
-const PROVIDERS = ['Gemini', 'Claude', 'OpenRouter', 'Ollama'] as const;
+const PROVIDERS = ['Gemini', 'Claude', 'Groq', 'Ollama'] as const;
 type Provider = typeof PROVIDERS[number];
 
 const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
   Gemini: [
     { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash-Lite' },
     { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+    { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+    { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8B' },
   ],
   Claude: [
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku' },
-    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet' },
-    { id: 'claude-opus-4-6', label: 'Claude Opus' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+    { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+    { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+    { id: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
   ],
-  OpenRouter: [
-    { id: 'deepseek/deepseek-chat-v3-0324:free', label: 'DeepSeek V3 (Free)' },
-    { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash' },
-    { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
-    { id: 'mistralai/mistral-small-3.1-24b-instruct:free', label: 'Mistral Small (Free)' },
-    { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
-    { id: 'qwen/qwen3-8b:free', label: 'Qwen3 8B (Free)' },
+  Groq: [
+    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Fast)' },
+    { id: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B' },
+    { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Instant)' },
+    { id: 'llama3-70b-8192', label: 'Llama 3 70B' },
+    { id: 'llama3-8b-8192', label: 'Llama 3 8B' },
+    { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+    { id: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+    { id: 'gemma-7b-it', label: 'Gemma 7B' },
+    { id: 'llama-3.2-11b-vision-preview', label: 'Llama 3.2 11B Vision' },
+    { id: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 70B' },
   ],
   Ollama: [
     { id: 'gemma3:4b', label: 'Gemma 3 4B (Fast)' },
     { id: 'gemma3:12b', label: 'Gemma 3 12B' },
     { id: 'gemma3:27b', label: 'Gemma 3 27B' },
     { id: 'llama3.2:3b', label: 'Llama 3.2 3B' },
+    { id: 'llama3.1:8b', label: 'Llama 3.1 8B' },
+    { id: 'llama3.1:70b', label: 'Llama 3.1 70B' },
     { id: 'mistral:7b', label: 'Mistral 7B' },
+    { id: 'mistral-nemo:12b', label: 'Mistral Nemo 12B' },
     { id: 'qwen2.5:7b', label: 'Qwen 2.5 7B' },
+    { id: 'qwen2.5:14b', label: 'Qwen 2.5 14B' },
+    { id: 'phi4:14b', label: 'Phi-4 14B' },
+    { id: 'deepseek-r1:7b', label: 'DeepSeek R1 7B' },
+    { id: 'codellama:13b', label: 'CodeLlama 13B' },
   ],
 };
 
 const PROVIDER_COLORS: Record<Provider, string> = {
   Gemini: 'text-blue-400',
   Claude: 'text-orange-400',
-  OpenRouter: 'text-emerald-400',
+  Groq: 'text-emerald-400',
   Ollama: 'text-purple-400',
 };
 
 const PROVIDER_ACTIVE: Record<Provider, string> = {
   Gemini: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
   Claude: 'bg-orange-500/10 border-orange-500/30 text-orange-400',
-  OpenRouter: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+  Groq: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
   Ollama: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
 };
 
@@ -69,7 +87,7 @@ export const AICommand: React.FC<Props> = ({
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
     Gemini: 'gemini-2.0-flash',
     Claude: 'claude-sonnet-4-6',
-    OpenRouter: 'deepseek/deepseek-chat-v3-0324:free',
+    Groq: 'llama-3.3-70b-versatile',
     Ollama: apiConfig.ollamaModel || 'gemma3:4b',
   });
   const [isListening, setIsListening] = useState(false);
@@ -135,7 +153,7 @@ export const AICommand: React.FC<Props> = ({
         );
       } else {
         const res = await callAIProxy({
-          provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'openrouter',
+          provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'groq',
           model: selectedModel[activeProvider],
           system: systemPrompt,
           messages: [...history, { role: 'user', content: userInput }],
@@ -197,7 +215,7 @@ export const AICommand: React.FC<Props> = ({
           {PROVIDERS.map(p => (
             <button key={p} onClick={() => onSetProvider(p)}
               className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? PROVIDER_ACTIVE[p] : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
-              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'OpenRouter' ? '🔀 OpenRouter' : '🏠 Ollama'}
+              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Groq' ? '⚡ Groq' : '🏠 Ollama'}
             </button>
           ))}
           <div className="w-px h-4 bg-gray-200 mx-1"/>

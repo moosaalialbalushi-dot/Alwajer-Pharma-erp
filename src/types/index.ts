@@ -4,7 +4,7 @@ export type TabId =
   | 'dashboard' | 'production' | 'inventory' | 'sales'
   | 'procurement' | 'accounting' | 'hr' | 'rd'
   | 'industrial' | 'bd' | 'samples' | 'logistics' | 'costing'
-  | 'ai' | 'history';
+  | 'ai' | 'skills' | 'history';
 
 export interface Batch {
   id: string;
@@ -229,6 +229,7 @@ export interface ApiConfig {
   ollamaUrl: string;
   ollamaModel: string;
   logoUrl: string;
+  groqKey?: string;
 }
 
 export interface UploadProgress {

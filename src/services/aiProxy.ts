@@ -1,7 +1,7 @@
 export interface AIMessage { role: 'user' | 'assistant'; content: string; }
 
 export interface AIProxyRequest {
-  provider: 'gemini' | 'claude' | 'openrouter';
+  provider: 'gemini' | 'claude' | 'openrouter' | 'groq';
   model: string;
   system?: string;
   messages: AIMessage[];
@@ -20,7 +20,7 @@ export function extractText(response: unknown, provider: string): string {
       const content = r.content as { text: string }[];
       return content?.[0]?.text ?? '';
     }
-    if (provider === 'openrouter') {
+    if (provider === 'openrouter' || provider === 'groq') {
       const choices = r.choices as { message: { content: string } }[];
       return choices?.[0]?.message?.content ?? '';
     }
@@ -29,12 +29,35 @@ export function extractText(response: unknown, provider: string): string {
 }
 
 export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
+  // Groq uses OpenAI-compatible API — call directly from browser
+  if (req.provider === 'groq') {
+    return callGroqDirect(req);
+  }
   const res = await fetch('/api/ai-proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   });
   if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
+  return res.json();
+}
+
+/** Call Groq directly from browser (OpenAI-compatible endpoint, no proxy needed) */
+async function callGroqDirect(req: AIProxyRequest): Promise<unknown> {
+  const apiKey = import.meta.env.VITE_GROQ_KEY || '';
+  if (!apiKey) throw new Error('Groq API key not set. Add VITE_GROQ_KEY to your environment variables.');
+  const messages: { role: string; content: string }[] = [];
+  if (req.system) messages.push({ role: 'system', content: req.system });
+  messages.push(...req.messages);
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: req.model, messages, max_tokens: req.max_tokens ?? 4096 }),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.statusText);
+    throw new Error(`Groq error ${res.status}: ${err}`);
+  }
   return res.json();
 }
 

@@ -20,6 +20,7 @@ import { Samples } from '@/components/windows/Samples';
 import { Logistics } from '@/components/windows/Logistics';
 import { Calculator } from '@/components/windows/Calculator';
 import { AICommand } from '@/components/windows/AICommand';
+import { SkillCreator } from '@/components/windows/SkillCreator';
 import { AuditHistory } from '@/components/windows/AuditHistory';
 import { analyzeOperations, optimizeFormulation } from '@/services/gemini';
 import { callAIProxy, extractText } from '@/services/aiProxy';
@@ -253,6 +254,9 @@ const App: React.FC = () => {
               onSetActiveChat={state.setActiveChatId}
               onSetProvider={state.setActiveProvider as never}
             />
+          )}
+          {state.activeTab === 'skills' && (
+            <SkillCreator apiConfig={state.apiConfig}/>
           )}
           {state.activeTab === 'history' && (
             <AuditHistory
