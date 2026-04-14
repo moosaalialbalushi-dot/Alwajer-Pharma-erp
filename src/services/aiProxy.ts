@@ -37,3 +37,20 @@ export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
   if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
   return res.json();
 }
+
+/** Call Ollama directly from browser (local only: http://localhost:11434) */
+export async function callOllama(url: string, model: string, messages: AIMessage[], system?: string): Promise<string> {
+  const baseUrl = (url || 'http://localhost:11434').replace(/\/$/, '');
+  const allMessages: { role: string; content: string }[] = [];
+  if (system) allMessages.push({ role: 'system', content: system });
+  allMessages.push(...messages);
+
+  const res = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: model || 'gemma3:4b', messages: allMessages, stream: false }),
+  });
+  if (!res.ok) throw new Error(`Ollama error ${res.status} — is Ollama running at ${baseUrl}?`);
+  const data = await res.json() as { message?: { content?: string } };
+  return data.message?.content ?? '';
+}

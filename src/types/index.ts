@@ -226,6 +226,9 @@ export interface ApiConfig {
   notebookLmSource: string;
   supabaseUrl: string;
   supabaseKey: string;
+  ollamaUrl: string;
+  ollamaModel: string;
+  logoUrl: string;
 }
 
 export interface UploadProgress {

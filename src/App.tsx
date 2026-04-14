@@ -168,6 +168,7 @@ const App: React.FC = () => {
           {state.activeTab === 'sales' && (
             <Sales
               orders={state.orders}
+              apiConfig={state.apiConfig}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
             />
@@ -176,6 +177,7 @@ const App: React.FC = () => {
             <Procurement
               inventory={state.inventory}
               vendors={state.vendors}
+              apiConfig={state.apiConfig}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
             />
@@ -246,6 +248,7 @@ const App: React.FC = () => {
               chatSessions={state.chatSessions}
               activeChatId={state.activeChatId}
               activeProvider={state.activeProvider as never}
+              apiConfig={state.apiConfig}
               onSetSessions={handleSetSessions}
               onSetActiveChat={state.setActiveChatId}
               onSetProvider={state.setActiveProvider as never}

@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   BrainCircuit, Plus, Send, Loader2, X, Trash2, Paperclip, Mic, MicOff,
 } from 'lucide-react';
-import type { ChatSession, ChatMessage } from '@/types';
-import { callAIProxy, extractText } from '@/services/aiProxy';
+import type { ChatSession, ChatMessage, ApiConfig } from '@/types';
+import { callAIProxy, callOllama, extractText } from '@/services/aiProxy';
 
-const PROVIDERS = ['Gemini', 'Claude', 'OpenRouter'] as const;
+const PROVIDERS = ['Gemini', 'Claude', 'OpenRouter', 'Ollama'] as const;
 type Provider = typeof PROVIDERS[number];
 
 const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
@@ -26,31 +26,51 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
     { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
     { id: 'qwen/qwen3-8b:free', label: 'Qwen3 8B (Free)' },
   ],
+  Ollama: [
+    { id: 'gemma3:4b', label: 'Gemma 3 4B (Fast)' },
+    { id: 'gemma3:12b', label: 'Gemma 3 12B' },
+    { id: 'gemma3:27b', label: 'Gemma 3 27B' },
+    { id: 'llama3.2:3b', label: 'Llama 3.2 3B' },
+    { id: 'mistral:7b', label: 'Mistral 7B' },
+    { id: 'qwen2.5:7b', label: 'Qwen 2.5 7B' },
+  ],
 };
 
 const PROVIDER_COLORS: Record<Provider, string> = {
   Gemini: 'text-blue-400',
   Claude: 'text-orange-400',
   OpenRouter: 'text-emerald-400',
+  Ollama: 'text-purple-400',
+};
+
+const PROVIDER_ACTIVE: Record<Provider, string> = {
+  Gemini: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+  Claude: 'bg-orange-500/10 border-orange-500/30 text-orange-400',
+  OpenRouter: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+  Ollama: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
 };
 
 interface Props {
   chatSessions: ChatSession[];
   activeChatId: string | null;
   activeProvider: Provider;
+  apiConfig: ApiConfig;
   onSetSessions: (fn: (prev: ChatSession[]) => ChatSession[]) => void;
   onSetActiveChat: (id: string | null) => void;
   onSetProvider: (p: Provider) => void;
 }
 
 export const AICommand: React.FC<Props> = ({
-  chatSessions, activeChatId, activeProvider,
+  chatSessions, activeChatId, activeProvider, apiConfig,
   onSetSessions, onSetActiveChat, onSetProvider,
 }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
-    Gemini: 'gemini-2.0-flash', Claude: 'claude-sonnet-4-6', OpenRouter: 'deepseek/deepseek-chat-v3-0324:free',
+    Gemini: 'gemini-2.0-flash',
+    Claude: 'claude-sonnet-4-6',
+    OpenRouter: 'deepseek/deepseek-chat-v3-0324:free',
+    Ollama: apiConfig.ollamaModel || 'gemma3:4b',
   });
   const [isListening, setIsListening] = useState(false);
   const msgEndRef = useRef<HTMLDivElement>(null);
@@ -103,16 +123,27 @@ export const AICommand: React.FC<Props> = ({
         content: m.text,
       })) ?? [];
 
-      const res = await callAIProxy({
-        provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'openrouter',
-        model: selectedModel[activeProvider],
-        system: 'You are an expert Al Wajer Pharmaceutical ERP assistant. Help with formulations, business strategy, regulatory, and operations.',
-        messages: [...history, { role: 'user', content: userInput }],
-      });
+      const systemPrompt = 'You are an expert Al Wajer Pharmaceutical ERP assistant. Help with formulations, business strategy, regulatory, and operations.';
+      let text: string;
 
-      const text = extractText(res, activeProvider.toLowerCase()) || 'No response.';
-      const modelMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'model', text, timestamp: Date.now() };
+      if (activeProvider === 'Ollama') {
+        text = await callOllama(
+          apiConfig.ollamaUrl || 'http://localhost:11434',
+          selectedModel.Ollama,
+          [...history, { role: 'user', content: userInput }],
+          systemPrompt,
+        );
+      } else {
+        const res = await callAIProxy({
+          provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'openrouter',
+          model: selectedModel[activeProvider],
+          system: systemPrompt,
+          messages: [...history, { role: 'user', content: userInput }],
+        });
+        text = extractText(res, activeProvider.toLowerCase()) || 'No response.';
+      }
 
+      const modelMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'model', text: text || 'No response.', timestamp: Date.now() };
       onSetSessions(prev => prev.map(s => s.id === activeChatId ? { ...s, messages: [...s.messages, modelMsg] } : s));
     } catch (e) {
       const errMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'model', text: `Error: ${String(e)}`, timestamp: Date.now() };
@@ -165,11 +196,11 @@ export const AICommand: React.FC<Props> = ({
         <div className="flex flex-wrap gap-1.5 items-center bg-white border border-gray-200 rounded-xl px-3 py-2 shrink-0">
           {PROVIDERS.map(p => (
             <button key={p} onClick={() => onSetProvider(p)}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? `bg-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/10 border-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/30 ${PROVIDER_COLORS[p]}` : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
-              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🔀 OpenRouter'}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? PROVIDER_ACTIVE[p] : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'OpenRouter' ? '🔀 OpenRouter' : '🏠 Ollama'}
             </button>
           ))}
-          <div className="w-px h-4 bg-white/10 mx-1"/>
+          <div className="w-px h-4 bg-gray-200 mx-1"/>
           <select
             value={selectedModel[activeProvider]}
             onChange={e => setSelectedModel(prev => ({ ...prev, [activeProvider]: e.target.value }))}
@@ -177,6 +208,11 @@ export const AICommand: React.FC<Props> = ({
           >
             {PROVIDER_MODELS[activeProvider].map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
+          {activeProvider === 'Ollama' && (
+            <span className="text-[9px] text-purple-500 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
+              Local — no cloud tokens
+            </span>
+          )}
         </div>
 
         {/* Messages */}
@@ -190,6 +226,11 @@ export const AICommand: React.FC<Props> = ({
             <div className="h-full flex flex-col items-center justify-center text-center">
               <BrainCircuit className="text-[#D4AF37]/40 mb-3" size={36}/>
               <p className="text-slate-500 text-sm">Ask anything about formulations, business, or operations.</p>
+              {activeProvider === 'Ollama' && (
+                <p className="text-[11px] text-purple-400 mt-2 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
+                  Running locally on your machine — no API tokens used
+                </p>
+              )}
             </div>
           ) : (
             activeSession.messages.map(msg => (
@@ -208,7 +249,9 @@ export const AICommand: React.FC<Props> = ({
             <div className="flex justify-start">
               <div className="bg-gray-100 border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin text-[#D4AF37]"/>
-                <span className="text-slate-600 text-sm">Thinking…</span>
+                <span className="text-slate-600 text-sm">
+                  {activeProvider === 'Ollama' ? 'Processing locally…' : 'Thinking…'}
+                </span>
               </div>
             </div>
           )}
@@ -232,7 +275,7 @@ export const AICommand: React.FC<Props> = ({
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask anything… (Shift+Enter for newline)"
+              placeholder={activeProvider === 'Ollama' ? 'Ask anything… runs on your local Ollama' : 'Ask anything… (Shift+Enter for newline)'}
               rows={1}
               className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none resize-none custom-scrollbar"
               style={{ maxHeight: '120px' }}
