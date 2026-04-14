@@ -65,8 +65,8 @@ export function useAppState() {
   const [apiConfig, setApiConfig] = useState<ApiConfig>(() => {
     try {
       const s = localStorage.getItem('erp_v2_api_config');
-      return s ? JSON.parse(s) : { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' };
-    } catch { return { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' }; }
+      return s ? JSON.parse(s) : { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '', ollamaUrl: 'http://localhost:11434', ollamaModel: 'gemma3:4b', logoUrl: '' };
+    } catch { return { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '', ollamaUrl: 'http://localhost:11434', ollamaModel: 'gemma3:4b', logoUrl: '' }; }
   });
 
   // ── Modal ─────────────────────────────────────────────────────────────────
