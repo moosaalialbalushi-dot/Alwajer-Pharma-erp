@@ -5,6 +5,7 @@
 //   ANTHROPIC_API_KEY    → sk-ant-...
 //   GEMINI_API_KEY       → AIza...
 //   OPENROUTER_API_KEY   → sk-or-... (from openrouter.ai)
+//   GROQ_API_KEY         → gsk-... (from console.groq.com)
 //   DEEPSEEK_API_KEY     → sk-... (optional, legacy)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -68,6 +69,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
+    // ── GROQ (OpenAI-compatible) ──────────────────────────────────
+    if (provider === 'groq') {
+      const key = process.env.GROQ_API_KEY || clientApiKey;
+      if (!key) return res.status(500).json({
+        error: '⚠️ GROQ_API_KEY not set. Add it in Vercel → Settings → Environment Variables. Get your free key from console.groq.com'
+      });
+
+      const groqMessages = system
+        ? [{ role: 'system', content: system }, ...messages]
+        : messages;
+
+      const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: model ?? 'mixtral-8x7b-32768',
+          messages: groqMessages,
+          max_tokens,
+        }),
+      });
+      const data = await upstream.json();
+      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
+      return res.status(200).json(data);
+    }
+
     // ── OPENROUTER ────────────────────────────────────────────────
     if (provider === 'openrouter') {
       const key = process.env.OPENROUTER_API_KEY;
@@ -117,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
-    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, openrouter` });
+    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, groq, openrouter` });
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

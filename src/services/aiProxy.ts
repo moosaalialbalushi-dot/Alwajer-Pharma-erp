@@ -30,10 +30,8 @@ export function extractText(response: unknown, provider: string): string {
 }
 
 export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
-  // Groq uses OpenAI-compatible API — call directly from browser
-  if (req.provider === 'groq') {
-    return callGroqDirect(req);
-  }
+  // All providers (including Groq) now use the server proxy for security
+  // No more direct browser calls to external APIs
   const { apiKey, ...rest } = req;
   const res = await fetch('/api/ai-proxy', {
     method: 'POST',
@@ -41,25 +39,6 @@ export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
     body: JSON.stringify({ ...rest, clientApiKey: apiKey }),
   });
   if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
-  return res.json();
-}
-
-/** Call Groq directly from browser (OpenAI-compatible endpoint, no proxy needed) */
-async function callGroqDirect(req: AIProxyRequest): Promise<unknown> {
-  const apiKey = req.apiKey || import.meta.env.VITE_GROQ_KEY || '';
-  if (!apiKey) throw new Error('Groq API key not set. Add VITE_GROQ_KEY to your environment variables.');
-  const messages: { role: string; content: string }[] = [];
-  if (req.system) messages.push({ role: 'system', content: req.system });
-  messages.push(...req.messages);
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: req.model, messages, max_tokens: req.max_tokens ?? 4096 }),
-  });
-  if (!res.ok) {
-    const err = await res.text().catch(() => res.statusText);
-    throw new Error(`Groq error ${res.status}: ${err}`);
-  }
   return res.json();
 }
 

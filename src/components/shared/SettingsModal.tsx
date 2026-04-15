@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Key, Database, Save, Bot, Image } from 'lucide-react';
+import { X, Key, Bot, Save, Image } from 'lucide-react';
 import type { ApiConfig } from '@/types';
 
 interface Props {
@@ -15,8 +15,8 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
     geminiKey: config.geminiKey ?? '',
     groqKey: config.groqKey ?? '',
     notebookLmSource: config.notebookLmSource ?? '',
-    supabaseUrl: config.supabaseUrl ?? '',
-    supabaseKey: config.supabaseKey ?? '',
+    supabaseUrl: '',  // No longer editable in browser
+    supabaseKey: '',  // No longer editable in browser
     ollamaUrl: config.ollamaUrl ?? 'http://localhost:11434',
     ollamaModel: config.ollamaModel ?? 'gemma3:4b',
     logoUrl: config.logoUrl ?? '',
@@ -53,13 +53,15 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Supabase */}
-          <div className="space-y-3">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Database size={11}/> Supabase (Database)
+          {/* Supabase Info */}
+          <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+              ✓ Database (Supabase)
             </p>
-            <Field field="supabaseUrl" label="Supabase URL" placeholder="https://xxx.supabase.co"/>
-            <Field field="supabaseKey" label="Supabase Anon Key" placeholder="eyJ..." type="password"/>
+            <p className="text-xs text-blue-600 leading-relaxed">
+              Supabase is now configured on <strong>Vercel</strong> as environment secrets. 
+              No longer editable here. Your data syncs automatically to the cloud.
+            </p>
           </div>
 
           {/* Cloud AI keys */}
