@@ -1,4 +1,5 @@
 // api/ai-proxy.ts
+// Dedicated Proxy for Anthropic Claude
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const CORS = {
@@ -12,130 +13,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { provider, system, messages, max_tokens = 2048, model, json_mode = false, clientApiKey } = req.body ?? {};
-  if (!provider || !messages?.length) {
-    return res.status(400).json({ error: 'Missing required fields: provider, messages' });
+  const { system, messages, max_tokens = 2048, model, clientApiKey } = req.body ?? {};
+  
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'Missing messages' });
   }
 
+  const key = process.env.ANTHROPIC_API_KEY || clientApiKey;
+  if (!key) {
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY is missing in Vercel Environment Variables.' });
+  }
+
+  // Build payload for Claude
+  const body: Record<string, unknown> = {
+    model: model ?? 'claude-3-5-sonnet-20241022', // Stable, high-intelligence model
+    max_tokens,
+    messages,
+  };
+
+  // Claude puts system prompt in a separate field
+  if (system) body.system = system;
+
   try {
-    // ── ANTHROPIC CLAUDE ──────────────────────────────────────────
-    if (provider === 'anthropic' || provider === 'claude') {
-      const key = process.env.ANTHROPIC_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY missing' });
+    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(body),
+    });
 
-      const body: Record<string, unknown> = { 
-        model: model ?? 'claude-3-5-sonnet-20241022', 
-        max_tokens, 
-        messages 
-      };
-      if (system) body.system = system;
+    const data = await upstream.json();
 
-      const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'x-api-key': key, 
-          'anthropic-version': '2023-06-01' 
-        },
-        body: JSON.stringify(body),
-      });
-      const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-      return res.status(200).json(data);
-    }
-
-    // ── GOOGLE GEMINI ────────────────────────────────────────────
-    if (provider === 'gemini') {
-      const key = process.env.GEMINI_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({ error: 'GEMINI_API_KEY missing' });
-
-      // ✅ Use STABLE model with fallback chain
-      const requested = model ?? 'gemini-1.5-flash';
-      const modelsToTry = [...new Set([requested, 'gemini-1.5-flash', 'gemini-pro'])];
-
-      const contents = messages.map((m: { role: string; content: string }) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      }));
-
-      const body: Record<string, unknown> = { contents };
-      if (system) body.systemInstruction = { parts: [{ text: system }] };
-      if (json_mode) body.generationConfig = { responseMimeType: 'application/json' };
-
-      let lastError: any = null;
-
-      for (const mdl of modelsToTry) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${key}`;
-          const upstream = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          });
-          const data = await upstream.json();
-          if (upstream.ok) return res.status(200).json(data);
-          
-          console.warn(`[gemini] ${mdl} failed (${upstream.status}):`, data?.error?.message);
-          lastError = { status: upstream.status, data };
-        } catch (e) {
-          lastError = e;
-        }
-      }
-
-      // All models failed
-      console.error('[ai-proxy][gemini] All fallbacks failed.', lastError);
-      return res.status(lastError?.status || 500).json({
-        error: `Gemini unavailable. Tried: ${modelsToTry.join(', ')}.`,
-        details: lastError?.data?.error?.message || 'Check key/quota/region restrictions.',
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ 
+        error: data?.error?.message || 'Claude upstream error',
+        details: data 
       });
     }
 
-    // ── OPENROUTER ───────────────────────────────────────────────
-    if (provider === 'openrouter') {
-      const key = process.env.OPENROUTER_API_KEY;
-      if (!key) return res.status(500).json({ error: 'OPENROUTER_API_KEY missing' });
-
-      const orMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
-
-      const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`,
-          'HTTP-Referer': 'https://alwajer-pharma-erp.vercel.app',
-          'X-Title': 'Al Wajer Pharma ERP',
-        },
-        body: JSON.stringify({
-          model: model ?? 'deepseek/deepseek-chat-v3-0324:free',
-          messages: orMessages,
-          max_tokens,
-        }),
-      });
-      const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-      return res.status(200).json(data);
-    }
-
-    // ── DEEPSEEK ─────────────────────────────────────────────────
-    if (provider === 'deepseek') {
-      const key = process.env.DEEPSEEK_API_KEY;
-      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY missing' });
-
-      const deepMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
-      const upstream = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: model ?? 'deepseek-chat', messages: deepMessages, max_tokens }),
-      });
-      const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-      return res.status(200).json(data);
-    }
-
-    return res.status(400).json({ error: `Unknown provider: "${provider}"` });
+    return res.status(200).json(data);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[ai-proxy][${provider}]`, message);
+    const message = err instanceof Error ? err.message : 'Network request failed';
+    console.error('[ai-proxy][claude]', message);
     return res.status(500).json({ error: message });
   }
 }
