@@ -1,5 +1,4 @@
 // api/ai-proxy.ts
-// Vercel Serverless Function — all keys server-side only.
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const CORS = {
@@ -22,14 +21,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── ANTHROPIC CLAUDE ──────────────────────────────────────────
     if (provider === 'anthropic' || provider === 'claude') {
       const key = process.env.ANTHROPIC_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({ error: 'Claude API key not set.' });
+      if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY missing' });
 
-      const body: Record<string, unknown> = { model: model ?? 'claude-3-5-sonnet-20241022', max_tokens, messages };
+      const body: Record<string, unknown> = { 
+        model: model ?? 'claude-3-5-sonnet-20241022', 
+        max_tokens, 
+        messages 
+      };
       if (system) body.system = system;
 
       const upstream = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-api-key': key, 
+          'anthropic-version': '2023-06-01' 
+        },
         body: JSON.stringify(body),
       });
       const data = await upstream.json();
@@ -40,9 +47,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── GOOGLE GEMINI ────────────────────────────────────────────
     if (provider === 'gemini') {
       const key = process.env.GEMINI_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({ error: 'Gemini API key not set.' });
+      if (!key) return res.status(500).json({ error: 'GEMINI_API_KEY missing' });
 
-      // ✅ AUTO-FALLBACK CHAIN: Try requested model, then fallbacks
+      // ✅ Use STABLE model with fallback chain
       const requested = model ?? 'gemini-1.5-flash';
       const modelsToTry = [...new Set([requested, 'gemini-1.5-flash', 'gemini-pro'])];
 
@@ -86,14 +93,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── OPENROUTER ───────────────────────────────────────────────
     if (provider === 'openrouter') {
       const key = process.env.OPENROUTER_API_KEY;
-      if (!key) return res.status(500).json({ error: 'OPENROUTER_API_KEY not set.' });
+      if (!key) return res.status(500).json({ error: 'OPENROUTER_API_KEY missing' });
 
       const orMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
 
       const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // ✅ Fixed typo
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${key}`,
           'HTTP-Referer': 'https://alwajer-pharma-erp.vercel.app',
           'X-Title': 'Al Wajer Pharma ERP',
@@ -112,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── DEEPSEEK ─────────────────────────────────────────────────
     if (provider === 'deepseek') {
       const key = process.env.DEEPSEEK_API_KEY;
-      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY not set.' });
+      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY missing' });
 
       const deepMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
       const upstream = await fetch('https://api.deepseek.com/v1/chat/completions', {
