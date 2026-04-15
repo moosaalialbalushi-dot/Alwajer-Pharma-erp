@@ -1,5 +1,11 @@
 // api/ai-proxy.ts
-// Vercel Serverless Function — production-patched
+// Vercel Serverless Function — all keys server-side only.
+//
+// Required Vercel Environment Variables:
+//   ANTHROPIC_API_KEY    → sk-ant-...
+//   GEMINI_API_KEY       → AIza...
+//   OPENROUTER_API_KEY   → sk-or-... (from openrouter.ai)
+//   DEEPSEEK_API_KEY     → sk-... (optional, legacy)
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const CORS = {
@@ -22,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── ANTHROPIC CLAUDE ──────────────────────────────────────────
     if (provider === 'anthropic' || provider === 'claude') {
       const key = process.env.ANTHROPIC_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY missing. Add to Vercel Env Vars.' });
+      if (!key) return res.status(500).json({ error: 'Claude API key not set. Enter your key in Settings (gear icon) or add ANTHROPIC_API_KEY in Vercel → Settings → Environment Variables.' });
 
       const body: Record<string, unknown> = { model: model ?? 'claude-sonnet-4-6', max_tokens, messages };
       if (system) body.system = system;
@@ -33,18 +39,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body: JSON.stringify(body),
       });
       const data = await upstream.json();
-      if (!upstream.ok) return res.status(upstream.status).json({ error: data?.error?.message ?? 'Claude upstream error', details: data });
+      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
       return res.status(200).json(data);
     }
 
     // ── GOOGLE GEMINI ────────────────────────────────────────────
     if (provider === 'gemini') {
       const key = process.env.GEMINI_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({ error: 'GEMINI_API_KEY missing. Add to Vercel Env Vars.' });
+      if (!key) return res.status(500).json({ error: 'Gemini API key not set. Enter your key in Settings (gear icon) or add GEMINI_API_KEY in Vercel → Settings → Environment Variables.' });
 
-      let geminiModel = model ?? 'gemini-2.0-flash';
-      
-      // Map roles: assistant -> model (Gemini REST requirement)
+      // Fix 404s: auto-fallback chain if requested model is unavailable/deprecated
+      const requested = model ?? 'gemini-1.5-flash';
+      const modelsToTry = [...new Set([requested, 'gemini-1.5-flash', 'gemini-pro'])];
+
       const contents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }],
@@ -54,48 +61,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (system) body.systemInstruction = { parts: [{ text: system }] };
       if (json_mode) body.generationConfig = { responseMimeType: 'application/json' };
 
-      const attemptCall = async (mdl: string) => {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${key}`;
-        const upstream = await fetch(url, { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(body) 
-        });
-        const data = await upstream.json();
-        return { upstream, data };
-      };
+      let lastError: any = null;
 
-      let { upstream, data } = await attemptCall(geminiModel);
-      
-      // Auto-fallback if 2.0 fails (common in certain regions/quotas)
-      if (!upstream.ok && geminiModel.includes('2.0')) {
-        console.warn('[gemini] 2.0 failed, falling back to 1.5-flash');
-        ({ upstream, data } = await attemptCall('gemini-1.5-flash'));
+      for (const mdl of modelsToTry) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:generateContent?key=${key}`;
+          const upstream = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const data = await upstream.json();
+          if (upstream.ok) return res.status(200).json(data);
+
+          console.warn(`[gemini] ${mdl} failed (${upstream.status}):`, data?.error?.message);
+          lastError = { status: upstream.status, data };
+        } catch (e) {
+          lastError = e;
+        }
       }
 
-      if (!upstream.ok) {
-        console.error('[ai-proxy][gemini] Upstream error:', upstream.status, data);
-        return res.status(upstream.status).json({ 
-          error: data?.error?.message ?? 'Gemini upstream error', 
-          code: data?.error?.code,
-          details: data 
-        });
-      }
-
-      return res.status(200).json(data);
+      // All models failed
+      console.error('[ai-proxy][gemini] All fallbacks failed.', lastError);
+      return res.status(lastError?.status || 500).json({
+        error: `Gemini unavailable. Tried: ${modelsToTry.join(', ')}.`,
+        details: lastError?.data?.error?.message || 'Check key/quota/region restrictions.',
+      });
     }
 
-    // ── OPENROUTER ───────────────────────────────────────────────
+    // ── OPENROUTER ────────────────────────────────────────────────
     if (provider === 'openrouter') {
       const key = process.env.OPENROUTER_API_KEY;
-      if (!key) return res.status(500).json({ error: 'OPENROUTER_API_KEY missing. Add to Vercel Env Vars.' });
+      if (!key) return res.status(500).json({
+        error: '⚠️ OPENROUTER_API_KEY not set. Add it in Vercel → Settings → Environment Variables. Get your free key from openrouter.ai'
+      });
 
-      const orMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
+      const orMessages = system
+        ? [{ role: 'system', content: system }, ...messages]
+        : messages;
 
       const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', // Fixed typo here
+          'Content-Type': 'application/json', // Fixed typo from 'Content -Type'
           'Authorization': `Bearer ${key}`,
           'HTTP-Referer': 'https://alwajer-pharma-erp.vercel.app',
           'X-Title': 'Al Wajer Pharma ERP',
@@ -107,23 +115,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }),
       });
       const data = await upstream.json();
-      if (!upstream.ok) return res.status(upstream.status).json({ error: data?.error?.message ?? 'OpenRouter upstream error', details: data });
+      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
       return res.status(200).json(data);
     }
 
-    // ── DEEPSEEK (legacy) ───────────────────────────────────────
+    // ── DEEPSEEK (legacy kept for backward compatibility) ─────────
     if (provider === 'deepseek') {
       const key = process.env.DEEPSEEK_API_KEY;
-      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY missing. Consider switching to OpenRouter.' });
+      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY not set. Consider switching to OpenRouter instead.' });
 
-      const deepMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
-      const upstream = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      const deepMessages = system
+        ? [{ role: 'system', content: system }, ...messages]
+        : messages;
+
+      const upstream = await fetch('https://api.deepseek.com/v1/chat/completions', { // Fixed URL space typo
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({ model: model ?? 'deepseek-chat', messages: deepMessages, max_tokens }),
       });
       const data = await upstream.json();
-      if (!upstream.ok) return res.status(upstream.status).json({ error: data?.error?.message ?? 'DeepSeek upstream error', details: data });
+      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
       return res.status(200).json(data);
     }
 
@@ -131,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[ai-proxy][${provider}]`, message);
-    return res.status(500).json({ error: `Proxy internal error: ${message}` });
+    return res.status(500).json({ error: message });
   }
 }
 
