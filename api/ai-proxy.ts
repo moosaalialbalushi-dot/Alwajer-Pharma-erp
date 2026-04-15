@@ -5,7 +5,6 @@
 //   ANTHROPIC_API_KEY    → sk-ant-...
 //   GEMINI_API_KEY       → AIza...
 //   OPENROUTER_API_KEY   → sk-or-... (from openrouter.ai)
-//   GROQ_API_KEY         → gsk-... (from console.groq.com)
 //   DEEPSEEK_API_KEY     → sk-... (optional, legacy)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -52,48 +51,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!key) return res.status(500).json({ error: 'Gemini API key not set. Enter your key in Settings (gear icon) or add GEMINI_API_KEY in Vercel → Settings → Environment Variables.' });
 
       const geminiModel = model ?? 'gemini-2.0-flash';
+      
+      // Gemini expects a different message format
       const contents = messages.map((m: { role: string; content: string }) => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }],
       }));
+      
       const body: Record<string, unknown> = { contents };
       if (system) body.systemInstruction = { parts: [{ text: system }] };
       if (json_mode) body.generationConfig = { responseMimeType: 'application/json' };
 
+      console.log('[ai-proxy][gemini] Calling:', {
+        model: geminiModel,
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`,
+        hasKey: !!key,
+      });
+
       const upstream = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify(body) 
+        }
       );
+      
       const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-      return res.status(200).json(data);
-    }
-
-    // ── GROQ (OpenAI-compatible) ──────────────────────────────────
-    if (provider === 'groq') {
-      const key = process.env.GROQ_API_KEY || clientApiKey;
-      if (!key) return res.status(500).json({
-        error: '⚠️ GROQ_API_KEY not set. Add it in Vercel → Settings → Environment Variables. Get your free key from console.groq.com'
-      });
-
-      const groqMessages = system
-        ? [{ role: 'system', content: system }, ...messages]
-        : messages;
-
-      const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`,
-        },
-        body: JSON.stringify({
-          model: model ?? 'mixtral-8x7b-32768',
-          messages: groqMessages,
-          max_tokens,
-        }),
-      });
-      const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
+      
+      if (!upstream.ok) {
+        console.error('[ai-proxy][gemini] Error response:', data);
+        throw new Error(data?.error?.message ?? JSON.stringify(data));
+      }
+      
       return res.status(200).json(data);
     }
 
@@ -146,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
-    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, groq, openrouter` });
+    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, openrouter` });
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

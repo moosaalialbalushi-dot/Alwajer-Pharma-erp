@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   BrainCircuit, Plus, Send, Loader2, X, Trash2, Paperclip, Mic, MicOff,
 } from 'lucide-react';
 import type { ChatSession, ChatMessage, ApiConfig } from '@/types';
 import { callAIProxy, callOllama, extractText } from '@/services/aiProxy';
 
-const PROVIDERS = ['Gemini', 'Claude', 'Groq', 'Ollama'] as const;
+const PROVIDERS = ['Gemini', 'Claude', 'Ollama'] as const;
 type Provider = typeof PROVIDERS[number];
 
 const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
@@ -24,18 +24,6 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
     { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
     { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
     { id: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-  ],
-  Groq: [
-    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Fast)' },
-    { id: 'llama-3.1-70b-versatile', label: 'Llama 3.1 70B' },
-    { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Instant)' },
-    { id: 'llama3-70b-8192', label: 'Llama 3 70B' },
-    { id: 'llama3-8b-8192', label: 'Llama 3 8B' },
-    { id: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-    { id: 'gemma2-9b-it', label: 'Gemma 2 9B' },
-    { id: 'gemma-7b-it', label: 'Gemma 7B' },
-    { id: 'llama-3.2-11b-vision-preview', label: 'Llama 3.2 11B Vision' },
-    { id: 'deepseek-r1-distill-llama-70b', label: 'DeepSeek R1 70B' },
   ],
   Ollama: [
     { id: 'gemma3:4b', label: 'Gemma 3 4B (Fast)' },
@@ -57,14 +45,12 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
 const PROVIDER_COLORS: Record<Provider, string> = {
   Gemini: 'text-blue-400',
   Claude: 'text-orange-400',
-  Groq: 'text-emerald-400',
   Ollama: 'text-purple-400',
 };
 
 const PROVIDER_ACTIVE: Record<Provider, string> = {
   Gemini: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
   Claude: 'bg-orange-500/10 border-orange-500/30 text-orange-400',
-  Groq: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
   Ollama: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
 };
 
@@ -87,7 +73,6 @@ export const AICommand: React.FC<Props> = ({
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
     Gemini: 'gemini-2.0-flash',
     Claude: 'claude-sonnet-4-6',
-    Groq: 'llama-3.3-70b-versatile',
     Ollama: apiConfig.ollamaModel || 'gemma3:4b',
   });
   const [isListening, setIsListening] = useState(false);
@@ -98,17 +83,16 @@ export const AICommand: React.FC<Props> = ({
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [activeSession?.messages]);
 
   const createNewChat = () => {
-    const id = `chat-${Date.now()}`;
-    const session: ChatSession = {
-      id, title: 'New Chat', provider: activeProvider, messages: [], archived: false, createdAt: Date.now(),
+    const newSession: ChatSession = {
+      id: `chat-${Date.now()}`,
+      title: '',
+      provider: activeProvider,
+      messages: [],
+      archived: false,
+      createdAt: Date.now(),
     };
-    onSetSessions(prev => [...prev, session]);
-    onSetActiveChat(id);
-  };
-
-  const archiveChat = (id: string) => {
-    onSetSessions(prev => prev.map(s => s.id === id ? { ...s, archived: true } : s));
-    if (activeChatId === id) onSetActiveChat(null);
+    onSetSessions(prev => [newSession, ...prev]);
+    onSetActiveChat(newSession.id);
   };
 
   const deleteChat = (id: string) => {
@@ -116,48 +100,34 @@ export const AICommand: React.FC<Props> = ({
     if (activeChatId === id) onSetActiveChat(null);
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-    if (!activeChatId) { createNewChat(); return; }
+  const archiveChat = (id: string) => {
+    onSetSessions(prev => prev.map(s => s.id === id ? { ...s, archived: true } : s));
+    onSetActiveChat(null);
+  };
 
-    const userMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'user', text: input.trim(), timestamp: Date.now() };
+  const handleSendMessage = async () => {
+    if (!input.trim() || !activeChatId || isLoading) return;
+
     const userInput = input.trim();
     setInput('');
 
-    onSetSessions(prev => prev.map(s => {
-      if (s.id !== activeChatId) return s;
-      return {
-        ...s,
-        provider: activeProvider,
-        title: s.messages.length === 0 ? userInput.slice(0, 40) : s.title,
-        messages: [...s.messages, userMsg],
-      };
-    }));
+    const userMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'user', text: userInput, timestamp: Date.now() };
+    onSetSessions(prev => prev.map(s => s.id === activeChatId ? { ...s, messages: [...s.messages, userMsg] } : s));
 
     setIsLoading(true);
     try {
-      const history = activeSession?.messages.map(m => ({
-        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: m.text,
-      })) ?? [];
-
-      const systemPrompt = 'You are an expert Al Wajer Pharmaceutical ERP assistant. Help with formulations, business strategy, regulatory, and operations.';
-      let text: string;
+      const history = activeSession?.messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.text })) || [];
+      const systemPrompt = 'You are a helpful AI assistant for a pharmaceutical ERP system. Provide concise, accurate responses.';
+      let text = '';
 
       if (activeProvider === 'Ollama') {
-        text = await callOllama(
-          apiConfig.ollamaUrl || 'http://localhost:11434',
-          selectedModel.Ollama,
-          [...history, { role: 'user', content: userInput }],
-          systemPrompt,
-        );
+        text = await callOllama(apiConfig.ollamaUrl || 'http://localhost:11434', selectedModel[activeProvider], [...history, { role: 'user', content: userInput }], systemPrompt);
       } else {
         const providerKey = activeProvider === 'Gemini' ? apiConfig.geminiKey
           : activeProvider === 'Claude' ? apiConfig.claudeKey
-          : activeProvider === 'Groq' ? (apiConfig.groqKey || import.meta.env.VITE_GROQ_KEY)
           : undefined;
         const res = await callAIProxy({
-          provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'groq',
+          provider: activeProvider.toLowerCase() as 'gemini' | 'claude',
           model: selectedModel[activeProvider],
           system: systemPrompt,
           messages: [...history, { role: 'user', content: userInput }],
@@ -220,7 +190,7 @@ export const AICommand: React.FC<Props> = ({
           {PROVIDERS.map(p => (
             <button key={p} onClick={() => onSetProvider(p)}
               className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? PROVIDER_ACTIVE[p] : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
-              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Groq' ? '⚡ Groq' : '🏠 Ollama'}
+              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🏠 Ollama'}
             </button>
           ))}
           <div className="w-px h-4 bg-gray-200 mx-1"/>
@@ -228,88 +198,58 @@ export const AICommand: React.FC<Props> = ({
             value={selectedModel[activeProvider]}
             onChange={e => setSelectedModel(prev => ({ ...prev, [activeProvider]: e.target.value }))}
             className="bg-transparent text-slate-600 text-[11px] border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#D4AF37]/40"
+            disabled={isLoading}
           >
-            {PROVIDER_MODELS[activeProvider].map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+            {PROVIDER_MODELS[activeProvider].map(m => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
           </select>
-          {activeProvider === 'Ollama' && (
-            <span className="text-[9px] text-purple-500 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
-              Local — no cloud tokens
-            </span>
-          )}
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 p-3 bg-gray-50 rounded-lg">
           {!activeSession ? (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <BrainCircuit className="text-slate-400 mb-3" size={40}/>
-              <p className="text-slate-500 text-sm">Select a chat or create a new one to start.</p>
-            </div>
-          ) : activeSession.messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <BrainCircuit className="text-[#D4AF37]/40 mb-3" size={36}/>
-              <p className="text-slate-500 text-sm">Ask anything about formulations, business, or operations.</p>
-              {activeProvider === 'Ollama' && (
-                <p className="text-[11px] text-purple-400 mt-2 bg-purple-50 px-3 py-1 rounded-full border border-purple-200">
-                  Running locally on your machine — no API tokens used
-                </p>
-              )}
+            <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+              <div className="text-center">
+                <BrainCircuit size={32} className="mx-auto mb-2 opacity-30"/>
+                <p>Select or create a chat to start</p>
+              </div>
             </div>
           ) : (
-            activeSession.messages.map(msg => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-[#D4AF37] text-slate-950 font-medium rounded-br-sm'
-                    : 'bg-gray-100 text-slate-800 border border-gray-200 rounded-bl-sm'
-                }`}>
-                  <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</p>
+            <>
+              {activeSession.messages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-xs px-3 py-2 rounded-lg text-sm ${msg.role === 'user' ? 'bg-[#D4AF37] text-slate-950' : 'bg-white border border-gray-200 text-slate-900'}`}>
+                    {msg.text}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white border border-gray-200 px-3 py-2 rounded-lg text-sm text-slate-600 flex items-center gap-1.5">
+                    <Loader2 size={14} className="animate-spin"/> Thinking...
+                  </div>
+                </div>
+              )}
+              <div ref={msgEndRef}/>
+            </>
           )}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin text-[#D4AF37]"/>
-                <span className="text-slate-600 text-sm">
-                  {activeProvider === 'Ollama' ? 'Processing locally…' : 'Thinking…'}
-                </span>
-              </div>
-            </div>
-          )}
-          <div ref={msgEndRef}/>
         </div>
 
         {/* Input */}
         <div className="flex gap-2 shrink-0">
-          <button title="Attach file" className="p-2.5 text-slate-500 hover:text-slate-900 bg-gray-100 rounded-xl border border-gray-200 transition-all">
-            <Paperclip size={15}/>
-          </button>
-          <button
-            onClick={() => setIsListening(l => !l)}
-            className={`p-2.5 rounded-xl border transition-all ${isListening ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-gray-100 border-gray-200 text-slate-500 hover:text-slate-900'}`}
-            title="Voice input"
-          >
-            {isListening ? <MicOff size={15}/> : <Mic size={15}/>}
-          </button>
-          <div className="flex-1 relative">
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder={activeProvider === 'Ollama' ? 'Ask anything… runs on your local Ollama' : 'Ask anything… (Shift+Enter for newline)'}
-              rows={1}
-              className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-xl px-4 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none resize-none custom-scrollbar"
-              style={{ maxHeight: '120px' }}
-            />
-          </div>
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
-            className="p-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 rounded-xl transition-all disabled:opacity-50"
-          >
-            {isLoading ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>}
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Type a message..."
+            disabled={!activeSession || isLoading}
+            className="flex-1 bg-white border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:border-[#D4AF37]/50 disabled:opacity-50"
+          />
+          <button onClick={handleSendMessage} disabled={!activeSession || isLoading || !input.trim()}
+            className="px-3 py-2 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 rounded-lg font-bold text-sm flex items-center gap-1.5 transition-all disabled:opacity-50">
+            <Send size={14}/> Send
           </button>
         </div>
       </div>

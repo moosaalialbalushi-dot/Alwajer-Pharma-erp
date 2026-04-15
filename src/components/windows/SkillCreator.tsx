@@ -9,7 +9,7 @@ interface Skill {
   description: string;
   category: 'Pharma' | 'Regulatory' | 'Sales' | 'Finance' | 'Writing' | 'Analysis' | 'Custom';
   systemPrompt: string;
-  provider: 'Gemini' | 'Claude' | 'Groq' | 'Ollama';
+  provider: 'Gemini' | 'Claude' | 'Ollama';
   model: string;
   icon: string;
   createdAt: number;
@@ -134,10 +134,9 @@ export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
         } else {
           const skillKey = skill.provider === 'Gemini' ? apiConfig.geminiKey
             : skill.provider === 'Claude' ? apiConfig.claudeKey
-            : skill.provider === 'Groq' ? (apiConfig.groqKey || import.meta.env.VITE_GROQ_KEY)
             : undefined;
           const res = await callAIProxy({
-            provider: skill.provider.toLowerCase() as 'gemini' | 'claude' | 'groq',
+            provider: skill.provider.toLowerCase() as 'gemini' | 'claude',
             model: skill.model,
             system: skill.systemPrompt,
             messages: [{ role: 'user', content: current }],
@@ -271,7 +270,7 @@ export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
                 <div>
                   <label className="erp-label">Preferred Provider</label>
                   <select value={editingSkill.provider || 'Gemini'} onChange={e => setEditingSkill(s => ({ ...s, provider: e.target.value as Skill['provider'] }))} className="erp-input">
-                    {['Gemini','Claude','Groq','Ollama'].map(p => <option key={p}>{p}</option>)}
+                    {['Gemini','Claude','Ollama'].map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
               </div>

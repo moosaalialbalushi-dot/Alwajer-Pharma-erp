@@ -13,7 +13,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
   const [form, setForm] = useState<ApiConfig>({
     claudeKey: config.claudeKey ?? '',
     geminiKey: config.geminiKey ?? '',
-    groqKey: config.groqKey ?? '',
+    groqKey: '',  // Removed - Groq is paid
     notebookLmSource: config.notebookLmSource ?? '',
     supabaseUrl: '',  // No longer editable in browser
     supabaseKey: '',  // No longer editable in browser
@@ -70,10 +70,9 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
               <Key size={11}/> Cloud AI Keys
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-[10px] text-blue-700 leading-relaxed">
-              Enter your API keys here to use AI features. Get free keys at: <strong>aistudio.google.com</strong> (Gemini), <strong>console.groq.com</strong> (Groq — fastest &amp; free), <strong>console.anthropic.com</strong> (Claude).
+              Enter your API keys here to use AI features. Get free keys at: <strong>aistudio.google.com</strong> (Gemini), <strong>console.anthropic.com</strong> (Claude).
             </div>
             <Field field="geminiKey" label="Gemini API Key" placeholder="AIza..." type="password"/>
-            <Field field="groqKey" label="Groq API Key (Fast &amp; Free)" placeholder="gsk_..." type="password"/>
             <Field field="claudeKey" label="Claude API Key" placeholder="sk-ant-..." type="password"/>
           </div>
 

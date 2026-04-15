@@ -1,7 +1,7 @@
 export interface AIMessage { role: 'user' | 'assistant'; content: string; }
 
 export interface AIProxyRequest {
-  provider: 'gemini' | 'claude' | 'openrouter' | 'groq';
+  provider: 'gemini' | 'claude' | 'openrouter';
   model: string;
   system?: string;
   messages: AIMessage[];
@@ -21,7 +21,7 @@ export function extractText(response: unknown, provider: string): string {
       const content = r.content as { text: string }[];
       return content?.[0]?.text ?? '';
     }
-    if (provider === 'openrouter' || provider === 'groq') {
+    if (provider === 'openrouter') {
       const choices = r.choices as { message: { content: string } }[];
       return choices?.[0]?.message?.content ?? '';
     }
@@ -30,8 +30,7 @@ export function extractText(response: unknown, provider: string): string {
 }
 
 export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
-  // All providers (including Groq) now use the server proxy for security
-  // No more direct browser calls to external APIs
+  // All providers now use the server proxy for security
   const { apiKey, ...rest } = req;
   const res = await fetch('/api/ai-proxy', {
     method: 'POST',
