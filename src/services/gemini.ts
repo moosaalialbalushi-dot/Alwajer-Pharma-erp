@@ -1,5 +1,3 @@
-// lib/gemini.ts
-// AI helper functions for Al Wajer Pharma ERP — uses stable, available model IDs
 import type { Batch, InventoryItem, Order, COOInsight, Expense, Employee } from '@/types';
 import { callAIProxy, extractText } from './aiProxy';
 
@@ -26,11 +24,14 @@ Employees: ${JSON.stringify(employees)}
 Provide 3-5 operational insights covering production, finance, and staffing risks.
 JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'critical', actionTaken?: string }>`;
 
-  // Primary: Gemini (using stable 1.5-flash)
+  // Primary: Gemini (STABLE MODEL)
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-1.5-flash', // ← CHANGED from gemini-2.0-flash
-      system: SYSTEM, messages: [{ role: 'user', content: prompt }], json_mode: true,
+      provider: 'gemini', 
+      model: 'gemini-1.5-flash', // ✅ CHANGED from gemini-2.0-flash
+      system: SYSTEM, 
+      messages: [{ role: 'user', content: prompt }], 
+      json_mode: true,
       apiKey: apiKeys?.geminiKey,
     });
     const text = extractText(response, 'gemini') || '[]';
@@ -41,8 +42,10 @@ JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'
     // Fallback: Claude
     try {
       const response = await callAIProxy({
-        provider: 'claude', model: 'claude-3-5-sonnet-20241022', // ← Updated to stable model ID
-        system: SYSTEM, messages: [{ role: 'user', content: prompt }],
+        provider: 'claude', 
+        model: 'claude-3-5-sonnet-20241022', // ✅ Updated stable model
+        system: SYSTEM, 
+        messages: [{ role: 'user', content: prompt }],
         apiKey: apiKeys?.claudeKey,
       });
       const text = extractText(response, 'claude') || '[]';
@@ -56,10 +59,11 @@ JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'
 }
 
 export async function quickInsight(summary: string): Promise<string> {
-  // Primary: Gemini (stable model)
+  // Primary: Gemini (STABLE MODEL)
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-1.5-flash', // ← CHANGED from gemini-2.0-flash
+      provider: 'gemini', 
+      model: 'gemini-1.5-flash', // ✅ CHANGED from gemini-2.0-flash
       system: 'You are a fast ERP assistant. Be brief and actionable.',
       messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
     });
@@ -68,7 +72,8 @@ export async function quickInsight(summary: string): Promise<string> {
     // Fallback: Claude
     try {
       const response = await callAIProxy({
-        provider: 'claude', model: 'claude-3-5-sonnet-20241022', // ← Updated stable ID
+        provider: 'claude', 
+        model: 'claude-3-5-sonnet-20241022', // ✅ Updated stable model
         system: 'You are a fast ERP assistant. Be brief and actionable.',
         messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
       });
@@ -84,19 +89,24 @@ export async function chatWithCOO(message: string, history: { role: string; text
     ...history.map(h => ({ role: h.role === 'user' ? 'user' as const : 'assistant' as const, content: h.text })),
     { role: 'user' as const, content: message },
   ];
-  // Primary: Gemini (stable model)
+  
+  // Primary: Gemini (STABLE MODEL)
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-1.5-flash', // ← CHANGED from gemini-2.0-flash
-      system: SYSTEM, messages,
+      provider: 'gemini', 
+      model: 'gemini-1.5-flash', // ✅ CHANGED from gemini-2.0-flash
+      system: SYSTEM, 
+      messages,
     });
     return extractText(response, 'gemini') || 'No response.';
   } catch {
-    // Fallback: Claude (stable model)
+    // Fallback: Claude (STABLE MODEL)
     try {
       const response = await callAIProxy({
-        provider: 'claude', model: 'claude-3-5-sonnet-20241022', // ← Updated stable ID
-        system: SYSTEM, messages,
+        provider: 'claude', 
+        model: 'claude-3-5-sonnet-20241022', // ✅ Updated stable model
+        system: SYSTEM, 
+        messages,
       });
       return extractText(response, 'claude') || 'No response.';
     } catch (e) {
@@ -108,7 +118,8 @@ export async function chatWithCOO(message: string, history: { role: string; text
 export async function optimizeFormulation(rdData: unknown, geminiKey?: string): Promise<string> {
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-1.5-pro', // ← CHANGED from gemini-2.5-pro (non-existent)
+      provider: 'gemini', 
+      model: 'gemini-1.5-pro', // ✅ CHANGED from gemini-2.5-pro (doesn't exist)
       system: SYSTEM,
       messages: [{
         role: 'user',
@@ -125,7 +136,8 @@ export async function optimizeFormulation(rdData: unknown, geminiKey?: string): 
 export async function brainstormSession(topic: string, context: string): Promise<string> {
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-1.5-pro', // ← CHANGED from gemini-2.5-pro
+      provider: 'gemini', 
+      model: 'gemini-1.5-pro', // ✅ CHANGED from gemini-2.5-pro
       system: 'You are an expert pharmaceutical R&D and business strategist.',
       messages: [{
         role: 'user',
