@@ -1,15 +1,15 @@
+// lib/gemini.ts
+// AI helper functions for Al Wajer Pharma ERP — uses stable, available model IDs
 import type { Batch, InventoryItem, Order, COOInsight, Expense, Employee } from '@/types';
 import { callAIProxy, extractText } from './aiProxy';
 
 const SYSTEM = `You are the Al Wajer Solo-ERP Brain. Ensure 100% operational accuracy at the 20 MT Sohar facility.
-
 Rules:
-1. Production: Cross-reference every batch against specs. Flag yield deviation >1% as critical.
-2. Inventory: Trigger procurement at 20% safety stock.
-3. Finance: Warn when liabilities exceed 30% of projected order revenue.
-4. HR: Monitor staffing for critical production runs.
-5. Tone: Luxury, high-precision.
-
+Production: Cross-reference every batch against specs. Flag yield deviation >1% as critical.
+Inventory: Trigger procurement at 20% safety stock.
+Finance: Warn when liabilities exceed 30% of projected order revenue.
+HR: Monitor staffing for critical production runs.
+Tone: Luxury, high-precision.
 Respond in JSON for data updates; concise professional messages for alerts.`;
 
 export async function analyzeOperations(
@@ -23,31 +23,30 @@ Inventory: ${JSON.stringify(inventory)}
 Orders: ${JSON.stringify(orders)}
 Expenses: ${JSON.stringify(expenses)}
 Employees: ${JSON.stringify(employees)}
-
 Provide 3-5 operational insights covering production, finance, and staffing risks.
 JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'critical', actionTaken?: string }>`;
 
-  // Primary: Gemini
+  // Primary: Gemini (using stable 1.5-flash)
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.0-flash',
+      provider: 'gemini', model: 'gemini-1.5-flash', // ← CHANGED from gemini-2.0-flash
       system: SYSTEM, messages: [{ role: 'user', content: prompt }], json_mode: true,
       apiKey: apiKeys?.geminiKey,
     });
     const text = extractText(response, 'gemini') || '[]';
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = text.replace(/`json\n?/g, '').replace(/`\n?/g, '').trim();
     return JSON.parse(cleaned);
   } catch (geminiErr) {
     console.warn('Gemini insight failed, falling back to Claude:', geminiErr);
     // Fallback: Claude
     try {
       const response = await callAIProxy({
-        provider: 'claude', model: 'claude-haiku-4-5-20251001',
+        provider: 'claude', model: 'claude-3-5-sonnet-20241022', // ← Updated to stable model ID
         system: SYSTEM, messages: [{ role: 'user', content: prompt }],
         apiKey: apiKeys?.claudeKey,
       });
       const text = extractText(response, 'claude') || '[]';
-      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const cleaned = text.replace(/`json\n?/g, '').replace(/`\n?/g, '').trim();
       return JSON.parse(cleaned);
     } catch (e) {
       console.error('Both Gemini and Claude failed:', e);
@@ -57,10 +56,10 @@ JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'
 }
 
 export async function quickInsight(summary: string): Promise<string> {
-  // Primary: Gemini
+  // Primary: Gemini (stable model)
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.0-flash',
+      provider: 'gemini', model: 'gemini-1.5-flash', // ← CHANGED from gemini-2.0-flash
       system: 'You are a fast ERP assistant. Be brief and actionable.',
       messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
     });
@@ -69,7 +68,7 @@ export async function quickInsight(summary: string): Promise<string> {
     // Fallback: Claude
     try {
       const response = await callAIProxy({
-        provider: 'claude', model: 'claude-haiku-4-5-20251001',
+        provider: 'claude', model: 'claude-3-5-sonnet-20241022', // ← Updated stable ID
         system: 'You are a fast ERP assistant. Be brief and actionable.',
         messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
       });
@@ -85,18 +84,18 @@ export async function chatWithCOO(message: string, history: { role: string; text
     ...history.map(h => ({ role: h.role === 'user' ? 'user' as const : 'assistant' as const, content: h.text })),
     { role: 'user' as const, content: message },
   ];
-  // Primary: Gemini
+  // Primary: Gemini (stable model)
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.0-flash',
+      provider: 'gemini', model: 'gemini-1.5-flash', // ← CHANGED from gemini-2.0-flash
       system: SYSTEM, messages,
     });
     return extractText(response, 'gemini') || 'No response.';
   } catch {
-    // Fallback: Claude
+    // Fallback: Claude (stable model)
     try {
       const response = await callAIProxy({
-        provider: 'claude', model: 'claude-sonnet-4-6',
+        provider: 'claude', model: 'claude-3-5-sonnet-20241022', // ← Updated stable ID
         system: SYSTEM, messages,
       });
       return extractText(response, 'claude') || 'No response.';
@@ -109,7 +108,7 @@ export async function chatWithCOO(message: string, history: { role: string; text
 export async function optimizeFormulation(rdData: unknown, geminiKey?: string): Promise<string> {
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.5-pro',
+      provider: 'gemini', model: 'gemini-1.5-pro', // ← CHANGED from gemini-2.5-pro (non-existent)
       system: SYSTEM,
       messages: [{
         role: 'user',
@@ -126,7 +125,7 @@ export async function optimizeFormulation(rdData: unknown, geminiKey?: string): 
 export async function brainstormSession(topic: string, context: string): Promise<string> {
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.5-pro',
+      provider: 'gemini', model: 'gemini-1.5-pro', // ← CHANGED from gemini-2.5-pro
       system: 'You are an expert pharmaceutical R&D and business strategist.',
       messages: [{
         role: 'user',
@@ -138,3 +137,4 @@ export async function brainstormSession(topic: string, context: string): Promise
     return `Brainstorm failed: ${String(e)}`;
   }
 }
+
