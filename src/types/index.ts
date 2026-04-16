@@ -223,7 +223,8 @@ export interface ChatSession {
 
 export interface ApiConfig {
   claudeKey: string;
-  groqKey?: string;
+  geminiKey?: string;
+  // groqKey removed - Groq is paid
   notebookLmSource: string;
   supabaseUrl: string;
   supabaseKey: string;

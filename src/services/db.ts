@@ -1,16 +1,16 @@
 /**
- * Persistence layer — Supabase primary, localStorage fallback.
+ * Persistence layer — Supabase via /api/db-proxy (server-side), localStorage fallback.
  *
- * If Supabase env vars are configured and tables exist, data is read/written
- * to the cloud. If Supabase is unreachable or tables are missing, the layer
- * silently falls back to localStorage so the app never loses data.
+ * If Supabase is configured on Vercel and tables exist, data is read/written
+ * to the cloud via the serverless function. If Supabase is unreachable or tables 
+ * are missing, the layer silently falls back to localStorage so the app never loses data.
  *
  * SQL migration (run once in Supabase SQL editor):
  * see /supabase/schema.sql
  */
-import { supabase } from './supabase';
 
 const LS_PREFIX = 'erp_v2_';
+const DB_PROXY_URL = '/api/db-proxy';
 
 export type Table =
   | 'batches' | 'inventory' | 'orders' | 'expenses' | 'employees'
@@ -30,10 +30,33 @@ function writeLS<T>(table: Table, rows: T[]): void {
   try { localStorage.setItem(lsKey(table), JSON.stringify(rows)); } catch { /* quota */ }
 }
 
-function hasSupabase(): boolean {
-  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  return Boolean(url && key && url !== 'https://placeholder.supabase.co');
+/**
+ * Call the server-side db-proxy endpoint
+ */
+async function callDbProxy<T>(
+  action: 'select' | 'insert' | 'upsert' | 'update' | 'delete',
+  table: Table,
+  data?: T,
+  id?: string
+): Promise<{ data: T[] | null; error: Error | null }> {
+  try {
+    const res = await fetch(DB_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, table, data, id }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+
+    const result = await res.json();
+    return { data: result.data || null, error: null };
+  } catch (e) {
+    const error = e instanceof Error ? e : new Error(String(e));
+    return { data: null, error };
+  }
 }
 
 export async function loadTable<T>(table: Table, initial: T[]): Promise<T[]> {
@@ -43,29 +66,27 @@ export async function loadTable<T>(table: Table, initial: T[]): Promise<T[]> {
     writeLS(table, initial);
   }
 
-  if (!hasSupabase()) return readLS<T>(table, initial);
+  // Try to fetch from server-side Supabase
+  const { data, error } = await callDbProxy<T>('select', table);
 
-  try {
-    const { data, error } = await supabase.from(table).select('*');
-    if (error) {
-      console.warn(`[db] Supabase read failed for ${table}, using localStorage:`, error.message);
-      return readLS<T>(table, initial);
-    }
-    if (data && data.length > 0) {
-      writeLS(table, data as T[]);
-      return data as T[];
-    }
-    // Supabase returned empty - seed with initial data
-    if (initial.length > 0) {
-      await supabase.from(table).insert(initial as never[]);
-      writeLS(table, initial);
-      return initial;
-    }
-    return [];
-  } catch (e) {
-    console.warn(`[db] Supabase error for ${table}:`, e);
+  if (error) {
+    console.warn(`[db] Supabase read failed for ${table}, using localStorage:`, error.message);
     return readLS<T>(table, initial);
   }
+
+  if (data && data.length > 0) {
+    writeLS(table, data);
+    return data;
+  }
+
+  // Supabase returned empty - seed with initial data
+  if (initial.length > 0) {
+    await callDbProxy<T>('insert', table, initial[0]);
+    writeLS(table, initial);
+    return initial;
+  }
+
+  return [];
 }
 
 export async function saveRow<T extends { id: string }>(table: Table, row: T): Promise<void> {
@@ -75,26 +96,18 @@ export async function saveRow<T extends { id: string }>(table: Table, row: T): P
   if (idx >= 0) rows[idx] = row; else rows.push(row);
   writeLS(table, rows);
 
-  if (!hasSupabase()) return;
-  try {
-    const { error } = await supabase.from(table).upsert(row as never);
-    if (error) console.warn(`[db] upsert ${table} failed:`, error.message);
-  } catch (e) {
-    console.warn(`[db] upsert ${table} error:`, e);
-  }
+  // Try to upsert to server-side Supabase
+  const { error } = await callDbProxy<T>('upsert', table, row);
+  if (error) console.warn(`[db] upsert ${table} failed:`, error.message);
 }
 
 export async function deleteRow(table: Table, id: string): Promise<void> {
   const rows = readLS<{ id: string }>(table, []);
   writeLS(table, rows.filter(r => r.id !== id));
 
-  if (!hasSupabase()) return;
-  try {
-    const { error } = await supabase.from(table).delete().eq('id', id);
-    if (error) console.warn(`[db] delete ${table} failed:`, error.message);
-  } catch (e) {
-    console.warn(`[db] delete ${table} error:`, e);
-  }
+  // Try to delete from server-side Supabase
+  const { error } = await callDbProxy<{ id: string }>('delete', table, undefined, id);
+  if (error) console.warn(`[db] delete ${table} failed:`, error.message);
 }
 
 export async function appendRow<T>(table: Table, row: T): Promise<void> {
@@ -104,11 +117,7 @@ export async function appendRow<T>(table: Table, row: T): Promise<void> {
   if (table === 'audit_logs' && rows.length > 500) rows.length = 500;
   writeLS(table, rows);
 
-  if (!hasSupabase()) return;
-  try {
-    const { error } = await supabase.from(table).insert(row as never);
-    if (error) console.warn(`[db] insert ${table} failed:`, error.message);
-  } catch (e) {
-    console.warn(`[db] insert ${table} error:`, e);
-  }
+  // Try to insert to server-side Supabase
+  const { error } = await callDbProxy<T>('insert', table, row);
+  if (error) console.warn(`[db] insert ${table} failed:`, error.message);
 }

@@ -1,17 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Supabase client — NOW SERVER-SIDE ONLY via /api/db-proxy
+ * 
+ * ⚠️ IMPORTANT: Supabase credentials are now managed by Vercel environment variables.
+ * The browser no longer has access to SUPABASE_URL or SUPABASE_ANON_KEY.
+ * All database operations go through /api/db-proxy (serverless function).
+ * 
+ * Required Vercel Environment Variables:
+ *   SUPABASE_URL       → https://xxx.supabase.co
+ *   SUPABASE_ANON_KEY  → eyJ... (from Supabase project settings)
+ */
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) ?? '';
-const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ?? '';
+// This file is kept for backwards compatibility but is no longer used directly.
+// All database operations now use the db.ts module which calls /api/db-proxy
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn(
-    '[Supabase] Missing env vars.\n' +
-    'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local\n' +
-    'or Vercel → Settings → Environment Variables.'
-  );
-}
-
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseKey || 'placeholder'
-);
+export const supabase = {
+  // Placeholder — all operations go through /api/db-proxy
+  from: (table: string) => ({
+    select: async () => ({ data: null, error: { message: 'Use loadTable() from db.ts instead' } }),
+    insert: async () => ({ data: null, error: { message: 'Use appendRow() from db.ts instead' } }),
+    upsert: async () => ({ data: null, error: { message: 'Use saveRow() from db.ts instead' } }),
+    update: async () => ({ data: null, error: { message: 'Use saveRow() from db.ts instead' } }),
+    delete: async () => ({ data: null, error: { message: 'Use deleteRow() from db.ts instead' } }),
+  }),
+};
