@@ -223,7 +223,6 @@ export interface ChatSession {
 
 export interface ApiConfig {
   claudeKey: string;
-  geminiKey?: string;
   groqKey?: string;
   notebookLmSource: string;
   supabaseUrl: string;

@@ -132,8 +132,7 @@ export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
             skill.systemPrompt,
           );
         } else {
-          const skillKey = skill.provider === 'Gemini' ? apiConfig.geminiKey
-            : skill.provider === 'Claude' ? apiConfig.claudeKey
+          const skillKey = skill.provider === 'Claude' ? apiConfig.claudeKey
             : skill.provider === 'Groq' ? (apiConfig.groqKey || import.meta.env.VITE_GROQ_KEY)
             : undefined;
           const res = await callAIProxy({

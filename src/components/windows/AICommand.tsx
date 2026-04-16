@@ -152,9 +152,9 @@ export const AICommand: React.FC<Props> = ({
           systemPrompt,
         );
       } else {
-        const providerKey = activeProvider === 'Gemini' ? apiConfig.geminiKey
-          : activeProvider === 'Claude' ? apiConfig.claudeKey
+        const providerKey = activeProvider === 'Claude' ? apiConfig.claudeKey
           : activeProvider === 'Groq' ? (apiConfig.groqKey || import.meta.env.VITE_GROQ_KEY)
+          : activeProvider === 'Gemini' ? undefined  // Gemini needs GEMINI_API_KEY in Vercel env
           : undefined;
         const res = await callAIProxy({
           provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'groq',

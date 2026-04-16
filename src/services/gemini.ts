@@ -12,10 +12,14 @@ Rules:
 
 Respond in JSON for data updates; concise professional messages for alerts.`;
 
+async function claude(system: string, content: string, claudeKey?: string, model = 'claude-haiku-4-5-20251001') {
+  return callAIProxy({ provider: 'claude', model, system, messages: [{ role: 'user', content }], apiKey: claudeKey });
+}
+
 export async function analyzeOperations(
   batches: Batch[], inventory: InventoryItem[], orders: Order[],
   expenses: Expense[] = [], employees: Employee[] = [],
-  apiKeys?: { geminiKey?: string; claudeKey?: string }
+  apiKeys?: { claudeKey?: string }
 ): Promise<COOInsight[]> {
   const prompt = `Current State:
 Batches: ${JSON.stringify(batches)}
@@ -27,113 +31,69 @@ Employees: ${JSON.stringify(employees)}
 Provide 3-5 operational insights covering production, finance, and staffing risks.
 JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'critical', actionTaken?: string }>`;
 
-  // Primary: Gemini
   try {
-    const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.0-flash',
-      system: SYSTEM, messages: [{ role: 'user', content: prompt }], json_mode: true,
-      apiKey: apiKeys?.geminiKey,
-    });
-    const text = extractText(response, 'gemini') || '[]';
+    const response = await claude(SYSTEM, prompt, apiKeys?.claudeKey);
+    const text = extractText(response, 'claude') || '[]';
     const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
-  } catch (geminiErr) {
-    console.warn('Gemini insight failed, falling back to Claude:', geminiErr);
-    // Fallback: Claude
-    try {
-      const response = await callAIProxy({
-        provider: 'claude', model: 'claude-haiku-4-5-20251001',
-        system: SYSTEM, messages: [{ role: 'user', content: prompt }],
-        apiKey: apiKeys?.claudeKey,
-      });
-      const text = extractText(response, 'claude') || '[]';
-      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      return JSON.parse(cleaned);
-    } catch (e) {
-      console.error('Both Gemini and Claude failed:', e);
-      return [];
-    }
+  } catch (e) {
+    console.error('analyzeOperations failed:', e);
+    return [];
   }
 }
 
-export async function quickInsight(summary: string): Promise<string> {
-  // Primary: Gemini
+export async function quickInsight(summary: string, claudeKey?: string): Promise<string> {
   try {
-    const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.0-flash',
-      system: 'You are a fast ERP assistant. Be brief and actionable.',
-      messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
-    });
-    return extractText(response, 'gemini') || 'Status normal.';
+    const response = await claude(
+      'You are a fast ERP assistant. Be brief and actionable.',
+      `Quickly summarize status: ${summary}`,
+      claudeKey,
+    );
+    return extractText(response, 'claude') || 'Status normal.';
   } catch {
-    // Fallback: Claude
-    try {
-      const response = await callAIProxy({
-        provider: 'claude', model: 'claude-haiku-4-5-20251001',
-        system: 'You are a fast ERP assistant. Be brief and actionable.',
-        messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
-      });
-      return extractText(response, 'claude') || 'Status normal.';
-    } catch {
-      return 'System operational.';
-    }
+    return 'System operational.';
   }
 }
 
-export async function chatWithCOO(message: string, history: { role: string; text: string }[]): Promise<string> {
+export async function chatWithCOO(message: string, history: { role: string; text: string }[], claudeKey?: string): Promise<string> {
   const messages = [
     ...history.map(h => ({ role: h.role === 'user' ? 'user' as const : 'assistant' as const, content: h.text })),
     { role: 'user' as const, content: message },
   ];
-  // Primary: Gemini
   try {
     const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.0-flash',
-      system: SYSTEM, messages,
+      provider: 'claude', model: 'claude-sonnet-4-6',
+      system: SYSTEM, messages, apiKey: claudeKey,
     });
-    return extractText(response, 'gemini') || 'No response.';
-  } catch {
-    // Fallback: Claude
-    try {
-      const response = await callAIProxy({
-        provider: 'claude', model: 'claude-sonnet-4-6',
-        system: SYSTEM, messages,
-      });
-      return extractText(response, 'claude') || 'No response.';
-    } catch (e) {
-      return `Error: ${String(e)}`;
-    }
+    return extractText(response, 'claude') || 'No response.';
+  } catch (e) {
+    return `Error: ${String(e)}`;
   }
 }
 
-export async function optimizeFormulation(rdData: unknown, geminiKey?: string): Promise<string> {
+export async function optimizeFormulation(rdData: unknown, claudeKey?: string): Promise<string> {
   try {
-    const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.5-pro',
-      system: SYSTEM,
-      messages: [{
-        role: 'user',
-        content: `Analyze and optimize this pharmaceutical formulation:\n${JSON.stringify(rdData, null, 2)}\n\nProvide:\n1. Optimization recommendations\n2. Cost reduction opportunities\n3. Quality improvements\n4. Regulatory considerations`,
-      }],
-      apiKey: geminiKey,
-    });
-    return extractText(response, 'gemini') || 'No optimization data.';
+    const response = await claude(
+      SYSTEM,
+      `Analyze and optimize this pharmaceutical formulation:\n${JSON.stringify(rdData, null, 2)}\n\nProvide:\n1. Optimization recommendations\n2. Cost reduction opportunities\n3. Quality improvements\n4. Regulatory considerations`,
+      claudeKey,
+      'claude-sonnet-4-6',
+    );
+    return extractText(response, 'claude') || 'No optimization data.';
   } catch (e) {
     return `Optimization failed: ${String(e)}`;
   }
 }
 
-export async function brainstormSession(topic: string, context: string): Promise<string> {
+export async function brainstormSession(topic: string, context: string, claudeKey?: string): Promise<string> {
   try {
-    const response = await callAIProxy({
-      provider: 'gemini', model: 'gemini-2.5-pro',
-      system: 'You are an expert pharmaceutical R&D and business strategist.',
-      messages: [{
-        role: 'user',
-        content: `Brainstorm on: ${topic}\n\nContext: ${context}\n\nProvide innovative ideas, strategies, and actionable insights.`,
-      }],
-    });
-    return extractText(response, 'gemini') || 'No ideas generated.';
+    const response = await claude(
+      'You are an expert pharmaceutical R&D and business strategist.',
+      `Brainstorm on: ${topic}\n\nContext: ${context}\n\nProvide innovative ideas, strategies, and actionable insights.`,
+      claudeKey,
+      'claude-sonnet-4-6',
+    );
+    return extractText(response, 'claude') || 'No ideas generated.';
   } catch (e) {
     return `Brainstorm failed: ${String(e)}`;
   }
