@@ -13,7 +13,6 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
   const [form, setForm] = useState<ApiConfig>({
     claudeKey: config.claudeKey ?? '',
     geminiKey: config.geminiKey ?? '',
-    groqKey: '',  // Removed - Groq is paid
     notebookLmSource: config.notebookLmSource ?? '',
     supabaseUrl: '',  // No longer editable in browser
     supabaseKey: '',  // No longer editable in browser

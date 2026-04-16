@@ -1,15 +1,20 @@
-// src/services/gemini.ts
 import type { Batch, InventoryItem, Order, COOInsight, Expense, Employee } from '@/types';
 import { callAIProxy, extractText } from './aiProxy';
 
 const SYSTEM = `You are the Al Wajer Solo-ERP Brain. Ensure 100% operational accuracy at the 20 MT Sohar facility.
+
 Rules:
-Production: Cross-reference every batch against specs. Flag yield deviation >1% as critical.
-Inventory: Trigger procurement at 20% safety stock.
-Finance: Warn when liabilities exceed 30% of projected order revenue.
-HR: Monitor staffing for critical production runs.
-Tone: Luxury, high-precision.
+1. Production: Cross-reference every batch against specs. Flag yield deviation >1% as critical.
+2. Inventory: Trigger procurement at 20% safety stock.
+3. Finance: Warn when liabilities exceed 30% of projected order revenue.
+4. HR: Monitor staffing for critical production runs.
+5. Tone: Luxury, high-precision.
+
 Respond in JSON for data updates; concise professional messages for alerts.`;
+
+async function claude(system: string, content: string, claudeKey?: string, model = 'claude-haiku-4-5-20251001') {
+  return callAIProxy({ provider: 'claude', model, system, messages: [{ role: 'user', content }], apiKey: claudeKey });
+}
 
 export async function analyzeOperations(
   batches: Batch[], inventory: InventoryItem[], orders: Order[],
@@ -22,52 +27,43 @@ Inventory: ${JSON.stringify(inventory)}
 Orders: ${JSON.stringify(orders)}
 Expenses: ${JSON.stringify(expenses)}
 Employees: ${JSON.stringify(employees)}
+
 Provide 3-5 operational insights covering production, finance, and staffing risks.
 JSON format: Array<{ type: string, message: string, severity: 'info'|'warning'|'critical', actionTaken?: string }>`;
 
   try {
-    const response = await callAIProxy({
-      provider: 'claude',          // 🔑 Hardcoded to Claude
-      model: 'claude-3-5-sonnet-20241022',
-      system: SYSTEM,
-      messages: [{ role: 'user', content: prompt }],
-      json_mode: true,
-      apiKey: apiKeys?.claudeKey,
-    });
+    const response = await claude(SYSTEM, prompt, apiKeys?.claudeKey);
     const text = extractText(response, 'claude') || '[]';
-    const cleaned = text.replace(/`json\n?/g, '').replace(/`\n?/g, '').trim();
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error('AI Operation Analysis failed:', e);
+    console.error('analyzeOperations failed:', e);
     return [];
   }
 }
 
-export async function quickInsight(summary: string): Promise<string> {
+export async function quickInsight(summary: string, claudeKey?: string): Promise<string> {
   try {
-    const response = await callAIProxy({
-      provider: 'claude',          // 🔑 Hardcoded to Claude
-      model: 'claude-3-5-sonnet-20241022',
-      system: 'You are a fast ERP assistant. Be brief and actionable.',
-      messages: [{ role: 'user', content: `Quickly summarize status: ${summary}` }],
-    });
+    const response = await claude(
+      'You are a fast ERP assistant. Be brief and actionable.',
+      `Quickly summarize status: ${summary}`,
+      claudeKey,
+    );
     return extractText(response, 'claude') || 'Status normal.';
   } catch {
     return 'System operational.';
   }
 }
 
-export async function chatWithCOO(message: string, history: { role: string; text: string }[]): Promise<string> {
+export async function chatWithCOO(message: string, history: { role: string; text: string }[], claudeKey?: string): Promise<string> {
   const messages = [
-    ...history.map(h => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.text })),
-    { role: 'user', content: message },
+    ...history.map(h => ({ role: h.role === 'user' ? 'user' as const : 'assistant' as const, content: h.text })),
+    { role: 'user' as const, content: message },
   ];
   try {
     const response = await callAIProxy({
-      provider: 'claude',          // 🔑 Hardcoded to Claude
-      model: 'claude-3-5-sonnet-20241022',
-      system: SYSTEM,
-      messages,
+      provider: 'claude', model: 'claude-sonnet-4-6',
+      system: SYSTEM, messages, apiKey: claudeKey,
     });
     return extractText(response, 'claude') || 'No response.';
   } catch (e) {
@@ -77,36 +73,28 @@ export async function chatWithCOO(message: string, history: { role: string; text
 
 export async function optimizeFormulation(rdData: unknown, claudeKey?: string): Promise<string> {
   try {
-    const response = await callAIProxy({
-      provider: 'claude',          // 🔑 Hardcoded to Claude
-      model: 'claude-3-5-sonnet-20241022',
-      system: SYSTEM,
-      messages: [{
-        role: 'user',
-        content: `Analyze and optimize this pharmaceutical formulation:\n${JSON.stringify(rdData, null, 2)}\n\nProvide:\n1. Optimization recommendations\n2. Cost reduction opportunities\n3. Quality improvements\n4. Regulatory considerations`,
-      }],
-      apiKey: claudeKey,
-    });
+    const response = await claude(
+      SYSTEM,
+      `Analyze and optimize this pharmaceutical formulation:\n${JSON.stringify(rdData, null, 2)}\n\nProvide:\n1. Optimization recommendations\n2. Cost reduction opportunities\n3. Quality improvements\n4. Regulatory considerations`,
+      claudeKey,
+      'claude-sonnet-4-6',
+    );
     return extractText(response, 'claude') || 'No optimization data.';
   } catch (e) {
     return `Optimization failed: ${String(e)}`;
   }
 }
 
-export async function brainstormSession(topic: string, context: string): Promise<string> {
+export async function brainstormSession(topic: string, context: string, claudeKey?: string): Promise<string> {
   try {
-    const response = await callAIProxy({
-      provider: 'claude',          // 🔑 Hardcoded to Claude
-      model: 'claude-3-5-sonnet-20241022',
-      system: 'You are an expert pharmaceutical R&D and business strategist.',
-      messages: [{
-        role: 'user',
-        content: `Brainstorm on: ${topic}\n\nContext: ${context}\n\nProvide innovative ideas, strategies, and actionable insights.`,
-      }],
-    });
+    const response = await claude(
+      'You are an expert pharmaceutical R&D and business strategist.',
+      `Brainstorm on: ${topic}\n\nContext: ${context}\n\nProvide innovative ideas, strategies, and actionable insights.`,
+      claudeKey,
+      'claude-sonnet-4-6',
+    );
     return extractText(response, 'claude') || 'No ideas generated.';
   } catch (e) {
     return `Brainstorm failed: ${String(e)}`;
   }
 }
-

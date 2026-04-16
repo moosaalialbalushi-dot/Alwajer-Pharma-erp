@@ -38,7 +38,7 @@ const App: React.FC = () => {
       const results = await analyzeOperations(
         state.batches, state.inventory, state.orders,
         state.expenses, state.employees,
-        { geminiKey: state.apiConfig.geminiKey, claudeKey: state.apiConfig.claudeKey }
+        { claudeKey: state.apiConfig.claudeKey }
       );
       state.setInsights(results);
     } catch {/* ignore */} finally {
@@ -84,8 +84,8 @@ const App: React.FC = () => {
 
   // ── R&D Optimize ────────────────────────────────────────────────────────────
   const handleOptimizeRD = useCallback(async (project: RDProject): Promise<string> => {
-    return optimizeFormulation(project, state.apiConfig.geminiKey);
-  }, [state.apiConfig.geminiKey]);
+    return optimizeFormulation(project, state.apiConfig.claudeKey);
+  }, [state.apiConfig.claudeKey]);
 
   // ── Industrial file analysis ────────────────────────────────────────────────
   const handleAnalyzeFile = useCallback(async (file: File): Promise<string> => {
@@ -94,16 +94,16 @@ const App: React.FC = () => {
       const text = await file.text().catch(() => `[Binary file: ${file.name}]`);
       const preview = text.slice(0, 3000);
       const res = await callAIProxy({
-        provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        provider: 'claude',
+        model: 'claude-haiku-4-5-20251001',
         system: 'You are a pharmaceutical document analyst. Analyze the document and provide key insights.',
         messages: [{
           role: 'user',
           content: `Analyze this pharmaceutical document:\n\nFilename: ${file.name}\n\nContent:\n${preview}\n\nProvide: 1) Document type 2) Key data points 3) Quality/compliance flags 4) Action items`,
         }],
-        apiKey: state.apiConfig.geminiKey,
+        apiKey: state.apiConfig.claudeKey,
       });
-      return extractText(res, 'gemini') || 'Analysis complete.';
+      return extractText(res, 'claude') || 'Analysis complete.';
     } catch (e) {
       return `Analysis failed: ${String(e)}`;
     }

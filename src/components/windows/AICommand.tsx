@@ -5,18 +5,10 @@ import {
 import type { ChatSession, ChatMessage, ApiConfig } from '@/types';
 import { callAIProxy, callOllama, extractText } from '@/services/aiProxy';
 
-const PROVIDERS = ['Gemini', 'Claude', 'Ollama'] as const;
+const PROVIDERS = ['Claude', 'Ollama'] as const;
 type Provider = typeof PROVIDERS[number];
 
 const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
-  Gemini: [
-    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash-Lite' },
-    { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-    { id: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8B' },
-  ],
   Claude: [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
@@ -43,13 +35,11 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
 };
 
 const PROVIDER_COLORS: Record<Provider, string> = {
-  Gemini: 'text-blue-400',
   Claude: 'text-orange-400',
   Ollama: 'text-purple-400',
 };
 
 const PROVIDER_ACTIVE: Record<Provider, string> = {
-  Gemini: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
   Claude: 'bg-orange-500/10 border-orange-500/30 text-orange-400',
   Ollama: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
 };
@@ -71,7 +61,6 @@ export const AICommand: React.FC<Props> = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
-    Gemini: 'gemini-2.0-flash',
     Claude: 'claude-sonnet-4-6',
     Ollama: apiConfig.ollamaModel || 'gemma3:4b',
   });
@@ -123,11 +112,9 @@ export const AICommand: React.FC<Props> = ({
       if (activeProvider === 'Ollama') {
         text = await callOllama(apiConfig.ollamaUrl || 'http://localhost:11434', selectedModel[activeProvider], [...history, { role: 'user', content: userInput }], systemPrompt);
       } else {
-        const providerKey = activeProvider === 'Gemini' ? apiConfig.geminiKey
-          : activeProvider === 'Claude' ? apiConfig.claudeKey
-          : undefined;
+        const providerKey = activeProvider === 'Claude' ? apiConfig.claudeKey : undefined;
         const res = await callAIProxy({
-          provider: activeProvider.toLowerCase() as 'gemini' | 'claude',
+          provider: 'claude',
           model: selectedModel[activeProvider],
           system: systemPrompt,
           messages: [...history, { role: 'user', content: userInput }],
@@ -190,7 +177,7 @@ export const AICommand: React.FC<Props> = ({
           {PROVIDERS.map(p => (
             <button key={p} onClick={() => onSetProvider(p)}
               className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? PROVIDER_ACTIVE[p] : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
-              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🏠 Ollama'}
+              {p === 'Claude' ? '🤖 Claude' : '🏠 Ollama'}
             </button>
           ))}
           <div className="w-px h-4 bg-gray-200 mx-1"/>

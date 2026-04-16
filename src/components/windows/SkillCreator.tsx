@@ -9,7 +9,7 @@ interface Skill {
   description: string;
   category: 'Pharma' | 'Regulatory' | 'Sales' | 'Finance' | 'Writing' | 'Analysis' | 'Custom';
   systemPrompt: string;
-  provider: 'Gemini' | 'Claude' | 'Ollama';
+  provider: 'Claude' | 'Ollama';
   model: string;
   icon: string;
   createdAt: number;
@@ -33,12 +33,12 @@ const DEFAULT_SKILLS: Skill[] = [
   {
     id: 'default-1', name: 'Pharma Formulation Expert', description: 'Analyze formulations, suggest improvements, stability insights', category: 'Pharma', icon: '💊',
     systemPrompt: 'You are an expert pharmaceutical formulator specializing in oral dosage forms. Analyze formulations, suggest improvements, identify stability issues, and provide technical recommendations following ICH guidelines and GMP standards.',
-    provider: 'Gemini', model: 'gemini-2.0-flash', createdAt: 0,
+    provider: 'Claude', model: 'claude-haiku-4-5-20251001', createdAt: 0,
   },
   {
     id: 'default-2', name: 'Regulatory Affairs Advisor', description: 'GMP, dossier, WHO pre-qual, Middle East market auth', category: 'Regulatory', icon: '📋',
     systemPrompt: 'You are a pharmaceutical regulatory expert. Provide guidance on GMP compliance, dossier preparation, CTD format, WHO pre-qualification, and market authorization requirements for Middle East and Africa markets.',
-    provider: 'Gemini', model: 'gemini-2.0-flash', createdAt: 0,
+    provider: 'Claude', model: 'claude-haiku-4-5-20251001', createdAt: 0,
   },
   {
     id: 'default-3', name: 'Sales Email Writer', description: 'Professional pharma business emails and quotations', category: 'Sales', icon: '✉️',
@@ -48,7 +48,7 @@ const DEFAULT_SKILLS: Skill[] = [
   {
     id: 'default-4', name: 'Financial Analyzer', description: 'Cost, margin, profitability and cash flow analysis', category: 'Finance', icon: '📊',
     systemPrompt: 'You are a pharmaceutical financial analyst. Analyze costs, margins, profitability, cash flow, and provide actionable financial insights for a pharmaceutical manufacturing company in Oman.',
-    provider: 'Gemini', model: 'gemini-2.0-flash', createdAt: 0,
+    provider: 'Claude', model: 'claude-haiku-4-5-20251001', createdAt: 0,
   },
   {
     id: 'default-5', name: 'COA / Document Drafter', description: 'Draft CoAs, specs, SOPs following GMP standards', category: 'Writing', icon: '📄',
@@ -58,7 +58,7 @@ const DEFAULT_SKILLS: Skill[] = [
   {
     id: 'default-6', name: 'Market Intelligence', description: 'Market trends, pricing, and business opportunities', category: 'Analysis', icon: '🌍',
     systemPrompt: 'You are a pharmaceutical market intelligence analyst. Provide insights on market trends, competitor analysis, pricing strategies, and business opportunities in pharmaceutical markets across Middle East, Africa, and Asia.',
-    provider: 'Gemini', model: 'gemini-2.5-pro', createdAt: 0,
+    provider: 'Claude', model: 'claude-sonnet-4-6', createdAt: 0,
   },
 ];
 
@@ -75,7 +75,7 @@ function saveSkillsToStorage(skills: Skill[]) {
 }
 
 const BLANK_SKILL: Omit<Skill, 'id' | 'createdAt'> = {
-  name: '', description: '', category: 'Custom', systemPrompt: '', provider: 'Gemini', model: 'gemini-2.0-flash', icon: '⚡',
+  name: '', description: '', category: 'Custom', systemPrompt: '', provider: 'Claude', model: 'claude-haiku-4-5-20251001', icon: '⚡',
 };
 
 export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
@@ -132,11 +132,9 @@ export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
             skill.systemPrompt,
           );
         } else {
-          const skillKey = skill.provider === 'Gemini' ? apiConfig.geminiKey
-            : skill.provider === 'Claude' ? apiConfig.claudeKey
-            : undefined;
+          const skillKey = skill.provider === 'Claude' ? apiConfig.claudeKey : undefined;
           const res = await callAIProxy({
-            provider: skill.provider.toLowerCase() as 'gemini' | 'claude',
+            provider: 'claude',
             model: skill.model,
             system: skill.systemPrompt,
             messages: [{ role: 'user', content: current }],
@@ -269,8 +267,8 @@ export const SkillCreator: React.FC<Props> = ({ apiConfig }) => {
                 </div>
                 <div>
                   <label className="erp-label">Preferred Provider</label>
-                  <select value={editingSkill.provider || 'Gemini'} onChange={e => setEditingSkill(s => ({ ...s, provider: e.target.value as Skill['provider'] }))} className="erp-input">
-                    {['Gemini','Claude','Ollama'].map(p => <option key={p}>{p}</option>)}
+                  <select value={editingSkill.provider || 'Claude'} onChange={e => setEditingSkill(s => ({ ...s, provider: e.target.value as Skill['provider'] }))} className="erp-input">
+                    {['Claude','Ollama'].map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
               </div>
