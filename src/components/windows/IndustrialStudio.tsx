@@ -9,9 +9,10 @@ interface AnalysisResult {
 
 interface Props {
   onAnalyzeFile: (file: File) => Promise<string>;
+  claudeKey?: string;
 }
 
-export const IndustrialStudio: React.FC<Props> = ({ onAnalyzeFile }) => {
+export const IndustrialStudio: React.FC<Props> = ({ onAnalyzeFile, claudeKey }) => {
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [prompt, setPrompt] = useState('');
@@ -46,12 +47,13 @@ export const IndustrialStudio: React.FC<Props> = ({ onAnalyzeFile }) => {
     try {
       const { callAIProxy, extractText } = await import('@/services/aiProxy');
       const res = await callAIProxy({
-        provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        provider: 'claude',
+        model: 'claude-haiku-4-5-20251001',
         system: 'You are an industrial pharmaceutical production expert. Help with process design, equipment selection, capacity planning, and GMP compliance.',
         messages: [{ role: 'user', content: prompt }],
+        apiKey: claudeKey,
       });
-      setAiResponse(extractText(res, 'gemini') || 'No response.');
+      setAiResponse(extractText(res, 'claude') || 'No response.');
     } catch (e) {
       setAiResponse(`Error: ${String(e)}`);
     } finally {

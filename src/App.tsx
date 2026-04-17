@@ -21,6 +21,7 @@ import { Logistics } from '@/components/windows/Logistics';
 import { Calculator } from '@/components/windows/Calculator';
 import { AICommand } from '@/components/windows/AICommand';
 import { SkillCreator } from '@/components/windows/SkillCreator';
+import { SmartIntake } from '@/components/windows/SmartIntake';
 import { AuditHistory } from '@/components/windows/AuditHistory';
 import { analyzeOperations, optimizeFormulation } from '@/services/gemini';
 import { callAIProxy, extractText } from '@/services/aiProxy';
@@ -212,7 +213,7 @@ const App: React.FC = () => {
             />
           )}
           {state.activeTab === 'industrial' && (
-            <IndustrialStudio onAnalyzeFile={handleAnalyzeFile}/>
+            <IndustrialStudio onAnalyzeFile={handleAnalyzeFile} claudeKey={state.apiConfig.claudeKey}/>
           )}
           {state.activeTab === 'bd' && (
             <BusinessDev
@@ -259,6 +260,13 @@ const App: React.FC = () => {
           )}
           {state.activeTab === 'skills' && (
             <SkillCreator apiConfig={state.apiConfig}/>
+          )}
+          {state.activeTab === 'intake' && (
+            <SmartIntake
+              claudeKey={state.apiConfig.claudeKey}
+              onSaveToModule={(type, data) => state.openModal('add', type, data)}
+              onNavigate={tab => state.setActiveTab(tab as never)}
+            />
           )}
           {state.activeTab === 'history' && (
             <AuditHistory

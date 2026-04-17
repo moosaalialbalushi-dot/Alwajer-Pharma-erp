@@ -2,7 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard, Factory, Boxes, BadgeDollarSign, Truck, Wallet,
   Users, Beaker, DraftingCompass, Globe, PackageSearch, Calculator,
-  BrainCircuit, History, ChevronRight, Sparkles,
+  BrainCircuit, History, ChevronRight, Sparkles, Inbox,
 } from 'lucide-react';
 import type { TabId } from '@/types';
 
@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'samples',    label: 'Sample Status',     icon: PackageSearch },
   { id: 'logistics',  label: 'Logistics',         icon: Truck },
   { id: 'costing',    label: 'Sales vs Cost',     icon: Calculator },
+  { id: 'intake',     label: 'Smart Intake',      icon: Inbox },
   { id: 'ai',         label: 'AI Command',        icon: BrainCircuit },
   { id: 'skills',     label: 'Skill Creator',     icon: Sparkles },
   { id: 'history',    label: 'Audit History',     icon: History },
