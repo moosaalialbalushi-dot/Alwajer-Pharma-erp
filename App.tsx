@@ -237,13 +237,13 @@ const App: React.FC = () => {
 
   // Per-provider model selection
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
-    Gemini: 'gemini-2.0-flash',
+    Gemini: 'gemini-2.5-pro',
     Claude: 'claude-sonnet-4-6',
     DeepSeek: 'deepseek-chat',
   });
   const PROVIDER_MODELS: Record<string, { id: string; label: string; note: string }[]> = {
   Gemini: [
-    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', note: 'Fast — default' },
+    { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro',   note: 'Fast — default' },
     { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro',   note: 'Deep analysis'  },
   ],
   Claude: [

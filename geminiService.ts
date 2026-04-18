@@ -32,7 +32,7 @@ Output JSON format: Array<{ type: string, message: string, severity: 'info' | 'w
   try {
     const response = await callAIProxy({
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       system: SYSTEM_INSTRUCTION,
       messages: [{ role: 'user', content: prompt }],
       json_mode: true
@@ -50,7 +50,7 @@ export const quickInsight = async (dataSummary: string): Promise<string> => {
   try {
     const response = await callAIProxy({
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       system: "You are a fast, efficient ERP assistant. Be brief.",
       messages: [{ role: 'user', content: `Quickly summarize status: ${dataSummary}` }]
     });
@@ -66,7 +66,7 @@ Return JSON: { "suggestion": "string", "optimizedIngredients": "Array<Ingredient
   try {
     const response = await callAIProxy({
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       system: "You are an expert Pharmaceutical Formulation Scientist.",
       messages: [{ role: 'user', content: prompt }],
       json_mode: true
@@ -84,7 +84,7 @@ export const chatWithCOO = async (message: string, history: any[]) => {
   try {
     const response = await callAIProxy({
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       system: SYSTEM_INSTRUCTION,
       messages: [{ role: 'user', content: message }]
     });
@@ -107,7 +107,7 @@ export const analyzeImageOrFile = async (base64Data: string, mimeType: string, p
 
     const response = await callAIProxy({
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       messages: [
         {
           role: 'user',
@@ -137,7 +137,7 @@ export const brainstormSession = async (topic: string, persona: 'logic' | 'creat
   try {
     const response = await callAIProxy({
       provider: 'gemini',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-pro',
       system: systemInstruction,
       messages: [{ role: 'user', content: topic }]
     });

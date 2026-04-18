@@ -7,9 +7,9 @@
 
 export const MODELS = {
   gemini: {
-    flash:   { id: 'gemini-2.0-flash',               label: 'Gemini 2.0 Flash',   speed: 'fast',   use: 'Default — fast, data analysis'          },
+    flash:   { id: 'gemini-2.5-pro',                  label: 'Gemini 2.5 Pro',     speed: 'fast',   use: 'Default — fast, data analysis'          },
     pro:     { id: 'gemini-2.5-pro',                  label: 'Gemini 2.5 Pro',     speed: 'medium', use: 'Deep analysis, long documents'           },
-    thinking:{ id: 'gemini-2.0-flash-thinking-exp-01-21', label: 'Gemini Thinking', speed: 'slow', use: 'Step-by-step reasoning tasks'           },
+    thinking:{ id: 'gemini-2.5-pro', label: 'Gemini Thinking', speed: 'slow', use: 'Step-by-step reasoning tasks'           },
   },
   claude: {
     haiku:   { id: 'claude-haiku-4-5-20251001',       label: 'Claude Haiku',       speed: 'fast',   use: 'Quick lookups, short answers'            },

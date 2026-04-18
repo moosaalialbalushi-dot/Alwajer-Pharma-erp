@@ -12,7 +12,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-async function callGemini(key: string, system: string, userMsg: string, model = 'gemini-2.0-flash'): Promise<string> {
+async function callGemini(key: string, system: string, userMsg: string, model = 'gemini-2.5-pro'): Promise<string> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: userMsg }] }],
     systemInstruction: { parts: [{ text: system }] },
@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       query,
       chain: {
-        initiator:      { provider: 'Gemini 2.0 Flash',  model: 'gemini-2.0-flash', response: initiatorResponse },
+        initiator:      { provider: 'Gemini 2.5 Pro',  model: 'gemini-2.5-pro', response: initiatorResponse },
         validator:      { provider: 'Claude Sonnet 4.6', model: 'claude-sonnet-4-6', response: validatorResponse },
         finalValidator: { provider: 'Qwen Plus',         model: 'qwen-plus',         response: finalResponse },
       },
