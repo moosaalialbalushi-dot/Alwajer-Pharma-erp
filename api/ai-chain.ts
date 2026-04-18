@@ -8,7 +8,21 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-async function callClaude(key: string, system: string, userMsg: string): Promise<string> {
+async function callGemini(key: string, system: string, userMsg: string, model = 'gemini-2.0-flash'): Promise<string> {
+  const body: Record<string, unknown> = {
+    contents: [{ role: 'user', parts: [{ text: userMsg }] }],
+    systemInstruction: { parts: [{ text: system }] },
+  };
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
+  return data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
+}
+
+async function callClaude(key: string, system: string, userMsg: string, model = 'claude-sonnet-4-6'): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -56,7 +70,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // STEP 3: Final
     const final = await callClaude(key, `You are the Final Expert. Combine the draft and critique into a perfect answer. Context: ${domainContext}.`, `Draft: ${draft}\nCritique: ${critique}`);
 
-    return res.status(200).json({ result: final });
+    return res.status(200).json({
+      query,
+      chain: {
+        initiator:      { provider: 'Gemini 2.0 Flash',  model: 'gemini-2.0-flash', response: initiatorResponse },
+        validator:      { provider: 'Claude Sonnet 4.6', model: 'claude-sonnet-4-6', response: validatorResponse },
+        finalValidator: { provider: 'Qwen Plus',         model: 'qwen-plus',         response: finalResponse },
+      },
+    });
+
   } catch (err: unknown) {
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Chain failed' });
   }
