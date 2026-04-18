@@ -2,10 +2,9 @@
 // Vercel Serverless Function — all keys server-side only.
 //
 // Required Vercel Environment Variables:
-//   ANTHROPIC_API_KEY   → sk-ant-...
-//   GEMINI_API_KEY      → AIza...
-//   QWEN_API_KEY        → sk-... (from dashscope.aliyun.com)
-//   DEEPSEEK_API_KEY    → sk-... (optional, legacy)
+//   ANTHROPIC_API_KEY   → sk-ant-... (Claude)
+//   GEMINI_API_KEY      → AIza... (Google Gemini)
+//   OLLAMA_URL          → http://localhost:11434 (Local AI - optional)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -68,51 +67,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
-    // ── QWEN (Alibaba) ────────────────────────────────────────────
-    if (provider === 'qwen' || provider === 'alibaba') {
-      const key = process.env.QWEN_API_KEY;
-      if (!key) return res.status(500).json({
-        error: '⚠️ QWEN_API_KEY not set. Add it in Vercel → Settings → Environment Variables. Get your free key from dashscope.aliyun.com'
-      });
+    // ── OLLAMA (Local AI) ──────────────────────────────────────────
+    if (provider === 'ollama') {
+      const ollamaUrl = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, '');
+      const ollamaModel = model ?? 'gemma3:4b';
 
-      const qwenMessages = system
+      const ollamaMessages = system
         ? [{ role: 'system', content: system }, ...messages]
         : messages;
 
-      const upstream = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({
-          model: model ?? 'qwen-plus',
-          messages: qwenMessages,
-          max_tokens,
-        }),
-      });
-      const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-      return res.status(200).json(data);
+      try {
+        const upstream = await fetch(`${ollamaUrl}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages: ollamaMessages,
+            stream: false,
+          }),
+        });
+        const data = await upstream.json();
+        if (!upstream.ok) throw new Error(data?.error ?? JSON.stringify(data));
+        
+        // Transform Ollama response to match Claude format
+        return res.status(200).json({
+          content: [{ type: 'text', text: data.message?.content ?? '' }],
+          usage: { input_tokens: 0, output_tokens: 0 }
+        });
+      } catch (err) {
+        return res.status(500).json({
+          error: `Ollama connection failed. Ensure Ollama is running at ${ollamaUrl}. Download from ollama.ai`
+        });
+      }
     }
 
-    // ── DEEPSEEK (legacy kept for backward compatibility) ─────────
-    if (provider === 'deepseek') {
-      const key = process.env.DEEPSEEK_API_KEY;
-      if (!key) return res.status(500).json({ error: 'DEEPSEEK_API_KEY not set. Consider switching to Qwen instead.' });
-
-      const deepMessages = system
-        ? [{ role: 'system', content: system }, ...messages]
-        : messages;
-
-      const upstream = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: model ?? 'deepseek-chat', messages: deepMessages, max_tokens }),
-      });
-      const data = await upstream.json();
-      if (!upstream.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-      return res.status(200).json(data);
-    }
-
-    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, qwen` });
+    return res.status(400).json({ error: `Unknown provider: "${provider}". Use: anthropic, gemini, ollama` });
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
