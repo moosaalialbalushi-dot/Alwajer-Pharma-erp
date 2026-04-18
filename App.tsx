@@ -1,7 +1,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { salesData } from './data/sales_data';
-import { supplyChainData } from './data/supply_chain_data';
+import { salesData } from './src/data/sales_data';
+import { supplyChainData } from './src/data/supply_chain_data';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -4319,6 +4319,9 @@ const renderProcurement = () => {
                     </select>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">AI Provider *</label>
+                  <div className="grid grid-cols-2 gap-2">
 {(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
                       <button key={p}
                         onClick={() => setNewSkillData((prev: any) => ({...prev, provider: p}))}
@@ -4329,7 +4332,7 @@ const renderProcurement = () => {
                         {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
                       </button>
                     ))}
-                    </div>
+                  </div>
                     <p className="text-[10px] text-slate-500 mt-1.5">
                       {newSkillData.provider === 'Claude'
                         ? '🤖 Best for: Operations decisions, compliance, strategic analysis, writing'
@@ -4339,6 +4342,7 @@ const renderProcurement = () => {
                         ? '🌟 Best for: Fast responses, general tasks, free tier available'
                         : '📚 Best for: Presentations, knowledge synthesis'}
                     </p>
+                </div>
               <div>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Short Description</label>
                   <input value={newSkillData.description}

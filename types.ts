@@ -32,7 +32,7 @@ export interface Order {
   product: string;
   quantity: number; // Qty (KG)
   rateUSD: number;
-  amountUSD: number;\n  rateUSD?: number;
+  amountUSD: number;
   amountOMR: number;
   status: string;
   materialDispatched?: string;
