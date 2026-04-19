@@ -1,0 +1,3 @@
+cd /workspaces/Alwajer-Pharma-erp
+npm run dev
+# Test at http://localhost:5173
