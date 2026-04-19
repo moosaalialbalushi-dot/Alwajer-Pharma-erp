@@ -298,6 +298,122 @@ export function mapEmployeeFromSupabase(r: any) {
  * details      ← details
  * timestamp    ← timestamp (ISO 8601, auto-set if absent)
  */
+
+// ─── R&D PROJECTS ─────────────────────────────────────────────────────────────
+
+/**
+ * Maps a frontend RDProject object to the Supabase `rd_projects` table schema.
+ *
+ * DB columns          ← Frontend key
+ * ─────────────────────────────────────────────────────────────────────────────
+ * id                  ← id
+ * title               ← title
+ * product_code        ← productCode
+ * dosage_form         ← dosageForm
+ * strength            ← strength
+ * therapeutic_category ← therapeuticCategory
+ * shelf_life          ← shelfLife
+ * storage_condition   ← storageCondition
+ * manufacturing_process ← manufacturingProcess
+ * quality_standards   ← qualityStandards
+ * regulatory_status   ← regulatoryStatus
+ * status              ← status
+ * ingredients         ← ingredients (JSON)
+ * packing_materials   ← packingMaterials (JSON)
+ * optimization_score  ← optimizationScore
+ * ai_optimization_notes ← aiOptimizationNotes
+ * last_updated       ← lastUpdated
+ * batch_size         ← batchSize
+ * batch_unit         ← batchUnit
+ * total_rmc          ← totalRMC
+ * loss               ← loss
+ * total_final_rmc    ← totalFinalRMC
+ * versions           ← versions (JSON)
+ */
+export function mapRDProjectToSupabase(d: any): Record<string, any> {
+  return {
+    id:                  d.id                  ?? '',
+    title:               d.title               ?? '',
+    product_code:        d.productCode         ?? null,
+    dosage_form:         d.dosageForm          ?? null,
+    strength:            d.strength            ?? null,
+    therapeutic_category: d.therapeuticCategory ?? null,
+    shelf_life:          d.shelfLife           ?? null,
+    storage_condition:   d.storageCondition    ?? null,
+    manufacturing_process: d.manufacturingProcess ?? null,
+    quality_standards:   d.qualityStandards    ?? null,
+    regulatory_status:   d.regulatoryStatus    ?? null,
+    status:              d.status              ?? 'Formulation',
+    ingredients:         JSON.stringify(d.ingredients ?? []),
+    packing_materials:   JSON.stringify(d.packingMaterials ?? []),
+    optimization_score:  Number(d.optimizationScore) || 0,
+    ai_optimization_notes: d.aiOptimizationNotes ?? null,
+    last_updated:        d.lastUpdated         ?? new Date().toISOString(),
+    batch_size:          Number(d.batchSize)   || 0,
+    batch_unit:          d.batchUnit           ?? 'Kg',
+    total_rmc:           Number(d.totalRMC)    || 0,
+    loss:                Number(d.loss)        || 0,
+    total_final_rmc:     Number(d.totalFinalRMC) || 0,
+    versions:            JSON.stringify(d.versions ?? []),
+  };
+}
+
+/**
+ * Reverse-maps a Supabase `rd_projects` row back to the frontend RDProject shape.
+ *
+ * Frontend key        ← DB columns
+ * ─────────────────────────────────────────────────────────────────────────────
+ * id                  ← id
+ * title               ← title
+ * productCode         ← product_code
+ * dosageForm          ← dosage_form
+ * strength            ← strength
+ * therapeuticCategory ← therapeutic_category
+ * shelfLife           ← shelf_life
+ * storageCondition    ← storage_condition
+ * manufacturingProcess ← manufacturing_process
+ * qualityStandards    ← quality_standards
+ * regulatoryStatus    ← regulatory_status
+ * status              ← status
+ * ingredients         ← ingredients (JSON)
+ * packingMaterials    ← packing_materials (JSON)
+ * optimizationScore   ← optimization_score
+ * aiOptimizationNotes ← ai_optimization_notes
+ * lastUpdated        ← last_updated
+ * batchSize          ← batch_size
+ * batchUnit          ← batch_unit
+ * totalRMC           ← total_rmc
+ * loss               ← loss
+ * totalFinalRMC      ← total_final_rmc
+ * versions           ← versions (JSON)
+ */
+export function mapRDProjectFromSupabase(r: any): RDProject {
+  return {
+    id:                  r.id                  ?? '',
+    title:               r.title               ?? '',
+    productCode:         r.product_code        ?? undefined,
+    dosageForm:          r.dosage_form         ?? undefined,
+    strength:            r.strength            ?? undefined,
+    therapeuticCategory: r.therapeutic_category ?? undefined,
+    shelfLife:           r.shelf_life          ?? undefined,
+    storageCondition:    r.storage_condition   ?? undefined,
+    manufacturingProcess: r.manufacturing_process ?? undefined,
+    qualityStandards:    r.quality_standards   ?? undefined,
+    regulatoryStatus:    r.regulatory_status   ?? undefined,
+    status:              r.status              ?? 'Formulation',
+    ingredients:         r.ingredients ? JSON.parse(r.ingredients) : [],
+    packingMaterials:    r.packing_materials ? JSON.parse(r.packing_materials) : [],
+    optimizationScore:   Number(r.optimization_score) || 0,
+    aiOptimizationNotes: r.ai_optimization_notes ?? undefined,
+    lastUpdated:         r.last_updated        ?? new Date().toISOString(),
+    batchSize:           Number(r.batch_size)  || 0,
+    batchUnit:           r.batch_unit          ?? 'Kg',
+    totalRMC:            Number(r.total_rmc)   || 0,
+    loss:                Number(r.loss)        || 0,
+    totalFinalRMC:       Number(r.total_final_rmc) || 0,
+    versions:            r.versions ? JSON.parse(r.versions) : [],
+  };
+}
 export function mapAuditLogToSupabase(d: any): Record<string, any> {
   return {
     action:       d.action       ?? '',

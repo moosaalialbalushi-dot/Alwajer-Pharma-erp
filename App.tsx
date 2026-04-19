@@ -29,6 +29,7 @@ import {
   mapProductionToSupabase, mapProductionFromSupabase,
   mapExpenseToSupabase, mapExpenseFromSupabase,
   mapEmployeeToSupabase, mapEmployeeFromSupabase,
+  mapRDProjectToSupabase, mapRDProjectFromSupabase,
   mapAuditLogToSupabase,
 } from './lib/dbMapper';
 
@@ -406,12 +407,13 @@ const App: React.FC = () => {
 useEffect(() => {
   const loadFromSupabase = async () => {
     try {
-      const [ordersRes, inventoryRes, batchesRes, expensesRes, employeesRes] = await Promise.all([
+      const [ordersRes, inventoryRes, batchesRes, expensesRes, employeesRes, rdProjectsRes] = await Promise.all([
         supabase.from('orders').select('*'),
         supabase.from('inventory').select('*'),
         supabase.from('production_yields').select('*'),
         supabase.from('expenses').select('*'),
         supabase.from('employees').select('*'),
+        supabase.from('rd_projects').select('*'),
       ]);
 
       if (ordersRes.data && ordersRes.data.length > 0) {
@@ -432,6 +434,10 @@ useEffect(() => {
 
       if (employeesRes.data && employeesRes.data.length > 0) {
         setEmployees(employeesRes.data.map(mapEmployeeFromSupabase));
+      }
+
+      if (rdProjectsRes.data && rdProjectsRes.data.length > 0) {
+        setRdProjects(rdProjectsRes.data.map(mapRDProjectFromSupabase));
       }
     } catch (err) {
       console.error('Failed to load data from Supabase:', err);
@@ -1009,6 +1015,8 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, context:
           });
           setRdProjects(prev => [newProject, ...prev]);
           setSelectedRD(newProject);
+          // Save to Supabase
+          await supabase.from('rd_projects').insert(mapRDProjectToSupabase(newProject));
           await logAction('IMPORT', `AI imported formulation`);
         }
       } catch (e) {
@@ -1242,6 +1250,8 @@ Provide your expert report as JSON with this exact structure:
       const updated = { ...selectedRD, optimizationScore: parsed.optimizationScore, aiOptimizationNotes: parsed.overallRecommendation };
       setSelectedRD(updated);
       setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+      // Save to Supabase
+      supabase.from('rd_projects').update(mapRDProjectToSupabase(updated)).eq('id', updated.id);
     } catch(e) {
       setRdAiReport(JSON.stringify({ error: 'Analysis failed. Check your Gemini API key.' }));
     }
@@ -1573,6 +1583,8 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
         updated = calculateCosting(updated);
         setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
         setSelectedRD(updated);
+        // Save to Supabase
+        supabase.from('rd_projects').update(mapRDProjectToSupabase(updated)).eq('id', updated.id);
       }
     } catch (err) {
       console.error(err);
@@ -3054,6 +3066,8 @@ const renderProcurement = () => {
                                   <button onClick={() => {
                                     const updated = calculateCosting({ ...selectedRD, ingredients: selectedRD.ingredients.filter((_,i) => i !== idx) });
                                     setSelectedRD(updated); setRdProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+                                    // Save to Supabase
+                                    supabase.from('rd_projects').update(mapRDProjectToSupabase(updated)).eq('id', updated.id);
                                   }} className="p-1 rounded bg-slate-800 text-red-400 hover:bg-red-900"><Trash2 size={10}/></button>
                                 </div>
                               </td>
@@ -3366,6 +3380,8 @@ const renderProcurement = () => {
                         const versioned = saveRDVersion(merged, 'Product details updated');
                         setSelectedRD(versioned);
                         setRdProjects(prev => prev.map(p => p.id === versioned.id ? versioned : p));
+                        // Save to Supabase
+                        supabase.from('rd_projects').update(mapRDProjectToSupabase(versioned)).eq('id', versioned.id);
                       } else {
                         const newProj = calculateCosting({
                           ...newProductData,
@@ -3379,6 +3395,8 @@ const renderProcurement = () => {
                         });
                         setRdProjects(prev => [newProj, ...prev]);
                         setSelectedRD(newProj);
+                        // Save to Supabase
+                        supabase.from('rd_projects').insert(mapRDProjectToSupabase(newProj));
                         logAction('CREATE', `Created R&D product: ${newProductData.title}`);
                       }
                       setNewProductData({ title:'', productCode:'', dosageForm:'Capsule', strength:'', therapeuticCategory:'', batchSize:100, batchUnit:'Kg', loss:0.02, status:'Formulation', shelfLife:'24 Months', storageCondition:'Below 25°C', qualityStandards:'BP/USP', regulatoryStatus:'Dossier Prep', manufacturingProcess:'' });
@@ -3454,6 +3472,8 @@ const renderProcurement = () => {
                         : saveRDVersion(updated, `Added ingredient: ${ing.name}`);
                       setSelectedRD(versioned);
                       setRdProjects(prev => prev.map(p => p.id === versioned.id ? versioned : p));
+                      // Save to Supabase
+                      supabase.from('rd_projects').update(mapRDProjectToSupabase(versioned)).eq('id', versioned.id);
                       setIsRdModalOpen(false);
                     }} className="luxury-gradient px-5 py-1.5 rounded text-slate-950 text-xs font-bold disabled:opacity-40">
                       {rdModalMode === 'editIngredient' ? 'Save Changes' : 'Add Ingredient'}
