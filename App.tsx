@@ -32,6 +32,7 @@ import {
   mapRDProjectToSupabase, mapRDProjectFromSupabase,
   mapAuditLogToSupabase,
 } from './lib/dbMapper';
+import { UniversalFileLoader } from './src/components/shared/UniversalFileLoader';
 
 // --- INITIAL DATA ---
 
@@ -277,6 +278,9 @@ const App: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     isUploading: false, fileName: '', progress: 0, status: 'uploading', message: ''
   });
+
+  // ── Universal File Loader State ──
+  const [isFileLoaderOpen, setIsFileLoaderOpen] = useState(false);
   const [fileAnalysisLog, setFileAnalysisLog] = useState<FileAnalysisResult[]>([]);
 
   // ── Industrial Studio State ──
@@ -616,7 +620,7 @@ const handleDelete = async (type: string, id: string, name: string) => {
       );
   };
 
-  const handleGlobalAction = () => fileInputRef.current?.click();
+  const handleGlobalAction = () => setIsFileLoaderOpen(true);
 
   const generatePODocument = (item: any, vendor: string, qty: string, unitPrice: string, paymentTerm: string, shippingMethod: string, eta: string) => {
     const today = new Date();
@@ -4747,6 +4751,29 @@ const renderProcurement = () => {
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
+
+      {/* Universal File Loader */}
+      <UniversalFileLoader
+        isOpen={isFileLoaderOpen}
+        onClose={() => setIsFileLoaderOpen(false)}
+        onDataLoaded={(data, type) => {
+          // Handle the loaded data based on type
+          if (type === 'orders') {
+            setOrders(prev => [...prev, ...data]);
+          } else if (type === 'inventory') {
+            setInventory(prev => [...prev, ...data]);
+          } else if (type === 'production') {
+            setBatches(prev => [...prev, ...data]);
+          } else if (type === 'expenses') {
+            setExpenses(prev => [...prev, ...data]);
+          } else if (type === 'employees') {
+            setEmployees(prev => [...prev, ...data]);
+          }
+          setIsFileLoaderOpen(false);
+        }}
+        claudeKey={import.meta.env.VITE_CLAUDE_API_KEY}
+        geminiKey={import.meta.env.VITE_GEMINI_API_KEY}
+      />
     </div>
   );
 };

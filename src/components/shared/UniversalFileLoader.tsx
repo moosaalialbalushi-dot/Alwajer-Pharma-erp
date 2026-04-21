@@ -3,17 +3,20 @@ import { Upload, Loader2, CheckCircle2, AlertCircle, X, FileText, Image as Image
 import { processFileUpload, transformToErpData, type FileAnalysisResult } from '@/services/universalFileLoader';
 
 interface UniversalFileLoaderProps {
+  isOpen: boolean;
+  onClose: () => void;
   onDataLoaded: (data: any[], type: string) => void;
   claudeKey?: string;
   geminiKey?: string;
 }
 
 export const UniversalFileLoader: React.FC<UniversalFileLoaderProps> = ({
+  isOpen,
+  onClose,
   onDataLoaded,
   claudeKey,
   geminiKey
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<FileAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +37,7 @@ export const UniversalFileLoader: React.FC<UniversalFileLoaderProps> = ({
       if (analysis.confidence > 50 && analysis.data.length > 0) {
         const transformed = transformToErpData(analysis);
         onDataLoaded(transformed, analysis.type);
+        onClose(); // Close modal after successful data loading
       } else {
         setError('Could not extract structured data from file. Please try another file.');
       }
@@ -47,14 +51,6 @@ export const UniversalFileLoader: React.FC<UniversalFileLoaderProps> = ({
 
   return (
     <>
-      {/* Button to open loader */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] text-slate-900 rounded-lg font-bold text-sm hover:shadow-lg transition-all"
-      >
-        <Upload size={16} /> Auto-Fill from File
-      </button>
-
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -63,7 +59,7 @@ export const UniversalFileLoader: React.FC<UniversalFileLoaderProps> = ({
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-lg font-bold text-slate-900">Universal File Loader</h2>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={onClose}
                 className="text-slate-500 hover:text-slate-900"
               >
                 <X size={18} />

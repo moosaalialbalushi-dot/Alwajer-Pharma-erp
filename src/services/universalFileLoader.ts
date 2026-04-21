@@ -230,8 +230,7 @@ Respond in JSON format:
         model: 'claude-3-5-sonnet-20241022',
         system: 'You are an expert data extractor for pharmaceutical ERP systems. Extract data accurately and return valid JSON.',
         messages: [{ role: 'user', content: prompt }],
-        json_mode: true,
-        clientApiKey: claudeKey
+        json_mode: true
       })
     });
 

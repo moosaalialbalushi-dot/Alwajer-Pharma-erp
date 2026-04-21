@@ -1,8 +1,9 @@
 // api/ai-chain.ts
-// Triple-LLM validation chain — Gemini → Claude → Qwen (replaces DeepSeek)
+// Triple-LLM validation chain — Gemini → Claude → Ollama (replaces Qwen)
 //
 // Required Vercel env vars:
-//   ANTHROPIC_API_KEY, GEMINI_API_KEY, QWEN_API_KEY
+//   ANTHROPIC_API_KEY, GEMINI_API_KEY
+// Optional: OLLAMA_URL (defaults to http://localhost:11434)
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -37,20 +38,21 @@ async function callClaude(key: string, system: string, userMsg: string, model = 
   return (data?.content as { type: string; text?: string }[])?.filter(b => b.type === 'text').map(b => b.text ?? '').join('\n') ?? '';
 }
 
-// Qwen replaces DeepSeek as the final validator
-async function callQwen(key: string, system: string, userMsg: string, model = 'qwen-plus'): Promise<string> {
-  const res = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+// Ollama replaces Qwen as the final validator
+async function callOllama(system: string, userMsg: string, model = 'gemma3:4b'): Promise<string> {
+  const ollamaUrl = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, '');
+  const res = await fetch(`${ollamaUrl}/api/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
-      max_tokens: 2048,
       messages: [{ role: 'system', content: system }, { role: 'user', content: userMsg }],
+      stream: false,
     }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-  return data?.choices?.[0]?.message?.content ?? '';
+  if (!res.ok) throw new Error(data?.error ?? JSON.stringify(data));
+  return data?.message?.content ?? '';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -63,10 +65,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const geminiKey = process.env.GEMINI_API_KEY;
   const claudeKey = process.env.ANTHROPIC_API_KEY;
-  const qwenKey   = process.env.QWEN_API_KEY;
 
-  if (!geminiKey || !claudeKey || !qwenKey) {
-    const missing = [!geminiKey && 'GEMINI_API_KEY', !claudeKey && 'ANTHROPIC_API_KEY', !qwenKey && 'QWEN_API_KEY'].filter(Boolean);
+  if (!geminiKey || !claudeKey) {
+    const missing = [!geminiKey && 'GEMINI_API_KEY', !claudeKey && 'ANTHROPIC_API_KEY'].filter(Boolean);
     return res.status(500).json({ error: `Missing Vercel env vars: ${missing.join(', ')}. Add in Vercel → Settings → Environment Variables → Redeploy.` });
   }
 
@@ -86,18 +87,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `Original query: ${query}\n\nFirst-draft:\n\n${initiatorResponse}`
     );
 
-    // STEP 3: Qwen final confirmation (replaces DeepSeek R1)
-    const finalResponse = await callQwen(qwenKey,
-      `You are Al Wajer Pharmaceuticals Final Verification AI.\nContext: ${domainContext}\nProduce the definitive final answer resolving any conflicts.\nFormat:\nREASONING: [brief reasoning]\nCONSENSUS: [yes/partial/no]\nFINAL ANSWER: [definitive response]`,
-      `Original query: ${query}\n\n--- INITIATOR (Gemini) ---\n${initiatorResponse}\n\n--- VALIDATOR (Claude) ---\n${validatorResponse}`
-    );
+    // STEP 3: Ollama final confirmation (replaces Qwen)
+    let finalResponse: string;
+    try {
+      finalResponse = await callOllama(
+        `You are Al Wajer Pharmaceuticals Final Verification AI.\nContext: ${domainContext}\nProduce the definitive final answer resolving any conflicts.\nFormat:\nREASONING: [brief reasoning]\nCONSENSUS: [yes/partial/no]\nFINAL ANSWER: [definitive response]`,
+        `Original query: ${query}\n\n--- INITIATOR (Gemini) ---\n${initiatorResponse}\n\n--- VALIDATOR (Claude) ---\n${validatorResponse}`
+      );
+    } catch (ollamaError) {
+      console.warn('Ollama not available, using Claude as final validator:', ollamaError);
+      finalResponse = await callClaude(claudeKey,
+        `You are Al Wajer Pharmaceuticals Final Verification AI.\nContext: ${domainContext}\nProduce the definitive final answer.\nFormat:\nREASONING: [brief reasoning]\nFINAL ANSWER: [definitive response]`,
+        `Original query: ${query}\n\n--- INITIATOR (Gemini) ---\n${initiatorResponse}\n\n--- VALIDATOR (Claude) ---\n${validatorResponse}`
+      );
+    }
 
     return res.status(200).json({
       query,
       chain: {
         initiator:      { provider: 'Gemini 2.5 Pro',  model: 'gemini-2.5-pro', response: initiatorResponse },
         validator:      { provider: 'Claude Sonnet 4.6', model: 'claude-sonnet-4-6', response: validatorResponse },
-        finalValidator: { provider: 'Qwen Plus',         model: 'qwen-plus',         response: finalResponse },
+        finalValidator: { provider: 'Ollama Local (or Claude fallback)', model: 'gemma3:4b or claude-sonnet-4-6', response: finalResponse },
       },
     });
 
