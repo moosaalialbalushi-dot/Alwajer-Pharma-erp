@@ -1,5 +1,5 @@
 // api/ai-chain.ts
-// Simplified Triple-Step Chain using ONLY Claude
+// Triple-Step Chain using Claude for draft → critique → final answer
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const CORS = {
@@ -8,21 +8,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-async function callGemini(key: string, system: string, userMsg: string, model = 'gemini-2.0-flash'): Promise<string> {
-  const body: Record<string, unknown> = {
-    contents: [{ role: 'user', parts: [{ text: userMsg }] }],
-    systemInstruction: { parts: [{ text: system }] },
-  };
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
-  return data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
-}
-
-async function callClaude(key: string, system: string, userMsg: string, model = 'claude-sonnet-4-6'): Promise<string> {
+async function callClaude(key: string, system: string, userMsg: string): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -60,22 +46,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? 'Al Wajer Pharmaceuticals, Sohar Oman — GMP compliant, exports to GCC/MENA. Products: Esomeprazole, Pantoprazole, Omeprazole.'
     : `Business context: ${domain}`;
 
+  const extra = context ? ` Additional context: ${context}` : '';
+
   try {
-    // STEP 1: Draft
-    const draft = await callClaude(key, `You are an AI Assistant. Context: ${domainContext}. Draft a comprehensive answer to: ${query}`, `Analyze and answer: ${query}`);
-    
-    // STEP 2: Critique
-    const critique = await callClaude(key, `You are a Quality Validator. Review this draft for errors. Context: ${domainContext}. Output VERDICT and CORRECTIONS.`, `Draft to review: ${draft}`);
-    
-    // STEP 3: Final
-    const final = await callClaude(key, `You are the Final Expert. Combine the draft and critique into a perfect answer. Context: ${domainContext}.`, `Draft: ${draft}\nCritique: ${critique}`);
+    const draft = await callClaude(
+      key,
+      `You are an AI Assistant. Context: ${domainContext}.${extra} Draft a comprehensive answer.`,
+      `Analyze and answer: ${query}`
+    );
+
+    const critique = await callClaude(
+      key,
+      `You are a Quality Validator. Review this draft for errors. Context: ${domainContext}. Output VERDICT and CORRECTIONS.`,
+      `Draft to review: ${draft}`
+    );
+
+    const final = await callClaude(
+      key,
+      `You are the Final Expert. Combine the draft and critique into a perfect answer. Context: ${domainContext}.`,
+      `Draft: ${draft}\nCritique: ${critique}`
+    );
 
     return res.status(200).json({
       query,
       chain: {
-        initiator:      { provider: 'Gemini 2.0 Flash',  model: 'gemini-2.0-flash', response: initiatorResponse },
-        validator:      { provider: 'Claude Sonnet 4.6', model: 'claude-sonnet-4-6', response: validatorResponse },
-        finalValidator: { provider: 'Qwen Plus',         model: 'qwen-plus',         response: finalResponse },
+        initiator:      { provider: 'Claude Sonnet', model: 'claude-3-5-sonnet-20241022', response: draft },
+        validator:      { provider: 'Claude Sonnet', model: 'claude-3-5-sonnet-20241022', response: critique },
+        finalValidator: { provider: 'Claude Sonnet', model: 'claude-3-5-sonnet-20241022', response: final },
       },
     });
 
@@ -83,4 +80,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Chain failed' });
   }
 }
-

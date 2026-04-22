@@ -12,6 +12,7 @@ import type {
 } from '@/types';
 import { ALL_WIDGETS } from '@/data/initial';
 import { StatCard } from '@/components/shared/StatCard';
+import { formatCurrency } from '@/lib/utils';
 
 interface Props {
   batches: Batch[];
@@ -58,8 +59,8 @@ export const Dashboard: React.FC<Props> = ({
     stats_pipeline:  { title: 'Pipeline Value',   value: '$4.8M',                    icon: LineChart },
     stats_inventory: { title: 'Critical Stock',   value: criticalStock,               icon: AlertTriangle, color: 'text-red-400' },
     stats_vendors:   { title: 'Active Vendors',   value: vendors.length,              icon: Truck },
-    stats_expenses:  { title: 'Total Expenses',   value: `$${totalExpenses.toLocaleString()}`, icon: Wallet },
-    stats_liability: { title: 'Liabilities',      value: `$${liabilities.toLocaleString()}`,  icon: AlertCircle, color: 'text-red-400' },
+    stats_expenses:  { title: 'Total Expenses',   value: formatCurrency(Number(totalExpenses || 0), 'USD'), icon: Wallet },
+    stats_liability: { title: 'Liabilities',      value: formatCurrency(Number(liabilities || 0), 'USD'),  icon: AlertCircle, color: 'text-red-400' },
     stats_staff:     { title: 'Staff Count',      value: employees.length,            icon: Users },
     stats_rd:        { title: 'R&D Projects',     value: rdProjects.length,           icon: Beaker },
     stats_samples:   { title: 'Active Samples',   value: samples.length,              icon: PackageSearch },
@@ -268,7 +269,7 @@ export const Dashboard: React.FC<Props> = ({
                 <Pie data={expenseChart} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name }) => name}>
                   {expenseChart.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]}/>)}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(v) => [`$${Number(v).toLocaleString()}`, 'Amount']}/>
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(v) => [formatCurrency(Number(v), 'USD'), 'Amount']}/>
               </PieChart>
             </ResponsiveContainer>
           </div>

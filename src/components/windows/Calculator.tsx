@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calculator as CalcIcon, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import type { CalcData, CalcItem, RDProject } from '@/types';
+import { formatCurrency } from '@/lib/utils';
 
 interface Props {
   calcData: CalcData;
@@ -150,7 +151,7 @@ export const Calculator: React.FC<Props> = ({ calcData, calcResults, rdProjects,
                 </div>
                 {calcData.rmc + calcData.labor + calcData.packing + calcData.logistics > 0 && (
                   <p className="text-[10px] text-slate-500 mt-1">
-                    = ${(((calcData.rmc + calcData.labor + calcData.packing + calcData.logistics) * calcData.overheadPct / 100)).toFixed(3)}/Kg overhead
+                    = {formatCurrency(((calcData.rmc + calcData.labor + calcData.packing + calcData.logistics) * calcData.overheadPct / 100), 'USD')}/Kg overhead
                   </p>
                 )}
               </div>
@@ -194,7 +195,7 @@ export const Calculator: React.FC<Props> = ({ calcData, calcResults, rdProjects,
                           : key.includes('Overhead') ? 'text-amber-600'
                           : 'text-slate-900'
                       }`}>
-                        {key.includes('%') || key.includes('Margin') ? `${Number(val).toFixed(1)}%` : `$${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                        {key.includes('%') || key.includes('Margin') ? `${Number(val).toFixed(1)}%` : formatCurrency(Number(val), 'USD')}
                       </span>
                     </div>
                   ))}

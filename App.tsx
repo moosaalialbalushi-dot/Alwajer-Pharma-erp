@@ -792,7 +792,7 @@ const handleDelete = async (type: string, id: string, name: string) => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    logAction('PO_GENERATED', `Generated PO for ${item.name} - ${qty} kg @ $${unitPrice}`);
+    logAction('PO_GENERATED', `Generated PO for ${item.name} - ${qty} kg @ ${formatCurrency(Number(unitPrice||0),'USD')}`);
     setIsPOModalOpen(false);
   };
 
@@ -1206,36 +1206,36 @@ const calculateCosting = (project: RDProject) => {
     try {
       const prompt = `You are a Senior Pharmaceutical R&D Scientist and Formulation Expert for Al Wajer Pharmaceuticals, Oman.
 
-Analyze this complete pharmaceutical formulation and provide a comprehensive technical report:
+  Analyze this complete pharmaceutical formulation and provide a comprehensive technical report:
 
-PRODUCT: ${selectedRD.title}
-Dosage Form: ${selectedRD.dosageForm || 'Not specified'}
-Strength: ${selectedRD.strength || 'Not specified'}
-Batch Size: ${selectedRD.batchSize} ${selectedRD.batchUnit}
-Quality Standard: ${selectedRD.qualityStandards || 'BP/USP'}
-Regulatory Status: ${selectedRD.regulatoryStatus || 'Not specified'}
+  PRODUCT: ${selectedRD.title}
+  Dosage Form: ${selectedRD.dosageForm || 'Not specified'}
+  Strength: ${selectedRD.strength || 'Not specified'}
+  Batch Size: ${selectedRD.batchSize} ${selectedRD.batchUnit}
+  Quality Standard: ${selectedRD.qualityStandards || 'BP/USP'}
+  Regulatory Status: ${selectedRD.regulatoryStatus || 'Not specified'}
 
-FORMULATION (Ingredients per batch):
-${selectedRD.ingredients.map((i,idx) => `${idx+1}. ${i.name} (${i.role}) - ${i.quantity} ${i.unit} @ $${i.rateUSD}/kg = $${i.cost}`).join('\n')}
+  FORMULATION (Ingredients per batch):
+  ${selectedRD.ingredients.map((i,idx) => `${idx+1}. ${i.name} (${i.role}) - ${i.quantity} ${i.unit} @ ${formatCurrency(Number(i.rateUSD||0),'USD')}/kg = ${formatCurrency(Number(i.cost||0),'USD')}`).join('\n')}
 
-Total RMC: $${selectedRD.totalRMC} | Cost per kg: $${selectedRD.totalFinalRMC}
+  Total RMC: ${formatCurrency(Number(selectedRD.totalRMC||0),'USD')} | Cost per kg: ${formatCurrency(Number(selectedRD.totalFinalRMC||0),'USD')}
 
-Manufacturing Process Notes: ${selectedRD.manufacturingProcess || 'Not provided'}
+  Manufacturing Process Notes: ${selectedRD.manufacturingProcess || 'Not provided'}
 
-Provide your expert report as JSON with this exact structure:
-{
-  "optimizationScore": number (0-100),
-  "formulationAssessment": "string (2-3 sentences on overall quality)",
-  "apiAnalysis": "string (assessment of API concentration, bioavailability considerations)",
-  "excipientCompatibility": "string (compatibility analysis between ingredients)",
-  "costOptimizations": ["string array of 3-5 specific cost reduction suggestions with estimated savings"],
-  "ingredientSubstitutions": [{"ingredient": "string", "alternative": "string", "reason": "string", "estimatedSavingPct": number}],
-  "manufacturingRisks": ["string array of process risks to watch"],
-  "qualityParameters": ["string array of key quality tests required: dissolution, hardness, etc"],
-  "regulatoryNotes": "string (BP/USP compliance notes for Oman/GCC market)",
-  "stabilityRecommendations": "string",
-  "overallRecommendation": "string (clear summary of what to do next)"
-}`;
+  Provide your expert report as JSON with this exact structure:
+  {
+    "optimizationScore": number (0-100),
+    "formulationAssessment": "string (2-3 sentences on overall quality)",
+    "apiAnalysis": "string (assessment of API concentration, bioavailability considerations)",
+    "excipientCompatibility": "string (compatibility analysis between ingredients)",
+    "costOptimizations": ["string array of 3-5 specific cost reduction suggestions with estimated savings"],
+    "ingredientSubstitutions": [{"ingredient": "string", "alternative": "string", "reason": "string", "estimatedSavingPct": number}],
+    "manufacturingRisks": ["string array of process risks to watch"],
+    "qualityParameters": ["string array of key quality tests required: dissolution, hardness, etc"],
+    "regulatoryNotes": "string (BP/USP compliance notes for Oman/GCC market)",
+    "stabilityRecommendations": "string",
+    "overallRecommendation": "string (clear summary of what to do next)"
+  }`;
       const response = await (await import('./geminiService')).quickInsight(prompt);
       const clean = response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
       const parsed = JSON.parse(clean);
@@ -1254,7 +1254,7 @@ Provide your expert report as JSON with this exact structure:
     setRdSpecLoading(true);
     const today = new Date().toLocaleDateString('en-GB');
     const ingredientRows = selectedRD.ingredients.map((i, idx) =>
-      `<tr><td>${idx+1}</td><td><b>${i.name}</b>${i.grade ? ` (${i.grade})` : ''}</td><td>${i.role}</td><td>${i.quantity}</td><td>${i.unit}</td><td>$${i.rateUSD}</td><td>$${i.cost?.toFixed(2)}</td>${i.supplier ? `<td>${i.supplier}</td>` : '<td>-</td>'}</tr>`
+      `<tr><td>${idx+1}</td><td><b>${i.name}</b>${i.grade ? ` (${i.grade})` : ''}</td><td>${i.role}</td><td>${i.quantity}</td><td>${i.unit}</td><td>${formatCurrency(Number(i.rateUSD||0),'USD')}</td><td>${formatCurrency(Number(i.cost||0),'USD')}</td>${i.supplier ? `<td>${i.supplier}</td>` : '<td>-</td>'}</tr>`
     ).join('');
     const totalIngQty = selectedRD.ingredients.reduce((s,i) => s + i.quantity, 0).toFixed(3);
     let aiProcess = selectedRD.manufacturingProcess || '';
@@ -1309,9 +1309,9 @@ Provide your expert report as JSON with this exact structure:
 <table>
   <thead><tr><th>#</th><th>Raw Material</th><th>Role</th><th>Qty/Batch</th><th>Unit</th><th>Rate (USD)</th><th>Cost (USD)</th><th>Supplier</th></tr></thead>
   <tbody>${ingredientRows}</tbody>
-  <tfoot>
-    <tr style="background:#f5f5f5"><td colspan="3"><b>TOTAL</b></td><td><b>${totalIngQty}</b></td><td>Kg</td><td>—</td><td><b>$${selectedRD.totalRMC?.toFixed(2)}</b></td><td></td></tr>
-    <tr class="highlight"><td colspan="6"><b>RAW MATERIAL COST PER KG (including ${(selectedRD.loss*100).toFixed(1)}% loss)</b></td><td colspan="2"><b>$${selectedRD.totalFinalRMC} / Kg</b></td></tr>
+    <tfoot>
+    <tr style="background:#f5f5f5"><td colspan="3"><b>TOTAL</b></td><td><b>${totalIngQty}</b></td><td>Kg</td><td>—</td><td><b>${formatCurrency(Number(selectedRD.totalRMC||0),'USD')}</b></td><td></td></tr>
+    <tr class="highlight"><td colspan="6"><b>RAW MATERIAL COST PER KG (including ${(selectedRD.loss*100).toFixed(1)}% loss)</b></td><td colspan="2"><b>${formatCurrency(Number(selectedRD.totalFinalRMC||0),'USD')} / Kg</b></td></tr>
   </tfoot>
 </table>
 <div class="section-title">3. Manufacturing Process</div>

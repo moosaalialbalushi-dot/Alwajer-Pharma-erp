@@ -4,6 +4,7 @@ import type { Order, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DocPreview } from '@/components/shared/DocPreview';
 import { exportToCSV } from '@/services/export';
+import { formatCurrency } from '@/lib/utils';
 
 interface Props {
   orders: Order[];
@@ -50,15 +51,15 @@ function buildInvoiceHTML(invoiceNo: string, orders: Order[], logoUrl: string): 
     <td style="border:1px solid #000;padding:6px;text-align:center;">${i + 1}</td>
     <td style="border:1px solid #000;padding:6px;"><strong>${o.product}</strong></td>
     <td style="border:1px solid #000;padding:6px;text-align:right;">${numOrZero(o.quantity).toLocaleString()}</td>
-    <td style="border:1px solid #000;padding:6px;text-align:right;">$${numOrZero(o.rateUSD).toFixed(2)}</td>
-    <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">$${numOrZero(o.amountUSD).toLocaleString()}</td>
+    <td style="border:1px solid #000;padding:6px;text-align:right;">${formatCurrency(numOrZero(o.rateUSD),'USD')}</td>
+    <td style="border:1px solid #000;padding:6px;text-align:right;font-weight:bold;">${formatCurrency(numOrZero(o.amountUSD),'USD')}</td>
   </tr>`).join('');
   return `<!DOCTYPE html><html><head><title>Proforma Invoice - ${invoiceNo}</title>
   <style>@page{size:A4;margin:15mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:10px;color:#000;margin:0;padding:0}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double #000;padding-bottom:8px;margin-bottom:10px}.co{font-size:13px;font-weight:bold;color:#1a3c6e;letter-spacing:0.5px}.ar{font-size:12px;direction:rtl;margin-bottom:3px;color:#555}.addr{font-size:8.5px;line-height:1.6;color:#333}.title{text-align:center;font-size:15px;font-weight:bold;letter-spacing:3px;text-decoration:underline;margin:10px 0}table{width:100%;border-collapse:collapse;margin-bottom:6px}.info td{border:1px solid #000;padding:4px 7px;font-size:9px;vertical-align:top}.goods th{border:1px solid #000;padding:5px 7px;background:#e8e8e8;font-size:9px;text-align:center}.goods td{border:1px solid #000;padding:5px 7px;font-size:9px}.total-row td{background:#f0f0f0;font-weight:bold;border:1px solid #000;padding:5px 7px}.bank{margin-top:8px;font-size:8.5px;line-height:1.7;border:1px solid #ccc;padding:8px;background:#fafafa}.sig{display:flex;justify-content:space-between;margin-top:25px}.sig-box{border-top:1px solid #000;width:43%;text-align:center;padding-top:5px;font-size:9px}.foot{margin-top:15px;border-top:1px solid #999;padding-top:6px;font-size:8px;text-align:center;color:#666}@media print{body{margin:0}}</style></head><body>
   <div class="lh"><div>${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;object-fit:contain;margin-bottom:4px;display:block">` : ''}<div class="ar">الوجـر لصناعة الأدويـة ش.م.م</div><div class="co">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div><div class="addr">PO BOX 98, PC-327, PHASE-5, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN<br>Tel: +968 22372677 | CR NO: 1145026</div></div><div style="text-align:right"><div style="font-size:9px;color:#888">Authorized Dealer | GMP Certified</div></div></div>
   <div class="title">PROFORMA INVOICE</div>
   <table class="info"><tr><td width="50%"><span style="font-size:8px;font-weight:bold;color:#555">INVOICE NO. &amp; DATE</span><br><strong>${invoiceNo}</strong> &nbsp; Date: ${date}</td><td width="50%"><span style="font-size:8px;font-weight:bold;color:#555">LC / PO NO.</span><br>${lcNo || '—'}</td></tr><tr><td><span style="font-size:8px;font-weight:bold;color:#555">EXPORTER</span><br>AL WAJER PHARMACEUTICALS INDUSTRY LLC<br>SOHAR, SULTANATE OF OMAN<br>Tel: +968 22372677</td><td><span style="font-size:8px;font-weight:bold;color:#555">CONSIGNEE / BUYER</span><br><strong>${customer}</strong><br>${country}</td></tr><tr><td><span style="font-size:8px;font-weight:bold;color:#555">COUNTRY OF ORIGIN</span><br>Sultanate of Oman</td><td><span style="font-size:8px;font-weight:bold;color:#555">TERMS OF PAYMENT</span><br>${paymentTerms}</td></tr></table>
-  <table class="goods"><thead><tr><th style="width:5%">#</th><th>Product Description</th><th style="width:15%">Qty (Kg)</th><th style="width:15%">Rate/Kg (USD)</th><th style="width:18%">Total (USD)</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="4" style="text-align:right">TOTAL AMOUNT IN USD</td><td style="text-align:right">$${totalUSD.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr></tbody></table>
+  <table class="goods"><thead><tr><th style="width:5%">#</th><th>Product Description</th><th style="width:15%">Qty (Kg)</th><th style="width:15%">Rate/Kg (USD)</th><th style="width:18%">Total (USD)</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="4" style="text-align:right">TOTAL AMOUNT IN USD</td><td style="text-align:right">${formatCurrency(totalUSD,'USD')}</td></tr></tbody></table>
   <div style="font-size:9px;margin:4px 0 8px;padding:5px 7px;border:1px solid #ccc;background:#fffce8"><strong>AMOUNT IN WORDS:</strong> ${amountInWords(totalUSD)}</div>
   ${totalOMR > 0 ? `<div style="font-size:9px;margin-bottom:8px;padding:4px 7px;border:1px solid #e0e0e0;"><strong>OMR EQUIVALENT (@ ${OMR_RATE}):</strong> OMR ${totalOMR.toLocaleString(undefined,{minimumFractionDigits:3})}</div>` : ''}
   <div class="bank"><strong>BANK DETAILS — BENEFICIARY: AL WAJER PHARMACEUTICALS INDUSTRY LLC</strong><br>Bank: BANK NIZWA | Account No.: 00150000174002<br>IBAN: OM45033000150000174002 | SWIFT/BIC: BNZWOMRXXXX<br>Branch: MUSCAT MAIN BRANCH</div>
@@ -96,7 +97,7 @@ function buildQuotationHTML(quotNo: string, validUntil: string, incoterms: strin
   <div class="lh"><div>${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;object-fit:contain;margin-bottom:4px;display:block">` : ''}<div class="ar">الوجـر لصناعة الأدويـة ش.م.م</div><div class="co">AL WAJER PHARMACEUTICALS INDUSTRY LLC</div><div style="font-size:8.5px;color:#333">PO BOX 98, PC-327, SOHAR INDUSTRIAL ESTATE, SOHAR, SULTANATE OF OMAN | Tel: +968 22372677</div></div></div>
   <div class="title">COMMERCIAL QUOTATION</div>
   <table class="info"><tr><td width="50%"><span style="font-size:8px;font-weight:bold;color:#555">QUOTATION NO. &amp; DATE</span><br><strong>${quotNo}</strong> &nbsp; ${date}</td><td width="50%"><span style="font-size:8px;font-weight:bold;color:#555">REFERENCE / INQUIRY NO.</span><br>${lcNo || '—'}</td></tr><tr><td colspan="2"><span style="font-size:8px;font-weight:bold;color:#555">BUYER</span><br><strong>${customer}</strong> | ${country}</td></tr><tr><td><span style="font-size:8px;font-weight:bold;color:#555">VALID UNTIL</span><br>${validUntil}</td><td><span style="font-size:8px;font-weight:bold;color:#555">INCOTERMS</span><br>${incoterms}</td></tr></table>
-  <table class="goods"><thead><tr><th style="width:5%">#</th><th>Product Description</th><th style="width:10%">HS Code</th><th style="width:12%">Qty (Kg)</th><th style="width:14%">Rate/Kg</th><th style="width:16%">Total USD</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="5" style="text-align:right">TOTAL AMOUNT (USD)</td><td style="text-align:right">$${totalUSD.toLocaleString(undefined,{minimumFractionDigits:2})}</td></tr></tbody></table>
+  <table class="goods"><thead><tr><th style="width:5%">#</th><th>Product Description</th><th style="width:10%">HS Code</th><th style="width:12%">Qty (Kg)</th><th style="width:14%">Rate/Kg</th><th style="width:16%">Total USD</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="5" style="text-align:right">TOTAL AMOUNT (USD)</td><td style="text-align:right">${formatCurrency(totalUSD,'USD')}</td></tr></tbody></table>
   <div style="font-size:9px;margin:6px 0;padding:5px 7px;border:1px solid #ccc;background:#fffce8"><strong>AMOUNT IN WORDS:</strong> ${amountInWords(totalUSD)}</div>
   <div style="margin-top:8px;font-size:9px"><strong>PAYMENT TERMS:</strong> ${paymentTerms}<br><strong>DELIVERY:</strong> As per order requirement</div>
   <div class="bank"><strong>BANK DETAILS — BENEFICIARY: AL WAJER PHARMACEUTICALS INDUSTRY LLC</strong><br>Bank: BANK NIZWA | Account No.: 00150000174002<br>IBAN: OM45033000150000174002 | SWIFT/BIC: BNZWOMRXXXX</div>
@@ -178,7 +179,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
         {[
           { label: 'Total Orders', value: orders.length },
           { label: 'Pending', value: pendingCount, color: 'text-yellow-500' },
-          { label: 'Pipeline (USD)', value: '$' + totalPipeline.toLocaleString() },
+          { label: 'Pipeline (USD)', value: formatCurrency(totalPipeline, 'USD') },
         ].map(s => (
           <div key={s.label} className="bg-white shadow-sm border border-[#D4AF37]/20 p-4 rounded-xl">
             <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{s.label}</p>
@@ -247,7 +248,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-sm font-bold text-slate-900 font-mono">
-                          ${numOrZero(order.amountUSD).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {formatCurrency(numOrZero(order.amountUSD), 'USD')}
                         </div>
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={order.status}/></td>
@@ -306,9 +307,9 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                 <Field label="Status" value={selectedOrder.status}/>
                 <Field label="Product" value={selectedOrder.product}/>
                 <Field label="Quantity (Kg)" value={numOrZero(selectedOrder.quantity).toLocaleString()}/>
-                <Field label="Rate (USD/Kg)" value={`$${numOrZero(selectedOrder.rateUSD).toFixed(2)}`}/>
-                <Field label="Amount (USD)" value={`$${numOrZero(selectedOrder.amountUSD).toLocaleString()}`}/>
-                <Field label="Amount (OMR)" value={numOrZero(selectedOrder.amountOMR) > 0 ? `OMR ${numOrZero(selectedOrder.amountOMR).toLocaleString()}` : undefined}/>
+                <Field label="Rate (USD/Kg)" value={formatCurrency(numOrZero(selectedOrder.rateUSD), 'USD')}/>
+                <Field label="Amount (USD)" value={formatCurrency(numOrZero(selectedOrder.amountUSD), 'USD')}/>
+                <Field label="Amount (OMR)" value={numOrZero(selectedOrder.amountOMR) > 0 ? formatCurrency(numOrZero(selectedOrder.amountOMR), 'OMR') : undefined}/>
                 <Field label="Payment Terms" value={selectedOrder.paymentTerms}/>
                 <Field label="Shipping Method" value={selectedOrder.shippingMethod}/>
                 <Field label="Dispatched" value={selectedOrder.materialDispatched}/>
@@ -328,17 +329,17 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                     Invoice Group — {invoiceGroup.length} line{invoiceGroup.length > 1 ? 's' : ''}
                   </p>
                   {invoiceGroup.map((o, i) => (
-                    <div key={o.id} className="flex justify-between items-center py-1 border-b border-[#D4AF37]/10 last:border-0">
-                      <span className="text-[10px] text-slate-600 truncate max-w-[140px]">{i + 1}. {o.product}</span>
-                      <span className="text-[10px] font-bold text-slate-900">${numOrZero(o.amountUSD).toLocaleString()}</span>
+                      <div key={o.id} className="flex justify-between items-center py-1 border-b border-[#D4AF37]/10 last:border-0">
+                        <span className="text-[10px] text-slate-600 truncate max-w-[140px]">{i + 1}. {o.product}</span>
+                        <span className="text-[10px] font-bold text-slate-900">{formatCurrency(numOrZero(o.amountUSD), 'USD')}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between mt-2 pt-2 border-t border-[#D4AF37]/20">
+                      <span className="text-[10px] font-bold text-slate-700">Total</span>
+                      <span className="text-[10px] font-black text-[#D4AF37]">
+                        {formatCurrency(invoiceGroup.reduce((s, o) => s + numOrZero(o.amountUSD), 0), 'USD')}
+                      </span>
                     </div>
-                  ))}
-                  <div className="flex justify-between mt-2 pt-2 border-t border-[#D4AF37]/20">
-                    <span className="text-[10px] font-bold text-slate-700">Total</span>
-                    <span className="text-[10px] font-black text-[#D4AF37]">
-                      ${invoiceGroup.reduce((s, o) => s + numOrZero(o.amountUSD), 0).toLocaleString()}
-                    </span>
-                  </div>
                 </div>
               )}
 

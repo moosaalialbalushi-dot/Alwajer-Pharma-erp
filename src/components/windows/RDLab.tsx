@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Beaker, Plus, Edit2, Trash2, Search, ChevronDown, Wand2, X } from 'lucide-react';
 import type { RDProject, Ingredient, ModalState } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { formatCurrency } from '@/lib/utils';
 
 interface Props {
   rdProjects: RDProject[];
@@ -40,9 +41,14 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
 
   const handleOptimize = async (p: RDProject) => {
     setOptimizing(p.id);
-    const result = await onOptimize(p);
-    setAiNotes(prev => ({ ...prev, [p.id]: result }));
-    setOptimizing(null);
+    try {
+      const result = await onOptimize(p);
+      setAiNotes(prev => ({ ...prev, [p.id]: result }));
+    } catch {
+      setAiNotes(prev => ({ ...prev, [p.id]: 'Optimization failed. Check your API key in Vercel settings.' }));
+    } finally {
+      setOptimizing(null);
+    }
   };
 
   const handleIngredientChange = (project: RDProject, idx: number, field: keyof Ingredient, value: unknown) => {
@@ -157,7 +163,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                 <div className="flex items-center gap-4">
                   <div className="text-right hidden sm:block">
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Batch RMC</p>
-                    <p className="text-sm text-[#D4AF37] font-bold font-mono">${(project.totalRMC ?? 0).toFixed(2)}</p>
+                    <p className="text-sm text-[#D4AF37] font-bold font-mono">{formatCurrency(Number(project.totalRMC ?? 0), 'USD')}</p>
                   </div>
                   <div className="text-right hidden sm:block">
                     <p className="text-[10px] text-slate-500 uppercase font-bold">Score</p>
@@ -187,9 +193,9 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
                       { label: 'Batch Size', value: `${project.batchSize} ${project.batchUnit}` },
-                      { label: 'Total RMC', value: `$${(project.totalRMC ?? 0).toFixed(2)}` },
+                      { label: 'Total RMC', value: formatCurrency(Number(project.totalRMC ?? 0), 'USD') },
                       { label: 'Loss Factor', value: project.loss },
-                      { label: 'Final RMC/Kg', value: `$${(project.totalFinalRMC ?? 0).toFixed(3)}` },
+                      { label: 'Final RMC/Kg', value: formatCurrency(Number(project.totalFinalRMC ?? 0), 'USD') },
                     ].map(s => (
                       <div key={s.label} className="bg-gray-50/40 rounded-lg p-3 border border-gray-200">
                         <p className="text-[9px] text-slate-500 uppercase font-bold">{s.label}</p>
@@ -237,7 +243,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                               />
                             </td>
                             <td className="py-2 px-2 text-right font-mono text-[#D4AF37] text-xs font-bold">
-                              ${(ing.cost ?? 0).toFixed(2)}
+                              {formatCurrency(Number(ing.cost ?? 0), 'USD')}
                             </td>
                             <td className="py-2 px-2 text-right">
                               <button
@@ -302,7 +308,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
                               />
                             </td>
                             <td className="py-2 px-2 text-right font-mono text-[#D4AF37] text-xs font-bold">
-                              ${(Number(form.cost ?? 0)).toFixed(2)}
+                              {formatCurrency(Number(form.cost ?? 0), 'USD')}
                             </td>
                             <td className="py-2 px-2 text-right">
                               <div className="flex gap-1 justify-end">
