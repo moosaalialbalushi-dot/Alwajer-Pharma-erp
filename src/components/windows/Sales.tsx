@@ -3,6 +3,7 @@ import { BadgeDollarSign, Plus, Edit2, Trash2, Download, FileText, Package, Rece
 import type { Order, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DocPreview } from '@/components/shared/DocPreview';
+import { UniversalFileLoader } from '@/components/shared/UniversalFileLoader';
 import { exportToCSV } from '@/services/export';
 import { formatCurrency } from '@/lib/utils';
 
@@ -150,6 +151,19 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
 
   const logoUrl = apiConfig.logoUrl || '';
 
+  const handleImportData = (data: unknown[], _type: string) => {
+    if (!data || data.length === 0) return;
+    const first = data[0] as Record<string, unknown>;
+    onOpenModal('add', 'sales', {
+      id: `ORD-${Date.now()}`,
+      sNo: '', invoiceNo: '', lcNo: '',
+      date: new Date().toISOString().split('T')[0],
+      customer: '', country: '', product: '', quantity: 0,
+      rateUSD: 0, amountUSD: 0, amountOMR: 0, status: 'Pending',
+      ...first,
+    });
+  };
+
   const Field = ({ label, value }: { label: string; value?: string | number }) => (
     <div>
       <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">{label}</p>
@@ -164,10 +178,14 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <BadgeDollarSign className="text-[#F4C430]" size={20}/> Sales Orders
         </h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={() => exportToCSV(orders as unknown as Record<string, unknown>[], 'sales')} className="erp-btn-ghost">
             <Download size={13}/> Export
           </button>
+          <UniversalFileLoader
+            onDataLoaded={handleImportData}
+            claudeKey={apiConfig['claudeKey'] as string | undefined}
+          />
           <button onClick={() => onOpenModal('add', 'sales', newOrder())} className="erp-btn-gold">
             <Plus size={15}/> New Order
           </button>
@@ -219,6 +237,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                     <th className="px-4 py-2.5 hidden md:table-cell">Country</th>
                     <th className="px-4 py-2.5 hidden lg:table-cell">Product</th>
                     <th className="px-4 py-2.5 text-right hidden md:table-cell">Qty (Kg)</th>
+                    <th className="px-4 py-2.5 text-right hidden lg:table-cell">Rate/Kg (USD)</th>
                     <th className="px-4 py-2.5 text-right">Amount (USD)</th>
                     <th className="px-4 py-2.5">Status</th>
                     <th className="px-4 py-2.5"></th>
@@ -226,7 +245,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filtered.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-10 text-slate-400 text-sm">No orders found.</td></tr>
+                    <tr><td colSpan={10} className="text-center py-10 text-slate-400 text-sm">No orders found.</td></tr>
                   )}
                   {filtered.map(order => (
                     <tr key={order.id}
@@ -245,6 +264,9 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-right text-xs font-mono text-slate-700">
                         {numOrZero(order.quantity).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-right text-xs font-mono text-slate-700">
+                        ${numOrZero(order.rateUSD).toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-sm font-bold text-slate-900 font-mono">

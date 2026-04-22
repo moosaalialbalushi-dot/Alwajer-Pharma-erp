@@ -46,12 +46,12 @@ export const IndustrialStudio: React.FC<Props> = ({ onAnalyzeFile }) => {
     try {
       const { callAIProxy, extractText } = await import('@/services/aiProxy');
       const res = await callAIProxy({
-        provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        provider: 'claude',
+        model: 'claude-haiku-4-5-20251001',
         system: 'You are an industrial pharmaceutical production expert. Help with process design, equipment selection, capacity planning, and GMP compliance.',
         messages: [{ role: 'user', content: prompt }],
       });
-      setAiResponse(extractText(res, 'gemini') || 'No response.');
+      setAiResponse(extractText(res, 'claude') || 'No response.');
     } catch (e) {
       setAiResponse(`Error: ${String(e)}`);
     } finally {
