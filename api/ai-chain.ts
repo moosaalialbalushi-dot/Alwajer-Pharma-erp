@@ -1,9 +1,8 @@
 // api/ai-chain.ts
-// Triple-LLM validation chain — Gemini → Claude → Ollama (replaces Qwen)
+// Triple-LLM validation chain — Gemini → Claude → Qwen (replaces DeepSeek)
 //
 // Required Vercel env vars:
-//   ANTHROPIC_API_KEY, GEMINI_API_KEY
-// Optional: OLLAMA_URL (defaults to http://localhost:11434)
+//   ANTHROPIC_API_KEY, GEMINI_API_KEY, QWEN_API_KEY
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -38,21 +37,20 @@ async function callClaude(key: string, system: string, userMsg: string, model = 
   return (data?.content as { type: string; text?: string }[])?.filter(b => b.type === 'text').map(b => b.text ?? '').join('\n') ?? '';
 }
 
-// Ollama replaces Qwen as the final validator
-async function callOllama(system: string, userMsg: string, model = 'gemma3:4b'): Promise<string> {
-  const ollamaUrl = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/$/, '');
-  const res = await fetch(`${ollamaUrl}/api/chat`, {
+// Qwen replaces DeepSeek as the final validator
+async function callQwen(key: string, system: string, userMsg: string, model = 'qwen-plus'): Promise<string> {
+  const res = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
     body: JSON.stringify({
       model,
+      max_tokens: 2048,
       messages: [{ role: 'system', content: system }, { role: 'user', content: userMsg }],
-      stream: false,
     }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error ?? JSON.stringify(data));
-  return data?.message?.content ?? '';
+  if (!res.ok) throw new Error(data?.error?.message ?? JSON.stringify(data));
+  return data?.choices?.[0]?.message?.content ?? '';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -65,9 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const geminiKey = process.env.GEMINI_API_KEY;
   const claudeKey = process.env.ANTHROPIC_API_KEY;
+  const qwenKey   = process.env.QWEN_API_KEY;
 
-  if (!geminiKey || !claudeKey) {
-    const missing = [!geminiKey && 'GEMINI_API_KEY', !claudeKey && 'ANTHROPIC_API_KEY'].filter(Boolean);
+  if (!geminiKey || !claudeKey || !qwenKey) {
+    const missing = [!geminiKey && 'GEMINI_API_KEY', !claudeKey && 'ANTHROPIC_API_KEY', !qwenKey && 'QWEN_API_KEY'].filter(Boolean);
     return res.status(500).json({ error: `Missing Vercel env vars: ${missing.join(', ')}. Add in Vercel → Settings → Environment Variables → Redeploy.` });
   }
 
@@ -78,36 +77,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const contextBlock = context ? `\n\nAdditional context:\n${context}` : '';
 
   try {
-    // STEP 1: Gemini initiates
-    const initiatorResponse = await callGemini(geminiKey, `You are Al Wajer Pharmaceuticals AI Initiator.\nContext: ${domainContext}${contextBlock}\nGenerate a thorough first-draft response. Be comprehensive. Use specific numbers where possible.`, query);
+    // Allow client to pass an ordered sequence for the 3 steps. Default order if not provided.
+    const seq = Array.isArray(sequence) ? sequence.map((s: string) => String(s)) : ['Gemini', 'Claude', 'Qwen'];
 
-    // STEP 2: Claude validates
-    const validatorResponse = await callClaude(claudeKey,
-      `You are Al Wajer Pharmaceuticals Quality Validator AI.\nContext: ${domainContext}\nReview the first-draft and output:\nVERDICT: [APPROVED / APPROVED WITH CORRECTIONS / REJECTED]\nCORRECTIONS: [list or "None required"]\nVALIDATED RESPONSE: [improved response]`,
-      `Original query: ${query}\n\nFirst-draft:\n\n${initiatorResponse}`
-    );
-
-    // STEP 3: Ollama final confirmation (replaces Qwen)
-    let finalResponse: string;
-    try {
-      finalResponse = await callOllama(
-        `You are Al Wajer Pharmaceuticals Final Verification AI.\nContext: ${domainContext}\nProduce the definitive final answer resolving any conflicts.\nFormat:\nREASONING: [brief reasoning]\nCONSENSUS: [yes/partial/no]\nFINAL ANSWER: [definitive response]`,
-        `Original query: ${query}\n\n--- INITIATOR (Gemini) ---\n${initiatorResponse}\n\n--- VALIDATOR (Claude) ---\n${validatorResponse}`
-      );
-    } catch (ollamaError) {
-      console.warn('Ollama not available, using Claude as final validator:', ollamaError);
-      finalResponse = await callClaude(claudeKey,
-        `You are Al Wajer Pharmaceuticals Final Verification AI.\nContext: ${domainContext}\nProduce the definitive final answer.\nFormat:\nREASONING: [brief reasoning]\nFINAL ANSWER: [definitive response]`,
-        `Original query: ${query}\n\n--- INITIATOR (Gemini) ---\n${initiatorResponse}\n\n--- VALIDATOR (Claude) ---\n${validatorResponse}`
-      );
+    const responses: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const provider = (seq[i] || ['Gemini','Claude','Qwen'][i]).toLowerCase();
+      // Role-specific prompt and call
+      if (provider.includes('gemini')) {
+        const prev = responses.join('\n\n');
+        const prompt = i === 0
+          ? `You are Al Wajer Pharmaceuticals AI Initiator.\nContext: ${domainContext}${contextBlock}\nGenerate a thorough first-draft response. Be comprehensive. Use specific numbers where possible.`
+          : `You are Al Wajer Pharmaceuticals AI Initiator.\nContext: ${domainContext}${contextBlock}\nRefine the response considering prior outputs:\n${prev}`;
+        const r = await callGemini(geminiKey, prompt, i === 0 ? query : `Original query: ${query}\n\nPrevious responses:\n${prev}`);
+        responses.push(r);
+      } else if (provider.includes('claude')) {
+        const prev = responses.join('\n\n');
+        const prompt = `You are Al Wajer Pharmaceuticals Quality Validator AI.\nContext: ${domainContext}\nReview the prior response(s) and output:\nVERDICT: [APPROVED / APPROVED WITH CORRECTIONS / REJECTED]\nCORRECTIONS: [list or \"None required\"]\nVALIDATED RESPONSE: [improved response]`;
+        const r = await callClaude(claudeKey, prompt, `Original query: ${query}\n\nPrevious responses:\n${prev}`);
+        responses.push(r);
+      } else {
+        // Qwen / DeepSeek fallback
+        const prev = responses.join('\n\n');
+        const prompt = `You are Al Wajer Pharmaceuticals Final Verification AI.\nContext: ${domainContext}\nProduce the definitive final answer resolving any conflicts.\nFormat:\nREASONING: [brief reasoning]\nCONSENSUS: [yes/partial/no]\nFINAL ANSWER: [definitive response]`;
+        const r = await callQwen(qwenKey, prompt, `Original query: ${query}\n\nPrevious responses:\n${prev}`);
+        responses.push(r);
+      }
     }
 
     return res.status(200).json({
       query,
       chain: {
-        initiator:      { provider: 'Gemini 2.5 Pro',  model: 'gemini-2.5-pro', response: initiatorResponse },
-        validator:      { provider: 'Claude Sonnet 4.6', model: 'claude-sonnet-4-6', response: validatorResponse },
-        finalValidator: { provider: 'Ollama Local (or Claude fallback)', model: 'gemma3:4b or claude-sonnet-4-6', response: finalResponse },
+        initiator:      { provider: seq[0] || 'Gemini', model: (seq[0] || '').toLowerCase().includes('gemini') ? 'gemini-2.5-pro' : seq[0], response: responses[0] || '' },
+        validator:      { provider: seq[1] || 'Claude', model: (seq[1] || '').toLowerCase().includes('claude') ? 'claude-sonnet-4-6' : seq[1], response: responses[1] || '' },
+        finalValidator: { provider: seq[2] || 'Qwen',   model: (seq[2] || '').toLowerCase().includes('qwen') ? 'qwen-plus' : seq[2], response: responses[2] || '' },
       },
     });
 

@@ -230,7 +230,8 @@ Respond in JSON format:
         model: 'claude-3-5-sonnet-20241022',
         system: 'You are an expert data extractor for pharmaceutical ERP systems. Extract data accurately and return valid JSON.',
         messages: [{ role: 'user', content: prompt }],
-        json_mode: true
+        json_mode: true,
+        clientApiKey: claudeKey
       })
     });
 
@@ -361,10 +362,89 @@ export async function processFileUpload(
   file: File,
   config: FileLoaderConfig
 ): Promise<FileAnalysisResult> {
-  // 1. Extract content
+  // If spreadsheet or CSV - parse and auto-map columns first
+  const fileName = file.name.toLowerCase();
+  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+  const isCsv = fileName.endsWith('.csv');
+
+  if (isExcel || isCsv) {
+    try {
+      const { read, utils } = await importExcelLib();
+      const buffer = await file.arrayBuffer();
+      const workbook = read(buffer, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows: any[] = utils.sheet_to_json(sheet, { defval: '' });
+
+      // Infer type from headers
+      const headers = Object.keys(rows[0] || {}).map(h => h.toLowerCase());
+      let inferred: FileAnalysisResult['type'] = 'unknown';
+      if (headers.some(h => h.includes('invoice') || h.includes('customer') || h.includes('amount'))) inferred = 'orders';
+      else if (headers.some(h => h.includes('stock') || h.includes('required') || h.includes('balance'))) inferred = 'inventory';
+      else if (headers.some(h => h.includes('batch') || h.includes('yield') || h.includes('dispatch'))) inferred = 'production';
+      else if (headers.some(h => h.includes('salary') || h.includes('employee') || h.includes('staff'))) inferred = 'employees';
+      else if (headers.some(h => h.includes('expense') || h.includes('amount') && headers.some(h2 => h2.includes('category')))) inferred = 'expenses';
+
+      // Basic mapping dictionary: common header -> canonical field
+      const headerMap: Record<string, string> = {
+        'employee name': 'name',
+        'staff name': 'name',
+        'name': 'name',
+        's no': 'sNo',
+        'sno': 'sNo',
+        'invoice no': 'invoiceNo',
+        'invoice': 'invoiceNo',
+        'invoice number': 'invoiceNo',
+        'customer': 'customer',
+        'party': 'customer',
+        'product': 'product',
+        'qty': 'quantity',
+        'quantity': 'quantity',
+        'rate': 'rateUSD',
+        'rate usd': 'rateUSD',
+        'rate_usd': 'rateUSD',
+        'amount': 'amountUSD',
+        'amount usd': 'amountUSD',
+        'amount_omr': 'amountOMR',
+        'amount omr': 'amountOMR',
+        'stock': 'stock',
+        'present stock': 'stock',
+        'required for orders': 'requiredForOrders',
+        'status': 'status',
+        'salary': 'salary',
+        'department': 'department',
+        'role': 'role',
+        'date': 'date',
+        'lc no': 'lcNo',
+        'country': 'country',
+        'description': 'description',
+        'category': 'category'
+      };
+
+      const mapped = rows.map((r: any) => {
+        const out: Record<string, any> = {};
+        Object.keys(r).forEach(orig => {
+          const key = orig.toLowerCase().trim();
+          const mappedKey = headerMap[key] || key.replace(/\s+/g, '_');
+          out[mappedKey] = r[orig];
+        });
+        return out;
+      });
+
+      return {
+        type: inferred,
+        data: mapped,
+        confidence: 95,
+        rawText: JSON.stringify(rows)
+      } as FileAnalysisResult;
+    } catch (e) {
+      console.warn('Spreadsheet parsing failed, falling back to textual extraction', e);
+    }
+  }
+
+  // 1. Extract content (fallback for non-spreadsheet files)
   const content = await extractFileContent(file, config.claudeKey);
   
-  // 2. Analyze and identify data type
+  // 2. Analyze and identify data type using AI
   const analysis = await analyzeFileContent(content, config.claudeKey);
   
   return analysis;

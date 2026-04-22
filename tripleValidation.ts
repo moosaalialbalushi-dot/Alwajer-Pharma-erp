@@ -51,12 +51,13 @@ export interface ChainResult {
 export async function runTripleValidation(
   query: string,
   context = '',
-  domain = 'pharma'
+  domain = 'pharma',
+  sequence: string[] = ['Gemini','Claude','Qwen']
 ): Promise<ChainResult> {
   const res = await fetch('/api/ai-chain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, context, domain }),
+    body: JSON.stringify({ query, context, domain, sequence }),
   });
 
   const data = await res.json();

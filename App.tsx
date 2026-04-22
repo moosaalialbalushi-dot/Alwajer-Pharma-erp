@@ -4,6 +4,7 @@ import { salesData } from './src/data/sales_data';
 import { supplyChainData } from './src/data/supply_chain_data';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { CurrencyProvider } from './src/context/CurrencyContext';
 
 import { 
   Activity, Package, ShoppingCart, Truck, MessageSquare, Upload, AlertTriangle, ChevronRight, 
@@ -23,7 +24,7 @@ import {
 import type { ImportDataSchema } from './importSchemas';
 import { supabase } from './supabaseClient';
 import { exportToCSV } from './exportUtils';
-import {
+import { 
   mapOrderToSupabase, mapOrderFromSupabase,
   mapInventoryToSupabase, mapInventoryFromSupabase,
   mapProductionToSupabase, mapProductionFromSupabase,
@@ -32,7 +33,7 @@ import {
   mapRDProjectToSupabase, mapRDProjectFromSupabase,
   mapAuditLogToSupabase,
 } from './lib/dbMapper';
-import { UniversalFileLoader } from './src/components/shared/UniversalFileLoader';
+import { formatCurrency } from './src/lib/utils';
 
 // --- INITIAL DATA ---
 
@@ -179,7 +180,7 @@ interface UploadProgress {
 }
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'production' | 'inventory' | 'sales' | 'procurement' | 'ai' | 'rd' | 'bd' | 'samples' | 'brainstorm' | 'industrial' | 'accounting' | 'hr' | 'history'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'production' | 'inventory' | 'sales' | 'procurement' | 'ai' | 'rd' | 'bd' | 'samples' | 'brainstorm' | 'industrial' | 'accounting' | 'hr' | 'history' | 'logistics'>('dashboard');
   
   // Data State
   const [batches, setBatches] = useState<Batch[]>(INITIAL_BATCHES);
@@ -191,6 +192,12 @@ const App: React.FC = () => {
   const [salesDocMenu, setSalesDocMenu] = useState<string|null>(null);
   const [bdLeads, setBdLeads] = useState<BDLead[]>(INITIAL_BD);
   const [samples, setSamples] = useState<SampleStatus[]>(INITIAL_SAMPLES);
+  const [shipments, setShipments] = useState<any[]>(() => {
+    try { const s = localStorage.getItem('erp_shipments'); return s ? JSON.parse(s) : [
+      { id: 'SHP-001', status: 'In Transit', product: 'Esomeprazole EC Pellets 22.5%', weightKg: 1200, origin: 'Sohar, OM', destination: 'Kuwait Port', temperatureStatus: '2-8°C', inspectionStatus: 'Pending', costUSD: 2400, costOMR: 924, eta: '2026-03-10' },
+      { id: 'SHP-002', status: 'Delivered', product: 'Pantoprazole', weightKg: 800, origin: 'Mumbai, IN', destination: 'Muscat', temperatureStatus: 'Ambient', inspectionStatus: 'Passed', costUSD: 1200, costOMR: 462, eta: '2026-02-20' }
+    ]; } catch { return []; }
+  });
   const [calcData, setCalcData] = useState({
   product: '', volume: 0, targetPrice: 0,
   rmc: 0, labor: 0, packing: 0,
@@ -235,13 +242,14 @@ const App: React.FC = () => {
           };
       } catch (e) { return { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' }; }
   });
-  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'Qwen' | 'NotebookLM'>('Gemini');
+  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'Qwen' | 'NotebookLM' | 'Ollama'>('Gemini');
 
   // Per-provider model selection
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
     Gemini: 'gemini-2.5-pro',
     Claude: 'claude-sonnet-4-6',
     DeepSeek: 'deepseek-chat',
+    Ollama: 'local-ollama',
   });
   const PROVIDER_MODELS: Record<string, { id: string; label: string; note: string }[]> = {
   Gemini: [
@@ -257,6 +265,9 @@ const App: React.FC = () => {
     { id: 'qwen-turbo', label: 'Qwen Turbo', note: 'Fast & free'     },
     { id: 'qwen-plus',  label: 'Qwen Plus',  note: 'Balanced default' },
     { id: 'qwen-max',   label: 'Qwen Max',   note: 'Highest quality'  },
+  ],
+  Ollama: [
+    { id: 'local-ollama', label: 'Local Ollama', note: 'Self-hosted local model' },
   ],
 };
 
@@ -278,9 +289,6 @@ const App: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     isUploading: false, fileName: '', progress: 0, status: 'uploading', message: ''
   });
-
-  // ── Universal File Loader State ──
-  const [isFileLoaderOpen, setIsFileLoaderOpen] = useState(false);
   const [fileAnalysisLog, setFileAnalysisLog] = useState<FileAnalysisResult[]>([]);
 
   // ── Industrial Studio State ──
@@ -323,6 +331,19 @@ const App: React.FC = () => {
   const [tripleChainInput, setTripleChainInput] = useState('');
   const [tripleChainLoading, setTripleChainLoading] = useState(false);
   const [tripleChainResult, setTripleChainResult] = useState<any>(null);
+  const [tripleSequence, setTripleSequence] = useState<string[]>(() => {
+    try { const s = localStorage.getItem('erp_triple_sequence'); return s ? JSON.parse(s) : ['Gemini','Claude','DeepSeek']; } catch { return ['Gemini','Claude','DeepSeek']; }
+  });
+
+  const moveTriple = (from: number, to: number) => {
+    setTripleSequence(prev => {
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      try { localStorage.setItem('erp_triple_sequence', JSON.stringify(arr)); } catch {}
+      return arr;
+    });
+  };
 
   // ── Production State ──
   const [expandedBatchId, setExpandedBatchId] = useState<string|null>(null);
@@ -620,7 +641,7 @@ const handleDelete = async (type: string, id: string, name: string) => {
       );
   };
 
-  const handleGlobalAction = () => setIsFileLoaderOpen(true);
+  const handleGlobalAction = () => fileInputRef.current?.click();
 
   const generatePODocument = (item: any, vendor: string, qty: string, unitPrice: string, paymentTerm: string, shippingMethod: string, eta: string) => {
     const today = new Date();
@@ -1449,6 +1470,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     Gemini: 'gemini',
     DeepSeek: 'deepseek',
     NotebookLM: 'gemini',
+    Ollama: 'ollama',
   };
   const apiProvider = apiProviderMap[uiProvider] || 'gemini';
 
@@ -1506,14 +1528,29 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     // Import updated proxy service functions
     const { callAIProxy, extractText } = await import('./aiProxyService');
 
-    const responseData = await callAIProxy({
-      provider: apiProvider,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: msg }],
-      model: selectedModels[uiProvider] ?? undefined,
-    });
-
-    const response = extractText(responseData, apiProvider);
+    let response: string | undefined;
+    if (uiProvider === 'Ollama') {
+      try {
+        const res = await fetch('/api/ollama-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: selectedModels[uiProvider], prompt: msg }),
+        });
+        const data = await res.json();
+        response = data?.response || data?.text || (Array.isArray(data?.choices) ? data.choices[0]?.message?.content || data.choices[0]?.text : JSON.stringify(data));
+      } catch (err) {
+        console.error('Ollama proxy error', err);
+        response = `Ollama error: ${err?.message || String(err)}`;
+      }
+    } else {
+      const responseData = await callAIProxy({
+        provider: apiProvider,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: msg }],
+        model: selectedModels[uiProvider] ?? undefined,
+      });
+      response = extractText(responseData, apiProvider);
+    }
 
     if (activeSkill) {
       setSavedSkills((prev: any) =>
@@ -1568,7 +1605,7 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
     setTripleChainResult(null);
     try {
       const { runTripleValidation } = await import('./tripleValidation');
-      const result = await runTripleValidation(query, '', 'pharma');
+      const result = await runTripleValidation(query, '', 'pharma', tripleSequence);
       setTripleChainResult(result);
     } catch (e: any) {
       setTripleChainResult({ error: e?.message || 'Chain failed. Check all 3 API keys are set in Vercel.' });
@@ -4066,6 +4103,29 @@ const renderProcurement = () => {
               </div>
             </div>
 
+            {/* Sequence Reorder (Drag-and-Drop adjustable via buttons) */}
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-slate-400 mr-2">Sequence:</p>
+              <div className="flex items-center gap-2">
+                {tripleSequence.map((p, idx) => (
+                  <div
+                    key={p}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer?.setData('text/plain', String(idx))}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      const from = Number(e.dataTransfer?.getData('text/plain'));
+                      if (!isNaN(from)) moveTriple(from, idx);
+                    }}
+                    className="flex items-center gap-2 bg-slate-900/40 border border-white/5 rounded px-3 py-1 text-xs cursor-move"
+                  >
+                    <span className="font-bold">{p}</span>
+                    <span className="text-[10px] text-slate-500 ml-1">⇅</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Input */}
             <div className="flex gap-2">
               <input
@@ -4505,6 +4565,96 @@ const renderProcurement = () => {
   );
 
 
+  const renderLogistics = () => {
+    const inTransit = shipments.filter(s => s.status === 'In Transit').length;
+    const delivered = shipments.filter(s => s.status === 'Delivered').length;
+    const delayed = shipments.filter(s => s.status === 'Delayed/Customs').length;
+    const inbound = shipments.filter(s => s.status === 'Inbound').length;
+    const totalUSD = shipments.reduce((s, it) => s + (Number(it.costUSD) || 0), 0);
+    const totalOMR = shipments.reduce((s, it) => s + (Number(it.costOMR) || 0), 0);
+
+    const addShipment = () => {
+      const id = `SHP-${Date.now()}`;
+      const product = prompt('Product name') || 'Unknown';
+      const weight = Number(prompt('Weight (kg)') || '0');
+      const origin = prompt('Origin') || '';
+      const destination = prompt('Destination') || '';
+      const temp = prompt('Temperature status (e.g. 2-8°C)') || 'Ambient';
+      const inspection = (prompt('Inspection status (Pending/Passed/Failed)') || 'Pending') as any;
+      const costUSD = Number(prompt('Cost (USD)') || '0');
+      const costOMR = Number(prompt('Cost (OMR)') || '0');
+      const newS = { id, status: 'Inbound', product, weightKg: weight, origin, destination, temperatureStatus: temp, inspectionStatus: inspection, costUSD, costOMR, eta: '' };
+      setShipments(prev => { const next = [newS, ...prev]; try { localStorage.setItem('erp_shipments', JSON.stringify(next)); } catch {} return next; });
+    };
+
+    const exportShipments = () => {
+      try { exportToCSV(shipments, 'shipments.csv'); } catch (e) { alert('Export failed'); }
+    };
+
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2"><Truck className="text-[#F4C430]" size={20}/> Logistics Hub</h2>
+            <div className="flex gap-2">
+            <button onClick={() => { const el = document.getElementById('shipmentsImport') as HTMLInputElement | null; if (el) el.click(); }} className="px-3 py-2 rounded bg-slate-800 border border-white/5 text-slate-300 text-sm">Import</button>
+            <button onClick={exportShipments} className="px-3 py-2 rounded bg-slate-800 border border-white/5 text-slate-300 text-sm">Export</button>
+            <button onClick={addShipment} className="luxury-gradient px-4 py-2 rounded text-slate-950 font-bold text-sm">New Shipment</button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div className="p-4 bg-slate-900/50 rounded border border-white/5">
+            <p className="text-xs text-slate-500">In Transit</p>
+            <p className="text-2xl font-bold text-white">{inTransit}</p>
+          </div>
+          <div className="p-4 bg-slate-900/50 rounded border border-white/5">
+            <p className="text-xs text-slate-500">Delivered</p>
+            <p className="text-2xl font-bold text-white">{delivered}</p>
+          </div>
+          <div className="p-4 bg-slate-900/50 rounded border border-white/5">
+            <p className="text-xs text-slate-500">Delayed / Customs</p>
+            <p className="text-2xl font-bold text-white">{delayed}</p>
+          </div>
+          <div className="p-4 bg-slate-900/50 rounded border border-white/5">
+            <p className="text-xs text-slate-500">Inbound</p>
+            <p className="text-2xl font-bold text-white">{inbound}</p>
+          </div>
+          <div className="p-4 bg-slate-900/50 rounded border border-white/5">
+            <p className="text-xs text-slate-500">Total Cost</p>
+            <p className="text-lg font-bold text-white">{formatCurrency(totalUSD, (typeof window !== 'undefined' ? (localStorage.getItem('erp_currency') || 'USD') : 'USD'))} / {formatCurrency(totalOMR, 'OMR')}</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-900/50 border border-white/5 rounded-xl overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-slate-950/50 text-[10px] text-slate-500 uppercase font-bold tracking-widest">
+              <tr>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Product</th>
+                <th className="px-6 py-3">Weight (kg)</th>
+                <th className="px-6 py-3">Origin → Destination</th>
+                <th className="px-6 py-3">Temp / Inspection</th>
+                <th className="px-6 py-3">Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-sm">
+              {shipments.map(s => (
+                <tr key={s.id} className="hover:bg-white/5">
+                  <td className="px-6 py-4"><span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-800 text-slate-300">{s.status}</span></td>
+                  <td className="px-6 py-4 font-bold text-white">{s.product}<div className="text-xs text-slate-500 font-mono">{s.id}</div></td>
+                  <td className="px-6 py-4">{s.weightKg}</td>
+                  <td className="px-6 py-4">{s.origin} → {s.destination}</td>
+                  <td className="px-6 py-4">{s.temperatureStatus} / <span className={`text-sm font-bold ${s.inspectionStatus === 'Passed' ? 'text-green-400' : s.inspectionStatus === 'Failed' ? 'text-red-400' : 'text-yellow-400'}`}>{s.inspectionStatus}</span></td>
+                  <td className="px-6 py-4">{formatCurrency(Number(s.costUSD||0), 'USD')} / {formatCurrency(Number(s.costOMR||0), 'OMR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   // Custom Icon for Claude (simple Bot representation)
   const BotIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4517,7 +4667,8 @@ const renderProcurement = () => {
   );
 
   return (
-    <div className="h-screen w-full flex bg-[#020617] text-slate-200 overflow-y-auto font-inter">
+    <CurrencyProvider>
+      <div className="h-screen w-full flex bg-[#020617] text-slate-200 overflow-y-auto font-inter">
       {renderModal()}
       {renderCustomizeModal()}
       {renderSettingsModal()}
@@ -4635,6 +4786,7 @@ const renderProcurement = () => {
               { id: 'inventory', label: 'Inventory', icon: Boxes },
               { id: 'sales', label: 'Sales Orders', icon: BadgeDollarSign },
               { id: 'procurement', label: 'Procurement', icon: Truck },
+              { id: 'logistics', label: 'Logistics', icon: Truck },
               { id: 'accounting', label: 'Accounting', icon: Wallet },
               { id: 'hr', label: 'HR & Admin', icon: Users },
               { id: 'rd', label: 'R&D Lab', icon: Beaker },
@@ -4662,7 +4814,26 @@ const renderProcurement = () => {
             ))}
           </nav>
           
+          {/* AI Chat History (Sidebar) */}
           <div className="pt-4 mt-4 border-t border-white/10">
+            <div className="px-3 py-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-slate-400 uppercase font-bold">AI History</p>
+                <button onClick={() => { setActiveTab('ai'); }} className="text-[10px] text-slate-500 hover:text-white">Open</button>
+              </div>
+              <div className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
+                {chatSessions.slice(0,6).map((s:any) => (
+                  <div key={s.id} onClick={() => { setActiveTab('ai'); setActiveChatId(s.id); setIsMobileMenuOpen(false); }}
+                    className="cursor-pointer p-2 rounded hover:bg-white/5 text-slate-300 text-xs">
+                    <div className="font-bold truncate">{s.title || 'Chat'}</div>
+                    <div className="text-[10px] text-slate-500">{s.messages?.length || 0} msgs • {new Date(s.date || s.createdAt || Date.now()).toLocaleDateString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 mt-2 border-t border-white/10">
               <button 
                   onClick={() => setIsSettingsOpen(true)}
                   className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all"
@@ -4725,6 +4896,30 @@ const renderProcurement = () => {
       <span className="sm:hidden">SYNC</span>
     </button>
     <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'global')} />
+    <input type="file" id="shipmentsImport" className="hidden" onChange={async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      try {
+        const { processFileUpload } = await import('./src/services/universalFileLoader');
+        const analysis = await processFileUpload(f, {} as any);
+        const rows = analysis.data as any[];
+        const mapped = rows.map(r => ({
+          id: r.id || `SHP-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          status: r.status || 'Inbound',
+          product: r.product || r.name || r.item || 'Unknown',
+          weightKg: Number(r.weightKg || r.weight || r.Weight || 0),
+          origin: r.origin || r.from || '',
+          destination: r.destination || r.to || r.dest || '',
+          temperatureStatus: r.temperatureStatus || r.temp || 'Ambient',
+          inspectionStatus: r.inspectionStatus || r.inspection || 'Pending',
+          costUSD: Number(r.costUSD || r.cost || 0),
+          costOMR: Number(r.costOMR || 0),
+          eta: r.eta || r.date || ''
+        }));
+        setShipments(prev => { const next = [...mapped, ...prev]; try { localStorage.setItem('erp_shipments', JSON.stringify(next)); } catch {} return next; });
+        alert('Shipments imported: ' + mapped.length);
+      } catch (err) { console.error(err); alert('Import failed'); }
+    }} />
   </header>
   <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
     {activeTab === 'dashboard' && renderDashboard()}
@@ -4751,30 +4946,8 @@ const renderProcurement = () => {
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
-
-      {/* Universal File Loader */}
-      <UniversalFileLoader
-        isOpen={isFileLoaderOpen}
-        onClose={() => setIsFileLoaderOpen(false)}
-        onDataLoaded={(data, type) => {
-          // Handle the loaded data based on type
-          if (type === 'orders') {
-            setOrders(prev => [...prev, ...data]);
-          } else if (type === 'inventory') {
-            setInventory(prev => [...prev, ...data]);
-          } else if (type === 'production') {
-            setBatches(prev => [...prev, ...data]);
-          } else if (type === 'expenses') {
-            setExpenses(prev => [...prev, ...data]);
-          } else if (type === 'employees') {
-            setEmployees(prev => [...prev, ...data]);
-          }
-          setIsFileLoaderOpen(false);
-        }}
-        claudeKey={import.meta.env.VITE_CLAUDE_API_KEY}
-        geminiKey={import.meta.env.VITE_GEMINI_API_KEY}
-      />
     </div>
+    </CurrencyProvider>
   );
 };
 

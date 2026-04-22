@@ -3,8 +3,16 @@ export function generateId(prefix: string): string {
 }
 
 export function formatCurrency(amount: number, currency = 'USD'): string {
-  if (currency === 'OMR') return `OMR ${amount.toLocaleString()}`;
-  return `$${amount.toLocaleString()}`;
+  try {
+    const opts: Intl.NumberFormatOptions = { style: 'currency', currency } as Intl.NumberFormatOptions;
+    // For OMR, show three decimal places commonly used for OMR
+    if (currency === 'OMR') opts.maximumFractionDigits = 3;
+    return new Intl.NumberFormat(undefined, opts).format(amount);
+  } catch {
+    // Fallback: prefix code then number
+    if (currency === 'OMR') return `OMR ${amount.toLocaleString()}`;
+    return `${currency} ${amount.toLocaleString()}`;
+  }
 }
 
 export function formatDate(iso: string): string {

@@ -172,3 +172,17 @@ export interface AuditLog {
   details: string;
   timestamp: string;
 }
+
+export interface Shipment {
+  id: string;
+  status: 'In Transit' | 'Delivered' | 'Delayed/Customs' | 'Inbound' | 'Pending';
+  product: string;
+  weightKg: number;
+  origin: string;
+  destination: string;
+  temperatureStatus: string; // e.g., '2-8°C', 'Ambient'
+  inspectionStatus: 'Pending' | 'Passed' | 'Failed' | 'N/A';
+  costUSD?: number;
+  costOMR?: number;
+  eta?: string;
+}
