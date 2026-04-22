@@ -35,7 +35,7 @@ interface Props {
   isScanning: boolean;
 }
 
-const COLORS = ['#4f46e5', '#8b5cf6', '#0ea5e9', '#10b981', '#f43f5e', '#eab308'];
+const COLORS = ['#D4AF37', '#C0C0C0', '#CD7F32', '#94A3B8', '#B8860B', '#64748B'];
 
 export const Dashboard: React.FC<Props> = ({
   batches, inventory, orders, expenses, employees, vendors,
@@ -256,7 +256,7 @@ export const Dashboard: React.FC<Props> = ({
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tick={{ fill: '#64748b' }}/>
                 <YAxis stroke="#94a3b8" fontSize={9} tickFormatter={v => '$' + (v / 1000) + 'k'} tick={{ fill: '#64748b' }}/>
                 <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', color: '#fff', fontSize: '11px' }}/>
-                <Bar dataKey="value" fill="#4f46e5" radius={[3, 3, 0, 0]}/>
+                <Bar dataKey="value" fill="#CD7F32" radius={[3, 3, 0, 0]}/>
               </BarChart>
             </ResponsiveContainer>
           </div>

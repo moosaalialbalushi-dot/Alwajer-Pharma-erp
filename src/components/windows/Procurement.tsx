@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Truck, Plus, Edit2, Trash2, AlertTriangle, BadgeDollarSign, Globe, Star, UserPlus, X, Printer } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, AlertTriangle, BadgeDollarSign, Globe, Star, UserPlus, X, Printer, Upload } from 'lucide-react';
 import type { InventoryItem, Vendor, ModalState, ApiConfig } from '@/types';
+import { FileImporter } from '@/components/shared/FileImporter';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DocPreview } from '@/components/shared/DocPreview';
 
@@ -181,6 +182,7 @@ function buildPOHTML(form: POForm, vendor: string, logoUrl: string): string {
 
 export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, onOpenModal, onDelete }) => {
   const [isPOOpen, setIsPOOpen] = useState(false);
+  const [showVendorImporter, setShowVendorImporter] = useState(false);
   const [preview, setPreview] = useState<{ title: string; html: string; filename: string } | null>(null);
   const [poForm, setPoForm] = useState<POForm>({
     poNumber: String(Date.now()).slice(-6),
@@ -226,6 +228,7 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
           <Truck className="text-[#F4C430]" size={20}/> Procurement & Supply Chain
         </h2>
         <div className="flex gap-2 flex-wrap">
+          <button onClick={() => setShowVendorImporter(p => !p)} className="erp-btn-ghost"><Upload size={13}/> Import Vendors</button>
           <button onClick={() => setIsPOOpen(true)} className="bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
             <Printer size={15}/> Generate PO
           </button>
@@ -235,6 +238,7 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
         </div>
       </div>
 
+      {showVendorImporter && (<FileImporter title="Import Vendors from CSV" onClose={() => setShowVendorImporter(false)} fieldMappings={[{erpField:'name',label:'Vendor Name',aliases:['name','vendor','supplier'],required:true},{erpField:'country',label:'Country',aliases:['country','origin']},{erpField:'category',label:'Category',aliases:['category','type']},{erpField:'rating',label:'Rating',aliases:['rating','score']},{erpField:'status',label:'Status',aliases:['status']}]} onImport={rows=>{rows.forEach(row=>onOpenModal('add','vendors',{id:`V-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,rating:Number(row.rating)||3,status:String(row.status||'Audit Pending'),...row}));setShowVendorImporter(false);}}/>)}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="space-y-4">
           <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">

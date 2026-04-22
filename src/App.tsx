@@ -25,8 +25,22 @@ import { AuditHistory } from '@/components/windows/AuditHistory';
 import { analyzeOperations, optimizeFormulation } from '@/services/gemini';
 import { callAIProxy, extractText } from '@/services/aiProxy';
 import { saveRow } from '@/services/db';
-import type { RDProject, ChatSession } from '@/types';
+import type { RDProject, ChatSession, COOInsight, Batch, InventoryItem, Order, Expense } from '@/types';
 
+function generateLocalInsights(batches: Batch[], inventory: InventoryItem[], orders: Order[], expenses: Expense[]): COOInsight[] {
+  const out: COOInsight[] = [];
+  const ly = batches.filter(b => Math.abs(b.actualYield - b.expectedYield) > 2);
+  if (ly.length) out.push({ type: 'Production', severity: 'critical', message: `${ly.length} batch(es) yield deviation >2%: ${ly.map(b => b.id).join(', ')}.` });
+  const sh = inventory.filter(i => i.balanceToPurchase && i.balanceToPurchase > 0);
+  if (sh.length) out.push({ type: 'Inventory', severity: sh.length >= 3 ? 'critical' : 'warning', message: `${sh.length} material(s) need procurement: ${sh.slice(0, 3).map(i => i.name).join(', ')}.` });
+  const pe = expenses.filter(e => e.status === 'Pending');
+  const pt = pe.reduce((s, e) => s + e.amount, 0);
+  if (pt > 0) out.push({ type: 'Finance', severity: pt > 50000 ? 'critical' : 'warning', message: `${pe.length} payment(s) outstanding $${pt.toLocaleString()}.` });
+  const po = orders.filter(o => o.status === 'Pending');
+  if (po.length) { const v = po.reduce((s, o) => s + (Number(o.amountUSD) || 0), 0); out.push({ type: 'Sales', severity: 'info', message: `${po.length} order(s) pending — $${v.toLocaleString()}.` }); }
+  if (!out.length) out.push({ type: 'Production', severity: 'info', message: 'All systems nominal.' });
+  return out;
+}
 const App: React.FC = () => {
   const state = useAppState();
   const [isScanning, setIsScanning] = useState(false);
@@ -35,15 +49,13 @@ const App: React.FC = () => {
   const handleQuickScan = useCallback(async () => {
     setIsScanning(true);
     try {
-      const results = await analyzeOperations(
-        state.batches, state.inventory, state.orders,
-        state.expenses, state.employees,
-        { claudeKey: state.apiConfig.claudeKey }
-      );
-      state.setInsights(results);
-    } catch {/* ignore */} finally {
-      setIsScanning(false);
-    }
+      if (state.apiConfig.claudeKey) {
+        const results = await analyzeOperations(state.batches, state.inventory, state.orders, state.expenses, state.employees, { claudeKey: state.apiConfig.claudeKey });
+        if (results && results.length > 0) { state.setInsights(results); return; }
+      }
+      state.setInsights(generateLocalInsights(state.batches, state.inventory, state.orders, state.expenses));
+    } catch { state.setInsights(generateLocalInsights(state.batches, state.inventory, state.orders, state.expenses)); }
+    finally { setIsScanning(false); }
   }, [state]);
 
   // ── Calculator ──────────────────────────────────────────────────────────────
