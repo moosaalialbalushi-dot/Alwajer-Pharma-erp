@@ -20,6 +20,7 @@ export interface FileAnalysisResult {
   data: unknown[];
   confidence: number;
   rawText: string;
+  mappedData?: any[]; // Added to support mapped data
 }
 
 /**
@@ -363,9 +364,30 @@ export async function processFileUpload(
 ): Promise<FileAnalysisResult> {
   // 1. Extract content
   const content = await extractFileContent(file, config.claudeKey);
-  
+
   // 2. Analyze and identify data type
   const analysis = await analyzeFileContent(content, config.claudeKey);
-  
-  return analysis;
+
+  // 3. Map columns to database fields
+  const mappedData = mapColumnsToDatabaseFields(analysis.data);
+
+  return { ...analysis, mappedData };
+}
+
+function mapColumnsToDatabaseFields(data: any[]): any[] {
+  const columnMapping: Record<string, string> = {
+    'Employee Name': 'staff_name',
+    'Salary': 'employee_salary',
+    'Department': 'department_name',
+    // Add more mappings as needed
+  };
+
+  return data.map(row => {
+    const mappedRow: Record<string, any> = {};
+    for (const [key, value] of Object.entries(row)) {
+      const mappedKey = columnMapping[key as keyof typeof columnMapping] || key;
+      mappedRow[mappedKey] = value;
+    }
+    return mappedRow;
+  });
 }

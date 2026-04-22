@@ -2,9 +2,14 @@ export function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  if (currency === 'OMR') return `OMR ${amount.toLocaleString()}`;
-  return `$${amount.toLocaleString()}`;
+export function formatCurrency(amount: number, currency: string): string {
+  const currencySymbols: Record<string, string> = {
+    USD: '$',
+    OMR: 'OMR',
+  };
+
+  const symbol = currencySymbols[currency] || '';
+  return `${symbol} ${amount.toLocaleString()}`.trim();
 }
 
 export function formatDate(iso: string): string {
