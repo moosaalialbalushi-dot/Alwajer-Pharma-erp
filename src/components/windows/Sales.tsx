@@ -243,6 +243,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                     <th className="px-4 py-2.5 text-right hidden md:table-cell">Qty (Kg)</th>
                     <th className="px-4 py-2.5 text-right hidden lg:table-cell">Rate/Kg (USD)</th>
                     <th className="px-4 py-2.5 text-right">Amount (USD)</th>
+                    <th className="px-4 py-2.5 text-right hidden xl:table-cell">Amount (OMR)</th>
                     <th className="px-4 py-2.5">Status</th>
                     <th className="px-4 py-2.5"></th>
                   </tr>
@@ -275,6 +276,14 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                       <td className="px-4 py-3 text-right">
                         <div className="text-sm font-bold text-slate-900 font-mono">
                           {formatCurrency(numOrZero(order.amountUSD), 'USD')}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right hidden xl:table-cell">
+                        <div className="text-xs font-mono text-slate-600">
+                          {(() => {
+                            const omr = numOrZero(order.amountOMR) || numOrZero(order.amountUSD) * OMR_RATE;
+                            return omr > 0 ? `OMR ${omr.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}` : '—';
+                          })()}
                         </div>
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={order.status}/></td>
@@ -335,7 +344,10 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                 <Field label="Quantity (Kg)" value={numOrZero(selectedOrder.quantity).toLocaleString()}/>
                 <Field label="Rate (USD/Kg)" value={formatCurrency(numOrZero(selectedOrder.rateUSD), 'USD')}/>
                 <Field label="Amount (USD)" value={formatCurrency(numOrZero(selectedOrder.amountUSD), 'USD')}/>
-                <Field label="Amount (OMR)" value={numOrZero(selectedOrder.amountOMR) > 0 ? formatCurrency(numOrZero(selectedOrder.amountOMR), 'OMR') : undefined}/>
+                <Field label="Amount (OMR)" value={(() => {
+                  const omr = numOrZero(selectedOrder.amountOMR) || numOrZero(selectedOrder.amountUSD) * OMR_RATE;
+                  return omr > 0 ? `OMR ${omr.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}` : undefined;
+                })()}/>
                 <Field label="Payment Terms" value={selectedOrder.paymentTerms}/>
                 <Field label="Shipping Method" value={selectedOrder.shippingMethod}/>
                 <Field label="Dispatched" value={selectedOrder.materialDispatched}/>

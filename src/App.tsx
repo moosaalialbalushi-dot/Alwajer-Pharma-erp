@@ -262,11 +262,11 @@ const App: React.FC = () => {
             <AICommand
               chatSessions={state.chatSessions}
               activeChatId={state.activeChatId}
-              activeProvider={state.activeProvider as never}
+              activeProvider={state.activeProvider as 'Claude' | 'Gemini' | 'Ollama'}
               apiConfig={state.apiConfig}
               onSetSessions={handleSetSessions}
               onSetActiveChat={state.setActiveChatId}
-              onSetProvider={state.setActiveProvider as never}
+              onSetProvider={state.setActiveProvider as (p: 'Claude' | 'Gemini' | 'Ollama') => void}
             />
           )}
           {state.activeTab === 'skills' && (

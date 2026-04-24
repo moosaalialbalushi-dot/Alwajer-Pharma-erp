@@ -255,7 +255,16 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                   </div>
                   <button
                     onClick={() => {
-                      setPoForm(prev => ({ ...prev, itemDesc: item.name, qty: String(item.balanceToPurchase) }));
+                      const match = rates.find(r =>
+                        r.name.toLowerCase().includes(item.name.toLowerCase()) ||
+                        item.name.toLowerCase().includes(r.name.toLowerCase())
+                      );
+                      setPoForm(prev => ({
+                        ...prev,
+                        itemDesc: item.name,
+                        qty: String(item.balanceToPurchase),
+                        unitPrice: match ? String(match.price) : prev.unitPrice,
+                      }));
                       setIsPOOpen(true);
                     }}
                     className="text-xs bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white px-3 py-1.5 rounded-lg border border-red-500/30 font-bold transition-all"
@@ -429,8 +438,21 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Unit Price (USD/Kg)</label>
-                  <input type="number" value={poForm.unitPrice} onChange={e => setPoField('unitPrice', e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+                  <div className="flex gap-1">
+                    <input type="number" value={poForm.unitPrice} onChange={e => setPoField('unitPrice', e.target.value)}
+                      className="flex-1 bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
+                    <select
+                      onChange={e => e.target.value && setPoField('unitPrice', e.target.value)}
+                      className="bg-gray-50 border border-gray-200 text-slate-700 rounded-lg px-2 py-2 text-xs focus:border-[#D4AF37]/50 focus:outline-none"
+                      defaultValue=""
+                      title="Pick from market rates"
+                    >
+                      <option value="">Market rates</option>
+                      {rates.map(r => (
+                        <option key={r.id} value={r.price}>{r.name} — ${r.price}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 {poForm.qty && poForm.unitPrice && (
                   <div className="col-span-2 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg px-4 py-2 text-sm font-bold text-[#D4AF37]">

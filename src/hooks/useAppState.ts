@@ -82,7 +82,7 @@ export function useAppState() {
   // ── AI chat sessions ───────────────────────────────────────────────────────
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [activeProvider, setActiveProvider] = useState<'Claude' | 'Ollama'>('Claude');
+  const [activeProvider, setActiveProvider] = useState<'Claude' | 'Gemini' | 'Ollama'>('Claude');
 
   // ── Calculator ────────────────────────────────────────────────────────────
   const [calcData, setCalcData] = useState<CalcData>({
