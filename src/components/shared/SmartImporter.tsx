@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Loader2, X, Check, AlertCircle, Trash2, FileSpreadsheet, Image as ImageIcon, FileText, ChevronRight } from 'lucide-react';
+import { Upload, Loader2, X, Check, AlertCircle, Trash2, FileSpreadsheet, Image as ImageIcon, ChevronRight, Download } from 'lucide-react';
 import type { EntityType } from '@/types';
 
 // ── Field schemas per entity type ──────────────────────────────────────────
@@ -280,6 +280,35 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// ── Example rows per entity for template download ──────────────────────────
+const EXAMPLES: Record<string, Record<string, string>> = {
+  sales:       { invoiceNo: 'PI-2025-001', date: '2025-01-15', customer: 'ABC Pharma Ltd', country: 'UAE', product: 'Omeprazole 20mg', quantity: '1000', rateUSD: '12.50', amountUSD: '12500', status: 'Pending', paymentTerms: 'AT SIGHT', lcNo: 'LC-12345' },
+  inventory:   { sNo: '1', name: 'Omeprazole Powder', category: 'API', stock: '500', unit: 'Kg', requiredForOrders: '1000', balanceToPurchase: '500' },
+  production:  { product: 'Omeprazole 20mg Pellets', quantity: '500', actualYield: '98', expectedYield: '100', status: 'Scheduled', timestamp: '2025-01-15', dispatchDate: '2025-02-01' },
+  accounting:  { description: 'Raw Material Purchase', category: 'Raw Materials', amount: '15000', status: 'Pending', dueDate: '2025-02-01' },
+  hr:          { name: 'Ahmed Al Balushi', role: 'Production Supervisor', department: 'Production', salary: '1200', status: 'Active', joinDate: '2024-01-01' },
+  vendors:     { name: 'Shandong Pharma Co.', category: 'API', country: 'China', rating: '4', status: 'Verified' },
+  procurement: { name: 'Shandong Pharma Co.', category: 'API', country: 'China', rating: '4', status: 'Verified' },
+  rd:          { title: 'Esomeprazole 40mg Pellets', productCode: 'ESP-40', dosageForm: 'Pellet', strength: '40mg', status: 'Formulation', optimizationScore: '65' },
+  bd:          { targetMarket: 'Saudi Arabia', opportunity: 'Omeprazole 20mg Registration', potentialValue: '500000', status: 'Prospecting', probability: '40' },
+  samples:     { product: 'Omeprazole 20mg Pellets', destination: 'UAE', quantity: '100g', status: 'Dispatched', trackingNumber: 'AW1234567890' },
+  logistics:   { referenceNo: 'SHP-2025-001', product: 'Omeprazole 20mg', quantity: '1000', origin: 'Muscat', destination: 'Dubai', carrier: 'Emirates SkyCargo', status: 'Scheduled' },
+};
+
+async function downloadTemplate(entityType: string, schema: { key: string; label: string }[]) {
+  const { utils, writeFile } = await import('xlsx');
+  const headers = schema.map(f => f.label);
+  const keys = schema.map(f => f.key);
+  const example = EXAMPLES[entityType] ?? {};
+  const exampleRow = keys.map(k => example[k] ?? '');
+  const ws = utils.aoa_to_sheet([headers, exampleRow]);
+  // Set column widths
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 16) }));
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, ws, entityType.charAt(0).toUpperCase() + entityType.slice(1));
+  writeFile(wb, `${entityType}_template.xlsx`);
+}
+
 // ── Main component ──────────────────────────────────────────────────────────
 interface Props {
   entityType: EntityType | 'vendors';
@@ -408,6 +437,16 @@ export const SmartImporter: React.FC<Props> = ({ entityType, onImport, apiConfig
                     <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.jpg,.jpeg,.png,.gif,.webp,.pdf" className="hidden"
                       onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}/>
                   </label>
+                  {/* Download template */}
+                  <button
+                    onClick={() => downloadTemplate(entityType, schema)}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 border-2 border-dashed border-[#D4AF37]/50 rounded-xl text-sm font-bold text-[#D4AF37] hover:bg-[#D4AF37]/5 hover:border-[#D4AF37] transition-all"
+                  >
+                    <Download size={14}/> Download Excel Template
+                  </button>
+                  <p className="text-[10px] text-slate-400 text-center -mt-2">
+                    Fill the template, then upload it above — no AI needed
+                  </p>
                   <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
                     <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg">
                       <FileSpreadsheet size={14} className="text-green-600 shrink-0"/>
