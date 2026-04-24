@@ -7,6 +7,7 @@ export interface AIProxyRequest {
   messages: AIMessage[];
   json_mode?: boolean;
   max_tokens?: number;
+  /** @deprecated — kept for call-site compat; keys are now server-side env vars */
   apiKey?: string;
 }
 
@@ -33,37 +34,35 @@ export function extractText(response: unknown, provider: string): string {
 export async function callAIProxy(req: AIProxyRequest): Promise<unknown> {
   const { provider, system, messages, model, max_tokens = 1024, apiKey } = req;
 
-  // ── GEMINI — direct browser call ──────────────────────────────────────────
+  // ── GEMINI — server-side proxy (key stays in Vercel env) ──────────────────
   if (provider === 'gemini') {
-    const { GoogleGenAI } = await import('@google/genai');
-    const key = apiKey || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-    if (!key) throw new Error('Gemini API key not set. Go to ⚙️ Settings → Gemini API Key.');
-    const ai = new GoogleGenAI({ apiKey: key });
-    const prompt = system
-      ? `${system}\n\n${messages.map(m => m.content).join('\n')}`
-      : messages.map(m => m.content).join('\n');
-    const response = await ai.models.generateContent({
-      model: model ?? 'gemini-2.0-flash',
-      contents: prompt,
-    });
-    return { text: response.text ?? '', candidates: response.candidates };
-  }
-
-  // ── CLAUDE — Vercel serverless proxy ──────────────────────────────────────
-  if (provider === 'claude') {
     const res = await fetch('/api/ai-proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system, messages, model, max_tokens, clientApiKey: apiKey }),
+      body: JSON.stringify({ provider: 'gemini', system, messages, model, max_tokens }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(`Claude error ${res.status}: ${(err as any)?.error || 'Check your Claude API key in Settings.'}`);
+      throw new Error(`Gemini error ${res.status}: ${(err as any)?.error || 'Check GEMINI_API_KEY in Vercel env vars.'}`);
     }
     return res.json();
   }
 
-  // ── OPENROUTER — direct browser call ──────────────────────────────────────
+  // ── CLAUDE — server-side proxy (key stays in Vercel env) ──────────────────
+  if (provider === 'claude') {
+    const res = await fetch('/api/ai-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'claude', system, messages, model, max_tokens }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(`Claude error ${res.status}: ${(err as any)?.error || 'Check ANTHROPIC_API_KEY in Vercel env vars.'}`);
+    }
+    return res.json();
+  }
+
+  // ── OPENROUTER — uses user-supplied key (openrouter keys are designed for client use) ──
   if (provider === 'openrouter') {
     const allMessages = system
       ? [{ role: 'system', content: system }, ...messages]
