@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Loader2, X, Check, AlertCircle, Trash2, FileSpreadsheet, Image as ImageIcon, FileText, ChevronRight } from 'lucide-react';
-import type { EntityType, ApiConfig } from '@/types';
+import type { EntityType } from '@/types';
 
 // ── Field schemas per entity type ──────────────────────────────────────────
 const SCHEMAS: Record<string, { key: string; label: string; aliases: string[] }[]> = {
@@ -204,8 +204,7 @@ async function parseCSV(file: File): Promise<{ headers: string[]; rawRows: Recor
 async function extractWithAI(
   file: File,
   entityType: string,
-  schema: { key: string; label: string; aliases: string[] }[],
-  apiConfig: ApiConfig
+  schema: { key: string; label: string; aliases: string[] }[]
 ): Promise<Record<string, unknown>[]> {
   const context = AI_CONTEXT[entityType] || 'Extract all records from this document.';
   const fieldList = schema.map(f => `"${f.key}": ${f.label}`).join(', ');
@@ -227,68 +226,33 @@ Return: [{"field":"value",...}, ...]`;
   const isImage = file.type.startsWith('image/');
   const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-  let jsonText = '';
+  let imageBase64: string | undefined;
+  let mimeType: string | undefined;
+  let content = '';
 
-  // Try Gemini first (free, direct from browser)
-  if (apiConfig.geminiKey) {
-    try {
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: apiConfig.geminiKey });
-      let response;
-      if (isImage) {
-        const base64 = await fileToBase64(file);
-        response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: [{ role: 'user', parts: [
-            { inlineData: { mimeType: file.type as any, data: base64 } },
-            { text: prompt }
-          ]}],
-        });
-      } else {
-        const text = isPDF ? await extractPDFText(file) : await file.text();
-        response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: prompt + '\n\nDocument:\n' + text.slice(0, 8000),
-        });
-      }
-      jsonText = response.text ?? '';
-    } catch (e) {
-      console.warn('Gemini extraction failed, trying Claude:', e);
-    }
+  if (isImage) {
+    imageBase64 = await fileToBase64(file);
+    mimeType = file.type;
+  } else if (isPDF) {
+    content = await extractPDFText(file);
+  } else {
+    content = await file.text();
   }
 
-  // Fallback to Claude (via proxy)
-  if (!jsonText && apiConfig.claudeKey) {
-    try {
-      const base64 = isImage ? await fileToBase64(file) : null;
-      const messageContent: unknown[] = base64
-        ? [{ type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } }, { type: 'text', text: prompt }]
-        : [{ type: 'text', text: prompt + '\n\nDocument:\n' + (isPDF ? await extractPDFText(file) : await file.text()).slice(0, 6000) }];
-      const res = await fetch('/api/ai-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          messages: [{ role: 'user', content: messageContent }],
-          max_tokens: 4096,
-          clientApiKey: apiConfig.claudeKey,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        jsonText = data?.content?.[0]?.text ?? '';
-      }
-    } catch (e) {
-      console.warn('Claude extraction failed:', e);
-    }
+  const res = await fetch('/api/extract', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, content, imageBase64, mimeType }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `Server error ${res.status}` }));
+    throw new Error((err as { error?: string }).error || `Extraction failed (${res.status})`);
   }
 
-  if (!jsonText) throw new Error('No AI key configured. Add a Gemini or Claude key in Settings.');
-
-  // Parse JSON from response
-  const match = jsonText.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('AI did not return a valid JSON array. Try a clearer document image.');
-  return JSON.parse(match[0]) as Record<string, unknown>[];
+  const data = await res.json() as { records?: Record<string, unknown>[] };
+  if (!data.records || !data.records.length) throw new Error('No records found in document. Try a clearer image.');
+  return data.records;
 }
 
 async function extractPDFText(file: File): Promise<string> {
@@ -320,7 +284,7 @@ function fileToBase64(file: File): Promise<string> {
 interface Props {
   entityType: EntityType | 'vendors';
   onImport: (rows: Record<string, unknown>[]) => void;
-  apiConfig: ApiConfig;
+  apiConfig?: unknown;
   buttonLabel?: string;
 }
 
@@ -365,7 +329,7 @@ export const SmartImporter: React.FC<Props> = ({ entityType, onImport, apiConfig
     if (isImage || isPDF) {
       setStep('loading'); setMsg(`Extracting data with AI from ${isImage ? 'image' : 'PDF'}…`);
       try {
-        const rows = await extractWithAI(file, entityType, schema, apiConfig);
+        const rows = await extractWithAI(file, entityType, schema);
         if (!rows.length) { setError('No records found in document. Try a clearer image.'); setStep('idle'); return; }
         const processed = postProcess(rows, entityType);
         setReviewRows(processed);
