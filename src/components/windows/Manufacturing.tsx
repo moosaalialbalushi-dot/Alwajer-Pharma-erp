@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Factory, Plus, Eye, Edit2, Trash2, ChevronDown, BarChart3 } from 'lucide-react';
-import type { Batch, ModalState } from '@/types';
+import type { Batch, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   batches: Batch[];
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
-export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete }) => {
+export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete, apiConfig, onImport }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const newBatch = (): Record<string, unknown> => ({
@@ -24,9 +27,12 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete 
         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <Factory className="text-[#F4C430]" size={20}/> Manufacturing Operations
         </h2>
-        <button onClick={() => onOpenModal('add', 'production', newBatch())} className="erp-btn-gold">
-          <Plus size={15}/> Log Batch
-        </button>
+        <div className="flex items-center gap-2">
+          <SmartImporter entityType="production" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import Batches"/>
+          <button onClick={() => onOpenModal('add', 'production', newBatch())} className="erp-btn-gold">
+            <Plus size={15}/> Log Batch
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}

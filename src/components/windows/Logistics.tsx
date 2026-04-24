@@ -3,12 +3,15 @@ import {
   Truck, Plus, Edit2, Trash2, Plane, Ship, Package,
   MapPin, Clock, CheckCircle2, AlertCircle, Filter, ArrowDownToLine, ArrowUpFromLine,
 } from 'lucide-react';
-import type { Shipment, ModalState } from '@/types';
+import type { Shipment, ModalState, ApiConfig } from '@/types';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   shipments: Shipment[];
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
 const STATUS_STYLES: Record<Shipment['status'], string> = {
@@ -28,7 +31,7 @@ const isOman = (loc: string) => /oman|sohar|muscat|salalah/i.test(loc);
 
 type Direction = 'all' | 'outbound' | 'inbound';
 
-export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete }) => {
+export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete, apiConfig, onImport }) => {
   const [statusFilter, setStatusFilter] = useState<'all' | Shipment['status']>('all');
   const [direction, setDirection] = useState<Direction>('all');
 
@@ -65,12 +68,15 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete })
         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <Truck className="text-[#D4AF37]" size={22}/> Logistics & Shipments
         </h2>
-        <button
-          onClick={() => onOpenModal('add', 'logistics', newShipment())}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-slate-950 bg-[#D4AF37] hover:bg-[#c4a030] rounded-lg transition-all"
-        >
-          <Plus size={15}/> New Shipment
-        </button>
+        <div className="flex items-center gap-2">
+          <SmartImporter entityType="logistics" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
+          <button
+            onClick={() => onOpenModal('add', 'logistics', newShipment())}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-slate-950 bg-[#D4AF37] hover:bg-[#c4a030] rounded-lg transition-all"
+          >
+            <Plus size={15}/> New Shipment
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

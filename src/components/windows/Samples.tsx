@@ -1,12 +1,15 @@
 import React from 'react';
 import { PackageSearch, Plus, Edit2, Trash2, Truck } from 'lucide-react';
-import type { SampleStatus, ModalState } from '@/types';
+import type { SampleStatus, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   samples: SampleStatus[];
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
 const SAMPLE_STAGES: SampleStatus['status'][] = ['Requested', 'Production', 'QC Testing', 'Dispatched', 'Arrived'];
@@ -15,7 +18,7 @@ function stageIndex(s: SampleStatus['status']): number {
   return SAMPLE_STAGES.indexOf(s);
 }
 
-export const Samples: React.FC<Props> = ({ samples, onOpenModal, onDelete }) => {
+export const Samples: React.FC<Props> = ({ samples, onOpenModal, onDelete, apiConfig, onImport }) => {
   const newSample = (): Record<string, unknown> => ({
     id: `SMP-${Date.now()}`, product: '', destination: '', quantity: '', status: 'Requested',
   });
@@ -26,9 +29,12 @@ export const Samples: React.FC<Props> = ({ samples, onOpenModal, onDelete }) => 
         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
           <PackageSearch className="text-[#F4C430]" size={20}/> Sample Tracking
         </h2>
-        <button onClick={() => onOpenModal('add', 'samples', newSample())} className="erp-btn-gold">
-          <Plus size={15}/> New Sample
-        </button>
+        <div className="flex items-center gap-2">
+          <SmartImporter entityType="samples" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
+          <button onClick={() => onOpenModal('add', 'samples', newSample())} className="erp-btn-gold">
+            <Plus size={15}/> New Sample
+          </button>
+        </div>
       </div>
 
       {/* Summary */}

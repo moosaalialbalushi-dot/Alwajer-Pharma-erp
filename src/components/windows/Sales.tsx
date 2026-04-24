@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { BadgeDollarSign, Plus, Edit2, Trash2, Download, FileText, Package, ReceiptText, Eye, X, Search, Upload } from 'lucide-react';
+import { BadgeDollarSign, Plus, Edit2, Trash2, Download, FileText, Package, ReceiptText, Eye, X, Search } from 'lucide-react';
 import type { Order, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DocPreview } from '@/components/shared/DocPreview';
-import { UniversalFileLoader } from '@/components/shared/UniversalFileLoader';
 import { exportToCSV } from '@/services/export';
-import { FileImporter } from '@/components/shared/FileImporter';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 import { formatCurrency } from '@/lib/utils';
 
 interface Props {
@@ -13,6 +12,7 @@ interface Props {
   apiConfig: ApiConfig;
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
 const OMR_RATE = 0.3845;
@@ -108,14 +108,13 @@ function buildQuotationHTML(quotNo: string, validUntil: string, incoterms: strin
   </body></html>`;
 }
 
-export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelete }) => {
+export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelete, onImport }) => {
   const [preview, setPreview] = useState<{ title: string; html: string; filename: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [quotForm, setQuotForm] = useState({ quotNo: '', validUntil: '', incoterms: 'FOB SOHAR PORT, OMAN', paymentTerms: 'T/T IN ADVANCE' });
   const [showQuotForm, setShowQuotForm] = useState(false);
-  const [showImporter, setShowImporter] = useState(false);
 
   const selectedOrder = orders.find(o => o.id === selectedId) ?? null;
   const invoiceGroup = selectedOrder?.invoiceNo
@@ -153,18 +152,6 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
 
   const logoUrl = apiConfig.logoUrl || '';
 
-  const handleImportData = (data: unknown[], _type: string) => {
-    if (!data || data.length === 0) return;
-    const first = data[0] as Record<string, unknown>;
-    onOpenModal('add', 'sales', {
-      id: `ORD-${Date.now()}`,
-      sNo: '', invoiceNo: '', lcNo: '',
-      date: new Date().toISOString().split('T')[0],
-      customer: '', country: '', product: '', quantity: 0,
-      rateUSD: 0, amountUSD: 0, amountOMR: 0, status: 'Pending',
-      ...first,
-    });
-  };
 
   const Field = ({ label, value }: { label: string; value?: string | number }) => (
     <div>
@@ -181,14 +168,10 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
           <BadgeDollarSign className="text-[#F4C430]" size={20}/> Sales Orders
         </h2>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setShowImporter(p => !p)} className="erp-btn-ghost"><Upload size={13}/> Import CSV</button>
           <button onClick={() => exportToCSV(orders as unknown as Record<string, unknown>[], 'sales')} className="erp-btn-ghost">
             <Download size={13}/> Export
           </button>
-          <UniversalFileLoader
-            onDataLoaded={handleImportData}
-            claudeKey={apiConfig['claudeKey'] as string | undefined}
-          />
+          <SmartImporter entityType="sales" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import Orders"/>
           <button onClick={() => onOpenModal('add', 'sales', newOrder())} className="erp-btn-gold">
             <Plus size={15}/> New Order
           </button>
@@ -209,7 +192,6 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
         ))}
       </div>
 
-      {showImporter && (<FileImporter title="Import Sales Orders" onClose={() => setShowImporter(false)} fieldMappings={[{erpField:'invoiceNo',label:'Invoice No',aliases:['invoice','inv no']},{erpField:'date',label:'Date',aliases:['date']},{erpField:'customer',label:'Customer',aliases:['customer','buyer','client'],required:true},{erpField:'country',label:'Country',aliases:['country']},{erpField:'product',label:'Product',aliases:['product','item'],required:true},{erpField:'quantity',label:'Qty (Kg)',aliases:['quantity','qty','kg'],required:true},{erpField:'rateUSD',label:'Rate USD/Kg',aliases:['rate','price','usd'],required:true},{erpField:'status',label:'Status',aliases:['status']},{erpField:'paymentTerms',label:'Payment Terms',aliases:['payment','terms']},{erpField:'lcNo',label:'LC/PO No',aliases:['lc','po','reference']}]} onImport={rows=>{rows.forEach(row=>{const qty=Number(row.quantity)||0;const rate=Number(row.rateUSD)||0;onOpenModal('add','sales',{id:`ORD-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,sNo:'',lcNo:String(row.lcNo||''),materialDispatched:'',amountUSD:Number((qty*rate).toFixed(2)),amountOMR:Number((qty*rate*0.3845).toFixed(3)),...row});});setShowImporter(false);}}/>)}
       {/* Main area: table + detail panel */}
       <div className="flex gap-4 min-h-0">
         {/* Table */}

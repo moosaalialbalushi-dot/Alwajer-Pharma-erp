@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Beaker, Plus, Edit2, Trash2, Search, ChevronDown, Wand2, X } from 'lucide-react';
-import type { RDProject, Ingredient, ModalState } from '@/types';
+import type { RDProject, Ingredient, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { formatCurrency } from '@/lib/utils';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   rdProjects: RDProject[];
@@ -10,6 +11,8 @@ interface Props {
   onDelete: (type: string, id: string, name: string) => void;
   onUpdateProject: (project: RDProject) => void;
   onOptimize: (project: RDProject) => Promise<string>;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
 const ROLES = ['API', 'Filler', 'Binder', 'Coating', 'Disintegrant', 'Excipient', 'Plasticizer', 'Lubricant', 'Surfactant', 'Other'] as const;
@@ -18,7 +21,7 @@ const emptyForm = (): Partial<Ingredient> => ({
   name: '', role: 'API', quantity: 0, rateUSD: 0, unit: 'Kg',
 });
 
-export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUpdateProject, onOptimize }) => {
+export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUpdateProject, onOptimize, apiConfig, onImport }) => {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(rdProjects[0]?.id ?? null);
   const [optimizing, setOptimizing] = useState<string | null>(null);
@@ -124,6 +127,7 @@ export const RDLab: React.FC<Props> = ({ rdProjects, onOpenModal, onDelete, onUp
               className="bg-gray-50 border border-gray-200 text-slate-900 rounded-lg pl-8 pr-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none w-48"
             />
           </div>
+          <SmartImporter entityType="rd" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
           <button onClick={() => onOpenModal('add', 'rd', newProject())} className="erp-btn-gold">
             <Plus size={15}/> New Project
           </button>

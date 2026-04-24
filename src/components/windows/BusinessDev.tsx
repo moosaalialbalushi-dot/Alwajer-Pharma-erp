@@ -1,16 +1,19 @@
 import React from 'react';
 import { Globe, Plus, Edit2, Trash2, TrendingUp } from 'lucide-react';
-import type { BDLead, Market, ModalState } from '@/types';
+import type { BDLead, Market, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   bdLeads: BDLead[];
   markets: Market[];
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
-export const BusinessDev: React.FC<Props> = ({ bdLeads, markets, onOpenModal, onDelete }) => {
+export const BusinessDev: React.FC<Props> = ({ bdLeads, markets, onOpenModal, onDelete, apiConfig, onImport }) => {
   const newLead = (): Record<string, unknown> => ({
     id: `BD-${Date.now()}`, targetMarket: '', opportunity: '',
     potentialValue: '$0', status: 'Prospecting', probability: 0,
@@ -34,6 +37,7 @@ export const BusinessDev: React.FC<Props> = ({ bdLeads, markets, onOpenModal, on
           <button onClick={() => onOpenModal('add', 'markets', newMarket())} className="erp-btn-ghost">
             Add Market
           </button>
+          <SmartImporter entityType="bd" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
           <button onClick={() => onOpenModal('add', 'bd', newLead())} className="erp-btn-gold">
             <Plus size={15}/> Add Lead
           </button>

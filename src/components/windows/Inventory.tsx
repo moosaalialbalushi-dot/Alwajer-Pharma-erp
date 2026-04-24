@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Boxes, Plus, Edit2, Trash2, AlertCircle, Download } from 'lucide-react';
-import type { InventoryItem, ModalState } from '@/types';
+import type { InventoryItem, ModalState, ApiConfig } from '@/types';
 import { exportToCSV } from '@/services/export';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 type InventoryTab = 'raw' | 'packing' | 'spares' | 'finished';
 
@@ -10,9 +11,11 @@ interface Props {
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
   onNavigate: (tab: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
-export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, onNavigate }) => {
+export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, onNavigate, apiConfig, onImport }) => {
   const [tab, setTab] = useState<InventoryTab>('raw');
 
   const filtered = inventory.filter(i => {
@@ -49,6 +52,7 @@ export const Inventory: React.FC<Props> = ({ inventory, onOpenModal, onDelete, o
           <button onClick={() => exportToCSV(inventory as unknown as Record<string, unknown>[], 'inventory')} className="erp-btn-ghost">
             <Download size={13}/> Export
           </button>
+          <SmartImporter entityType="inventory" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
           <button onClick={() => onOpenModal('add', 'inventory', newItem())} className="erp-btn-gold">
             <Plus size={15}/> Add Material
           </button>

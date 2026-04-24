@@ -1,15 +1,18 @@
 import React from 'react';
 import { Wallet, AlertCircle, Plus, Edit2, Trash2, TrendingDown } from 'lucide-react';
-import type { Expense, ModalState } from '@/types';
+import type { Expense, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   expenses: Expense[];
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
-export const Accounting: React.FC<Props> = ({ expenses, onOpenModal, onDelete }) => {
+export const Accounting: React.FC<Props> = ({ expenses, onOpenModal, onDelete, apiConfig, onImport }) => {
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const liabilities = expenses.filter(e => e.status === 'Pending').reduce((s, e) => s + e.amount, 0);
   const paid = expenses.filter(e => e.status === 'Paid').reduce((s, e) => s + e.amount, 0);
@@ -48,6 +51,7 @@ export const Accounting: React.FC<Props> = ({ expenses, onOpenModal, onDelete })
       <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-base font-bold text-slate-900">Ledger Overview</h3>
+          <SmartImporter entityType="accounting" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
           <button onClick={() => onOpenModal('add', 'accounting', newExpense())} className="erp-btn-gold">
             <Plus size={15}/> Add Transaction
           </button>

@@ -1,15 +1,18 @@
 import React from 'react';
 import { Users, Briefcase, CheckCircle2, BadgeDollarSign, Plus, Edit2, Trash2 } from 'lucide-react';
-import type { Employee, ModalState } from '@/types';
+import type { Employee, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { SmartImporter } from '@/components/shared/SmartImporter';
 
 interface Props {
   employees: Employee[];
   onOpenModal: (mode: ModalState['mode'], type: ModalState['type'], data?: Record<string, unknown>) => void;
   onDelete: (type: string, id: string, name: string) => void;
+  apiConfig: ApiConfig;
+  onImport: (rows: Record<string, unknown>[]) => void;
 }
 
-export const HRAdmin: React.FC<Props> = ({ employees, onOpenModal, onDelete }) => {
+export const HRAdmin: React.FC<Props> = ({ employees, onOpenModal, onDelete, apiConfig, onImport }) => {
   const payroll = employees.reduce((s, e) => s + e.salary, 0);
   const departments = [...new Set(employees.map(e => e.department))];
 
@@ -44,6 +47,7 @@ export const HRAdmin: React.FC<Props> = ({ employees, onOpenModal, onDelete }) =
       <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
         <div className="flex justify-between items-center mb-5">
           <h3 className="text-base font-bold text-slate-900">Employee Directory</h3>
+          <SmartImporter entityType="hr" onImport={onImport} apiConfig={apiConfig} buttonLabel="Import"/>
           <button onClick={() => onOpenModal('add', 'hr', newEmployee())} className="erp-btn-gold">
             <Plus size={15}/> Add Employee
           </button>

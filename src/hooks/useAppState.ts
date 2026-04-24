@@ -232,6 +232,76 @@ export function useAppState() {
     closeModal();
   }, [modal.mode, logAudit, closeModal]);
 
+  const handleBulkImport = useCallback((type: ModalState['type'], rows: Record<string, unknown>[]) => {
+    if (!type || !rows.length) return;
+    const ensureId = (row: Record<string, unknown>, prefix: string) =>
+      ({ ...row, id: (row.id as string) || generateId(prefix) });
+    switch (type) {
+      case 'production': {
+        const newRows = rows.map(r => ensureId(r, 'BATCH') as unknown as Batch);
+        setBatches(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('batches', r).catch(() => {}));
+        break;
+      }
+      case 'inventory': {
+        const newRows = rows.map(r => ensureId(r, 'RM') as unknown as InventoryItem);
+        setInventory(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('inventory', r).catch(() => {}));
+        break;
+      }
+      case 'sales': {
+        const newRows = rows.map(r => ensureId(r, 'ORD') as unknown as Order);
+        setOrders(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('orders', r).catch(() => {}));
+        break;
+      }
+      case 'vendors':
+      case 'procurement': {
+        const newRows = rows.map(r => ensureId(r, 'V') as unknown as Vendor);
+        setVendors(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('vendors', r).catch(() => {}));
+        break;
+      }
+      case 'accounting': {
+        const newRows = rows.map(r => ensureId(r, 'EXP') as unknown as Expense);
+        setExpenses(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('expenses', r).catch(() => {}));
+        break;
+      }
+      case 'hr': {
+        const newRows = rows.map(r => ensureId(r, 'EMP') as unknown as Employee);
+        setEmployees(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('employees', r).catch(() => {}));
+        break;
+      }
+      case 'rd': {
+        const newRows = rows.map(r => ensureId(r, 'RD') as unknown as RDProject);
+        setRdProjects(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('rd_projects', r).catch(() => {}));
+        break;
+      }
+      case 'bd': {
+        const newRows = rows.map(r => ensureId(r, 'BD') as unknown as BDLead);
+        setBdLeads(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('bd_leads', r).catch(() => {}));
+        break;
+      }
+      case 'samples': {
+        const newRows = rows.map(r => ensureId(r, 'SMP') as unknown as SampleStatus);
+        setSamples(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('samples', r).catch(() => {}));
+        break;
+      }
+      case 'logistics': {
+        const newRows = rows.map(r => ensureId(r, 'SHP') as unknown as Shipment);
+        setShipments(prev => [...prev, ...newRows]);
+        newRows.forEach(r => saveRow('shipments', r).catch(() => {}));
+        break;
+      }
+    }
+    logAudit(`BULK_IMPORT_${type.toUpperCase()}`, `Imported ${rows.length} records`);
+  }, [logAudit]);
+
   const handleDelete = useCallback((type: string, id: string, name: string) => {
     setConfirmDialog({
       isOpen: true,
@@ -279,7 +349,7 @@ export function useAppState() {
     // settings
     isSettingsOpen, setIsSettingsOpen, apiConfig, saveApiConfig,
     // modal
-    modal, openModal, closeModal, handleSave,
+    modal, openModal, closeModal, handleSave, handleBulkImport,
     // confirm
     confirmDialog, handleDelete,
     setConfirmDialog,

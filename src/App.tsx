@@ -170,6 +170,8 @@ const App: React.FC = () => {
               batches={state.batches}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('production', rows)}
             />
           )}
           {state.activeTab === 'inventory' && (
@@ -178,6 +180,8 @@ const App: React.FC = () => {
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
               onNavigate={tab => state.setActiveTab(tab as never)}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('inventory', rows)}
             />
           )}
           {state.activeTab === 'sales' && (
@@ -186,6 +190,7 @@ const App: React.FC = () => {
               apiConfig={state.apiConfig}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              onImport={rows => state.handleBulkImport('sales', rows)}
             />
           )}
           {state.activeTab === 'procurement' && (
@@ -195,6 +200,7 @@ const App: React.FC = () => {
               apiConfig={state.apiConfig}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              onImport={rows => state.handleBulkImport('procurement', rows)}
             />
           )}
           {state.activeTab === 'accounting' && (
@@ -202,6 +208,8 @@ const App: React.FC = () => {
               expenses={state.expenses}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('accounting', rows)}
             />
           )}
           {state.activeTab === 'hr' && (
@@ -209,6 +217,8 @@ const App: React.FC = () => {
               employees={state.employees}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('hr', rows)}
             />
           )}
           {state.activeTab === 'rd' && (
@@ -221,6 +231,8 @@ const App: React.FC = () => {
                 saveRow('rd_projects', p).catch(() => {});
               }}
               onOptimize={handleOptimizeRD}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('rd', rows)}
             />
           )}
           {state.activeTab === 'industrial' && (
@@ -232,6 +244,8 @@ const App: React.FC = () => {
               markets={state.markets}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('bd', rows)}
             />
           )}
           {state.activeTab === 'samples' && (
@@ -239,6 +253,8 @@ const App: React.FC = () => {
               samples={state.samples}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('samples', rows)}
             />
           )}
           {state.activeTab === 'logistics' && (
@@ -246,6 +262,8 @@ const App: React.FC = () => {
               shipments={state.shipments}
               onOpenModal={state.openModal}
               onDelete={state.handleDelete}
+              apiConfig={state.apiConfig}
+              onImport={rows => state.handleBulkImport('logistics', rows)}
             />
           )}
           {state.activeTab === 'costing' && (
