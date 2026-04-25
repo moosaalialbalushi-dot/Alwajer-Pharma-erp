@@ -54,7 +54,8 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete, a
   });
 
   const newShipment = (): Record<string, unknown> => ({
-    id: `SHP-${Date.now()}`, referenceNo: '', product: '', quantity: 0, unit: 'Kg',
+    id: `SHP-${Date.now()}`, referenceNo: '', clientName: '', direction: 'Export',
+    product: '', quantity: 0, unit: 'Kg', ratePerKg: 0, totalInvoice: 0,
     carrier: '', trackingNumber: '', origin: 'Sohar, Oman', destination: '',
     mode: 'Sea', status: 'Scheduled',
     dispatchDate: new Date().toISOString().split('T')[0],
@@ -140,8 +141,12 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete, a
         )}
         {visible.map(shipment => {
           const ModeIcon = MODE_ICONS[shipment.mode];
-          const dir = isOman(shipment.origin) && !isOman(shipment.destination) ? 'outbound'
-                    : !isOman(shipment.origin) && isOman(shipment.destination) ? 'inbound' : null;
+          // Explicit direction field takes priority; fall back to origin/destination heuristic
+          const explicitDir = shipment.direction === 'Export' ? 'outbound' : shipment.direction === 'Import' ? 'inbound' : null;
+          const dir = explicitDir ?? (
+            isOman(shipment.origin) && !isOman(shipment.destination) ? 'outbound'
+            : !isOman(shipment.origin) && isOman(shipment.destination) ? 'inbound' : null
+          );
           return (
             <div key={shipment.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
               <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
@@ -205,8 +210,15 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete, a
                 <div className="flex items-start gap-2">
                   <Clock size={14} className="text-[#D4AF37] mt-0.5 shrink-0"/>
                   <div>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold">Cost & Tracking</p>
-                    <p className="text-slate-800 font-medium">${shipment.cost.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Invoice & Freight</p>
+                    {shipment.totalInvoice ? (
+                      <p className="text-slate-800 font-bold">${shipment.totalInvoice.toLocaleString()} <span className="text-[10px] font-normal text-slate-500">invoice</span></p>
+                    ) : null}
+                    {shipment.ratePerKg ? (
+                      <p className="text-[11px] text-slate-600">${shipment.ratePerKg}/Kg · Freight: ${shipment.cost.toLocaleString()}</p>
+                    ) : (
+                      <p className="text-slate-800 font-medium">Freight: ${shipment.cost.toLocaleString()}</p>
+                    )}
                     {shipment.trackingNumber && <p className="text-[10px] text-[#D4AF37] font-mono mt-0.5">{shipment.trackingNumber}</p>}
                   </div>
                 </div>

@@ -65,35 +65,45 @@ const SCHEMAS: Record<string, { key: string; label: string; aliases: string[] }[
     { key: 'status', label: 'Status', aliases: ['status','approval','verified'] },
   ],
   rd: [
-    { key: 'title', label: 'Project Title', aliases: ['title','project','product','name','product name'] },
-    { key: 'productCode', label: 'Product Code', aliases: ['code','product code','item code','sku'] },
-    { key: 'dosageForm', label: 'Dosage Form', aliases: ['dosage form','form','formulation','dosage'] },
-    { key: 'strength', label: 'Strength', aliases: ['strength','dose','concentration','potency'] },
-    { key: 'status', label: 'Status', aliases: ['status','project status','stage','phase'] },
-    { key: 'optimizationScore', label: 'Score (%)', aliases: ['score','optimization','completion','progress'] },
+    { key: 'name', label: 'Ingredient', aliases: ['ingredient','material','name','api','excipient','item','description','raw material','component'] },
+    { key: 'role', label: 'Role', aliases: ['role','function','type','purpose','category','class'] },
+    { key: 'quantity', label: 'Qty', aliases: ['quantity','qty','amount','weight','batch qty','quantity (kg)','qty (kg)'] },
+    { key: 'unit', label: 'Unit', aliases: ['unit','uom','measure'] },
+    { key: 'rateUSD', label: 'Rate (USD/Kg)', aliases: ['rate','price','unit price','rate usd','unit rate','cost/kg','rate/kg','rate (usd/kg)','rate (usd)'] },
+    { key: 'cost', label: 'Cost (USD)', aliases: ['cost','total','amount','total cost','total usd','extended cost','cost (usd)'] },
   ],
   bd: [
+    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','company','buyer','customer','contact'] },
     { key: 'targetMarket', label: 'Target Market', aliases: ['market','target market','region','country','territory'] },
-    { key: 'opportunity', label: 'Opportunity', aliases: ['opportunity','deal','product','item','description'] },
-    { key: 'potentialValue', label: 'Potential Value', aliases: ['value','potential','amount','deal value','revenue'] },
+    { key: 'opportunity', label: 'Opportunity / Product', aliases: ['opportunity','deal','product','item','description'] },
+    { key: 'volume', label: 'Volume (Kg)', aliases: ['volume','qty','quantity','kg','amount'] },
+    { key: 'ratePerKg', label: 'Expected Rate (USD/Kg)', aliases: ['rate','rate/kg','price','unit price','rate per kg','expected rate','usd/kg'] },
+    { key: 'potentialValue', label: 'Potential Value (USD)', aliases: ['value','potential','amount','deal value','revenue','total value'] },
     { key: 'status', label: 'Status', aliases: ['status','pipeline','stage'] },
     { key: 'probability', label: 'Probability (%)', aliases: ['probability','chance','%','likelihood','conversion'] },
   ],
   samples: [
-    { key: 'product', label: 'Product', aliases: ['product','item','material','sample','name'] },
-    { key: 'destination', label: 'Destination', aliases: ['destination','country','to','send to','consignee'] },
-    { key: 'quantity', label: 'Quantity', aliases: ['quantity','qty','amount','weight','units'] },
+    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','company','customer','buyer','consignee'] },
+    { key: 'product', label: 'Product', aliases: ['product','item','material','sample','name','sample name'] },
+    { key: 'destination', label: 'Destination / Country', aliases: ['destination','country','to','send to','ship to'] },
+    { key: 'quantity', label: 'Quantity', aliases: ['quantity','qty','amount','weight','units','sample qty'] },
+    { key: 'requestDate', label: 'Request Date', aliases: ['date','request date','dispatch date','sent date'] },
     { key: 'status', label: 'Status', aliases: ['status','sample status','dispatch status'] },
-    { key: 'trackingNumber', label: 'Tracking No', aliases: ['tracking','awb','tracking number','airway bill','waybill'] },
+    { key: 'trackingNumber', label: 'Tracking No', aliases: ['tracking','awb','tracking number','airway bill','waybill','courier no'] },
+    { key: 'remarks', label: 'Remarks', aliases: ['remarks','notes','comment','note'] },
   ],
   logistics: [
-    { key: 'referenceNo', label: 'Reference No', aliases: ['reference','ref no','shipment no','bl no','awb'] },
-    { key: 'product', label: 'Product', aliases: ['product','cargo','goods','item'] },
-    { key: 'quantity', label: 'Quantity', aliases: ['quantity','qty','weight','kg'] },
-    { key: 'origin', label: 'Origin', aliases: ['origin','from','port of loading'] },
-    { key: 'destination', label: 'Destination', aliases: ['destination','to','port of discharge'] },
-    { key: 'carrier', label: 'Carrier', aliases: ['carrier','airline','shipping line','courier'] },
-    { key: 'status', label: 'Status', aliases: ['status','shipment status'] },
+    { key: 'referenceNo', label: 'Reference No', aliases: ['reference','ref no','shipment no','bl no','awb','invoice no'] },
+    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','buyer','customer','consignee'] },
+    { key: 'direction', label: 'Export / Import', aliases: ['direction','export import','type','shipment type','export/import','trade type'] },
+    { key: 'product', label: 'Product', aliases: ['product','cargo','goods','item','description','material'] },
+    { key: 'quantity', label: 'Quantity (Kg)', aliases: ['quantity','qty','weight','kg','net weight'] },
+    { key: 'ratePerKg', label: 'Rate per Kg (USD)', aliases: ['rate','rate/kg','rate per kg','unit price','price/kg','usd/kg'] },
+    { key: 'totalInvoice', label: 'Total Invoice (USD)', aliases: ['total','invoice total','total invoice','amount','total amount','value','invoice value'] },
+    { key: 'origin', label: 'Origin', aliases: ['origin','from','port of loading','loading port','shipper'] },
+    { key: 'destination', label: 'Destination', aliases: ['destination','to','port of discharge','discharge port','consignee country'] },
+    { key: 'carrier', label: 'Carrier', aliases: ['carrier','airline','shipping line','courier','forwarder'] },
+    { key: 'status', label: 'Status', aliases: ['status','shipment status','cargo status'] },
   ],
 };
 
@@ -127,7 +137,7 @@ function applyMap(rawRow: Record<string, string>, colMap: Record<string, string>
   for (const [erpKey, col] of Object.entries(colMap)) {
     if (col && rawRow[col] !== undefined) {
       const val = rawRow[col];
-      const numFields = ['quantity','rateUSD','amountUSD','amountOMR','amount','salary','stock','requiredForOrders','balanceToPurchase','actualYield','expectedYield','rating','probability','optimizationScore','cost'];
+      const numFields = ['quantity','rateUSD','amountUSD','amountOMR','amount','salary','stock','requiredForOrders','balanceToPurchase','actualYield','expectedYield','rating','probability','optimizationScore','cost','ratePerKg','totalInvoice','volume'];
       out[erpKey] = numFields.includes(erpKey) ? (isNaN(Number(val)) ? val : Number(val)) : val;
     }
   }
@@ -159,6 +169,33 @@ function postProcess(rows: Record<string, unknown>[], entityType: string): Recor
     if (entityType === 'vendors' || entityType === 'procurement') {
       if (!out.rating) out.rating = 3;
       if (!out.status) out.status = 'Audit Pending';
+    }
+    if (entityType === 'rd') {
+      // Auto-calculate cost from rate × qty if not provided
+      const qty = Number(out.quantity) || 0;
+      const rate = Number(out.rateUSD) || 0;
+      if (!out.cost && qty && rate) out.cost = Number((qty * rate).toFixed(2));
+      if (!out.role) out.role = 'Excipient';
+      if (!out.unit) out.unit = 'Kg';
+    }
+    if (entityType === 'logistics') {
+      if (!out.mode) out.mode = 'Sea';
+      if (!out.status) out.status = 'Scheduled';
+      if (!out.unit) out.unit = 'Kg';
+      // Auto-calculate totalInvoice from rate × qty if not provided
+      const qty = Number(out.quantity) || 0;
+      const rate = Number(out.ratePerKg) || 0;
+      if (!out.totalInvoice && qty && rate) out.totalInvoice = Number((qty * rate).toFixed(2));
+    }
+    if (entityType === 'bd') {
+      if (!out.status) out.status = 'Prospecting';
+      // Auto-calculate potential value from volume × rate if not provided
+      const vol = Number(out.volume) || 0;
+      const rate = Number(out.ratePerKg) || 0;
+      if (!out.potentialValue && vol && rate) out.potentialValue = String(Number((vol * rate).toFixed(2)));
+    }
+    if (entityType === 'samples') {
+      if (!out.status) out.status = 'Requested';
     }
     return out;
   });
@@ -289,23 +326,53 @@ const EXAMPLES: Record<string, Record<string, string>> = {
   hr:          { name: 'Ahmed Al Balushi', role: 'Production Supervisor', department: 'Production', salary: '1200', status: 'Active', joinDate: '2024-01-01' },
   vendors:     { name: 'Shandong Pharma Co.', category: 'API', country: 'China', rating: '4', status: 'Verified' },
   procurement: { name: 'Shandong Pharma Co.', category: 'API', country: 'China', rating: '4', status: 'Verified' },
-  rd:          { title: 'Esomeprazole 40mg Pellets', productCode: 'ESP-40', dosageForm: 'Pellet', strength: '40mg', status: 'Formulation', optimizationScore: '65' },
-  bd:          { targetMarket: 'Saudi Arabia', opportunity: 'Omeprazole 20mg Registration', potentialValue: '500000', status: 'Prospecting', probability: '40' },
-  samples:     { product: 'Omeprazole 20mg Pellets', destination: 'UAE', quantity: '100g', status: 'Dispatched', trackingNumber: 'AW1234567890' },
-  logistics:   { referenceNo: 'SHP-2025-001', product: 'Omeprazole 20mg', quantity: '1000', origin: 'Muscat', destination: 'Dubai', carrier: 'Emirates SkyCargo', status: 'Scheduled' },
+  rd:          { name: 'Omeprazole', role: 'API', quantity: '100', unit: 'Kg', rateUSD: '18.50', cost: '1850.00' },
+  bd:          { clientName: 'ABC Pharma LLC', targetMarket: 'Saudi Arabia', opportunity: 'Omeprazole 20mg Pellets', volume: '5000', ratePerKg: '12.50', potentialValue: '62500', status: 'Prospecting', probability: '40' },
+  samples:     { clientName: 'Gulf Medical Co.', product: 'Omeprazole 20mg Pellets', destination: 'UAE', quantity: '100g', requestDate: '2025-01-15', status: 'Dispatched', trackingNumber: 'AW1234567890', remarks: 'For registration dossier' },
+  logistics:   { referenceNo: 'SHP-2025-001', clientName: 'ABC Pharma LLC', direction: 'Export', product: 'Omeprazole 20mg', quantity: '1000', ratePerKg: '12.50', totalInvoice: '12500', origin: 'Sohar, Oman', destination: 'Dubai, UAE', carrier: 'Emirates SkyCargo', status: 'Scheduled' },
 };
 
 async function downloadTemplate(entityType: string, schema: { key: string; label: string }[]) {
   const { utils, writeFile } = await import('xlsx');
+  const wb = utils.book_new();
+
+  // ── Special: R&D Ingredients template ────────────────────────────────────
+  if (entityType === 'rd') {
+    const headers = ['S.No', 'Ingredient', 'Role', 'Qty', 'Unit', 'Rate (USD/Kg)', 'Cost (USD)'];
+    const roles = 'API, Filler, Binder, Coating, Disintegrant, Lubricant, Plasticizer, Surfactant, Excipient, Other';
+    const aoa = [
+      ['AL WAJER PHARMA — R&D FORMULA INGREDIENTS TEMPLATE', '', '', '', '', '', ''],
+      [`Role options: ${roles}`, '', '', '', '', '', ''],
+      ['Note: Cost auto-calculates as Qty × Rate if left blank.', '', '', '', '', '', ''],
+      [],
+      headers,
+      ['1', 'Omeprazole', 'API', '100', 'Kg', '18.50', '1850.00'],
+      ['2', 'HPMC E5', 'Excipient', '50', 'Kg', '7.25', '362.50'],
+      ['3', 'Talcum', 'Lubricant', '5', 'Kg', '1.20', '6.00'],
+      ['4', 'Sugar Sphere 25/30', 'Filler', '200', 'Kg', '2.80', '560.00'],
+      ['5', '(Add more rows below)', '', '', 'Kg', '', ''],
+    ];
+    const ws = utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [6, 32, 18, 10, 8, 18, 16].map(wch => ({ wch }));
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+    ];
+    utils.book_append_sheet(wb, ws, 'Formula');
+    writeFile(wb, 'rd_formula_template.xlsx');
+    return;
+  }
+
+  // ── Default flat template for all other entity types ──────────────────────
   const headers = schema.map(f => f.label);
   const keys = schema.map(f => f.key);
   const example = EXAMPLES[entityType] ?? {};
   const exampleRow = keys.map(k => example[k] ?? '');
   const ws = utils.aoa_to_sheet([headers, exampleRow]);
-  // Set column widths
-  ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 16) }));
-  const wb = utils.book_new();
-  utils.book_append_sheet(wb, ws, entityType.charAt(0).toUpperCase() + entityType.slice(1));
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 4, 18) }));
+  const sheetName = entityType.charAt(0).toUpperCase() + entityType.slice(1);
+  utils.book_append_sheet(wb, ws, sheetName);
   writeFile(wb, `${entityType}_template.xlsx`);
 }
 

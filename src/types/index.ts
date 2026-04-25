@@ -88,6 +88,8 @@ export interface BDLead {
   targetMarket: string;
   opportunity: string;
   potentialValue: string;
+  volume?: number;
+  ratePerKg?: number;
   status: 'Prospecting' | 'Negotiation' | 'Contracting' | 'Closed';
   probability: number;
 }
@@ -117,9 +119,12 @@ export interface Shipment {
   destination: string;
   mode: 'Air' | 'Sea' | 'Road' | 'Courier';
   status: 'Scheduled' | 'In Transit' | 'Customs' | 'Delivered' | 'Delayed' | 'Returned';
+  direction?: 'Export' | 'Import';
   dispatchDate: string;
   estimatedArrival: string;
   actualArrival?: string;
+  ratePerKg?: number;
+  totalInvoice?: number;
   cost: number;
   linkedOrderId?: string;
   remarks?: string;

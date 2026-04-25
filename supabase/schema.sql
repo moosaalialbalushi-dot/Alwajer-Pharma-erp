@@ -169,6 +169,22 @@ create table if not exists public.audit_logs (
   timestamp text
 );
 
+-- ─── Column additions (safe to re-run) ─────────────────────────────
+alter table public.batches      add column if not exists "clientName"    text;
+
+alter table public.samples      add column if not exists "clientName"    text;
+alter table public.samples      add column if not exists "requestDate"   text;
+alter table public.samples      add column if not exists remarks         text;
+
+alter table public.shipments    add column if not exists "clientName"    text;
+alter table public.shipments    add column if not exists "ratePerKg"     numeric;
+alter table public.shipments    add column if not exists "totalInvoice"  numeric;
+alter table public.shipments    add column if not exists direction        text;
+
+alter table public.bd_leads     add column if not exists "clientName"    text;
+alter table public.bd_leads     add column if not exists volume           numeric;
+alter table public.bd_leads     add column if not exists "ratePerKg"     numeric;
+
 -- ─── Row Level Security ──────────────────────────────────────────────
 do $$
 declare

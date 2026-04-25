@@ -8,6 +8,7 @@ import type {
   Batch, InventoryItem, Order, Expense, Employee, Vendor,
   BDLead, SampleStatus, Market, RDProject, Shipment, AuditLog,
   COOInsight, TabId, WidgetId, ModalState, ApiConfig, CalcData, ChatSession,
+  Ingredient,
 } from '@/types';
 import { generateId, today } from '@/lib/utils';
 import { loadTable, saveRow, deleteRow, appendRow } from '@/services/db';
@@ -275,9 +276,44 @@ export function useAppState() {
         break;
       }
       case 'rd': {
-        const newRows = rows.map(r => ensureId(r, 'RD') as unknown as RDProject);
-        setRdProjects(prev => [...prev, ...newRows]);
-        newRows.forEach(r => saveRow('rd_projects', r).catch(() => {}));
+        // Each imported row is an ingredient → assemble into one new RDProject
+        const VALID_ROLES = ['API','Filler','Binder','Coating','Disintegrant','Lubricant','Plasticizer','Surfactant','Excipient','Other'] as const;
+        const ingredients: Ingredient[] = rows.map((r, i) => {
+          const qty  = Number(r.quantity || r.qty || 0);
+          const rate = Number(r.rateUSD || r.rate || 0);
+          const cost = Number(r.cost) || Number((qty * rate).toFixed(2));
+          const rawRole = String(r.role || 'Excipient');
+          const role = (VALID_ROLES as readonly string[]).includes(rawRole) ? rawRole as Ingredient['role'] : 'Excipient';
+          return {
+            sNo: String(r.sNo || i + 1),
+            name: String(r.name || r.ingredient || ''),
+            role,
+            quantity: qty,
+            unit: String(r.unit || 'Kg'),
+            rateUSD: rate,
+            cost,
+          };
+        }).filter(ing => ing.name);
+        const totalRMC = Number(ingredients.reduce((s, ing) => s + ing.cost, 0).toFixed(2));
+        const batchSize = Number(ingredients.reduce((s, ing) => s + ing.quantity, 0).toFixed(3));
+        const importDate = new Date().toISOString().split('T')[0];
+        const newProject = ensureId({
+          title: `Imported Formula (${importDate})`,
+          productCode: '', dosageForm: 'Pellet', strength: '',
+          status: 'Formulation',
+          ingredients,
+          packingMaterials: [],
+          optimizationScore: 0,
+          lastUpdated: importDate,
+          batchSize,
+          batchUnit: 'Kg',
+          totalRMC,
+          loss: 0,
+          totalFinalRMC: totalRMC,
+          versions: [],
+        }, 'RD') as unknown as RDProject;
+        setRdProjects(prev => [...prev, newProject]);
+        saveRow('rd_projects', newProject).catch(() => {});
         break;
       }
       case 'bd': {
