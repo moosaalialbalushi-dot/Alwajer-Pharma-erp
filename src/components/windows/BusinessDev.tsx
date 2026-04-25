@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, Plus, Edit2, Trash2, TrendingUp } from 'lucide-react';
+import { Globe, Plus, Edit2, Trash2, TrendingUp, User } from 'lucide-react';
 import type { BDLead, Market, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SmartImporter } from '@/components/shared/SmartImporter';
@@ -15,7 +15,7 @@ interface Props {
 
 export const BusinessDev: React.FC<Props> = ({ bdLeads, markets, onOpenModal, onDelete, apiConfig, onImport }) => {
   const newLead = (): Record<string, unknown> => ({
-    id: `BD-${Date.now()}`, targetMarket: '', opportunity: '',
+    id: `BD-${Date.now()}`, clientName: '', targetMarket: '', opportunity: '',
     potentialValue: '$0', status: 'Prospecting', probability: 0,
   });
 
@@ -70,6 +70,12 @@ export const BusinessDev: React.FC<Props> = ({ bdLeads, markets, onOpenModal, on
             <div key={lead.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#D4AF37]/20 transition-all group">
               <div className="flex flex-wrap justify-between items-start gap-3">
                 <div>
+                  {lead.clientName && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <User size={11} className="text-[#D4AF37]"/>
+                      <span className="text-xs font-bold text-slate-800">{lead.clientName}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-slate-900 font-bold text-sm">{lead.opportunity}</h4>
                     <StatusBadge status={lead.status}/>

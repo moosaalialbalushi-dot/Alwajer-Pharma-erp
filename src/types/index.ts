@@ -9,6 +9,7 @@ export type TabId =
 export interface Batch {
   id: string;
   product: string;
+  clientName?: string;
   quantity: number;
   actualYield: number;
   expectedYield: number;
@@ -83,6 +84,7 @@ export interface Vendor {
 
 export interface BDLead {
   id: string;
+  clientName?: string;
   targetMarket: string;
   opportunity: string;
   potentialValue: string;
@@ -92,16 +94,20 @@ export interface BDLead {
 
 export interface SampleStatus {
   id: string;
+  clientName?: string;
   product: string;
   destination: string;
   quantity: string;
   status: 'Requested' | 'Production' | 'QC Testing' | 'Dispatched' | 'Arrived';
   trackingNumber?: string;
+  requestDate?: string;
+  remarks?: string;
 }
 
 export interface Shipment {
   id: string;
   referenceNo: string;
+  clientName?: string;
   product: string;
   quantity: number;
   unit: string;

@@ -14,6 +14,7 @@ const FIELDS: Record<EntityType, FieldDef[]> = {
   production: [
     { key: 'id', label: 'Batch ID', type: 'text', readOnly: true },
     { key: 'product', label: 'Product', type: 'text' },
+    { key: 'clientName', label: 'Client Name', type: 'text' },
     { key: 'quantity', label: 'Quantity (Kg)', type: 'number' },
     { key: 'actualYield', label: 'Actual Yield (%)', type: 'number' },
     { key: 'expectedYield', label: 'Expected Yield (%)', type: 'number' },
@@ -88,6 +89,7 @@ const FIELDS: Record<EntityType, FieldDef[]> = {
     { key: 'regulatoryStatus', label: 'Regulatory Status', type: 'text' },
   ],
   bd: [
+    { key: 'clientName', label: 'Client Name', type: 'text' },
     { key: 'targetMarket', label: 'Target Market', type: 'text' },
     { key: 'opportunity', label: 'Opportunity', type: 'text' },
     { key: 'potentialValue', label: 'Potential Value', type: 'text' },
@@ -95,11 +97,14 @@ const FIELDS: Record<EntityType, FieldDef[]> = {
     { key: 'probability', label: 'Probability (%)', type: 'number' },
   ],
   samples: [
+    { key: 'clientName', label: 'Client Name', type: 'text' },
     { key: 'product', label: 'Product', type: 'text' },
-    { key: 'destination', label: 'Destination', type: 'text' },
+    { key: 'destination', label: 'Destination / Country', type: 'text' },
     { key: 'quantity', label: 'Quantity', type: 'text' },
+    { key: 'requestDate', label: 'Request Date', type: 'date' },
     { key: 'status', label: 'Status', type: 'select', options: ['Requested', 'Production', 'QC Testing', 'Dispatched', 'Arrived'] },
     { key: 'trackingNumber', label: 'Tracking Number', type: 'text' },
+    { key: 'remarks', label: 'Remarks', type: 'textarea' },
   ],
   markets: [
     { key: 'name', label: 'Market Name', type: 'text' },
@@ -108,6 +113,7 @@ const FIELDS: Record<EntityType, FieldDef[]> = {
   ],
   logistics: [
     { key: 'referenceNo', label: 'Reference No', type: 'text' },
+    { key: 'clientName', label: 'Client Name', type: 'text' },
     { key: 'product', label: 'Product / Cargo', type: 'text' },
     { key: 'quantity', label: 'Quantity', type: 'number' },
     { key: 'unit', label: 'Unit', type: 'text' },

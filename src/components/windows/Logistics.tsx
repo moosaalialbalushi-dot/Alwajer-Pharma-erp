@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Truck, Plus, Edit2, Trash2, Plane, Ship, Package,
-  MapPin, Clock, CheckCircle2, AlertCircle, Filter, ArrowDownToLine, ArrowUpFromLine,
+  MapPin, Clock, CheckCircle2, AlertCircle, Filter, ArrowDownToLine, ArrowUpFromLine, User,
 } from 'lucide-react';
 import type { Shipment, ModalState, ApiConfig } from '@/types';
 import { SmartImporter } from '@/components/shared/SmartImporter';
@@ -166,6 +166,12 @@ export const Logistics: React.FC<Props> = ({ shipments, onOpenModal, onDelete, a
                     )}
                   </div>
                   <h3 className="text-slate-900 font-bold mt-1.5">{shipment.product}</h3>
+                  {shipment.clientName && (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <User size={11} className="text-[#D4AF37]"/>
+                      <span className="text-xs font-semibold text-slate-700">{shipment.clientName}</span>
+                    </div>
+                  )}
                   <p className="text-xs text-slate-600 mt-0.5">{shipment.quantity} {shipment.unit} · {shipment.carrier}</p>
                 </div>
 

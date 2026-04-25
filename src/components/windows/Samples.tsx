@@ -1,5 +1,5 @@
 import React from 'react';
-import { PackageSearch, Plus, Edit2, Trash2, Truck } from 'lucide-react';
+import { PackageSearch, Plus, Edit2, Trash2, Truck, User } from 'lucide-react';
 import type { SampleStatus, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SmartImporter } from '@/components/shared/SmartImporter';
@@ -20,7 +20,8 @@ function stageIndex(s: SampleStatus['status']): number {
 
 export const Samples: React.FC<Props> = ({ samples, onOpenModal, onDelete, apiConfig, onImport }) => {
   const newSample = (): Record<string, unknown> => ({
-    id: `SMP-${Date.now()}`, product: '', destination: '', quantity: '', status: 'Requested',
+    id: `SMP-${Date.now()}`, clientName: '', product: '', destination: '', quantity: '',
+    requestDate: new Date().toISOString().split('T')[0], status: 'Requested', trackingNumber: '', remarks: '',
   });
 
   return (
@@ -66,14 +67,26 @@ export const Samples: React.FC<Props> = ({ samples, onOpenModal, onDelete, apiCo
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[#D4AF37] font-mono text-xs">{sample.id}</span>
                     <StatusBadge status={sample.status}/>
+                    {sample.requestDate && (
+                      <span className="text-[10px] text-slate-400 font-medium">{sample.requestDate}</span>
+                    )}
                   </div>
-                  <h3 className="text-slate-900 font-bold mt-1">{sample.product}</h3>
+                  {sample.clientName && (
+                    <div className="flex items-center gap-1 mt-1.5">
+                      <User size={12} className="text-[#D4AF37] shrink-0"/>
+                      <p className="text-sm font-bold text-slate-900">{sample.clientName}</p>
+                    </div>
+                  )}
+                  <h3 className="text-slate-700 font-semibold mt-0.5">{sample.product}</h3>
                   <div className="flex items-center gap-1 mt-0.5">
-                    <Truck size={11} className="text-slate-500"/>
+                    <Truck size={11} className="text-slate-400"/>
                     <p className="text-xs text-slate-500">{sample.destination} · {sample.quantity}</p>
                   </div>
                   {sample.trackingNumber && (
                     <p className="text-[10px] text-[#D4AF37] font-mono mt-0.5">TRK: {sample.trackingNumber}</p>
+                  )}
+                  {sample.remarks && (
+                    <p className="text-[10px] text-slate-400 italic mt-0.5">{sample.remarks}</p>
                   )}
                 </div>
                 <div className="flex gap-1">

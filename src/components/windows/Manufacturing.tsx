@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Factory, Plus, Eye, Edit2, Trash2, ChevronDown, BarChart3 } from 'lucide-react';
+import { Factory, Plus, Eye, Edit2, Trash2, ChevronDown, BarChart3, User } from 'lucide-react';
 import type { Batch, ModalState, ApiConfig } from '@/types';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { SmartImporter } from '@/components/shared/SmartImporter';
@@ -17,7 +17,7 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete,
 
   const newBatch = (): Record<string, unknown> => ({
     id: `B-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(Math.random() * 900) + 100}`,
-    product: '', quantity: 0, actualYield: 0, expectedYield: 100,
+    product: '', clientName: '', quantity: 0, actualYield: 0, expectedYield: 100,
     status: 'Scheduled', timestamp: new Date().toISOString().split('T')[0], dispatchDate: '',
   });
 
@@ -57,6 +57,7 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete,
               <tr className="border-b border-gray-200 text-slate-500 text-xs uppercase">
                 <th className="pb-3 px-4 font-bold pt-4">Batch ID</th>
                 <th className="pb-3 px-4 font-bold pt-4">Product</th>
+                <th className="pb-3 px-4 font-bold pt-4 hidden lg:table-cell">Client</th>
                 <th className="pb-3 px-4 font-bold pt-4 hidden sm:table-cell">Qty (Kg)</th>
                 <th className="pb-3 px-4 font-bold pt-4 hidden md:table-cell">Dispatch</th>
                 <th className="pb-3 px-4 font-bold pt-4">Yield</th>
@@ -66,7 +67,7 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete,
             </thead>
             <tbody className="divide-y divide-gray-200">
               {batches.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-slate-500 text-sm">No batches recorded. Add your first batch.</td></tr>
+                <tr><td colSpan={8} className="p-6 text-center text-slate-500 text-sm">No batches recorded. Add your first batch.</td></tr>
               )}
               {batches.map(batch => (
                 <React.Fragment key={batch.id}>
@@ -78,6 +79,11 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete,
                       </div>
                     </td>
                     <td className="py-4 px-4 text-slate-900 font-medium text-sm max-w-[200px] truncate">{batch.product}</td>
+                    <td className="py-4 px-4 text-sm hidden lg:table-cell">
+                      {batch.clientName
+                        ? <span className="flex items-center gap-1 text-slate-700 font-semibold"><User size={11} className="text-[#D4AF37]"/>{batch.clientName}</span>
+                        : <span className="text-slate-400">—</span>}
+                    </td>
                     <td className="py-4 px-4 text-slate-900 font-mono text-sm hidden sm:table-cell">{batch.quantity.toLocaleString()}</td>
                     <td className="py-4 px-4 text-slate-700 text-sm hidden md:table-cell">{batch.dispatchDate || '—'}</td>
                     <td className="py-4 px-4">
@@ -96,8 +102,17 @@ export const Manufacturing: React.FC<Props> = ({ batches, onOpenModal, onDelete,
                   </tr>
                   {expandedId === batch.id && (
                     <tr className="bg-gray-50 border-l-2 border-[#D4AF37]">
-                      <td colSpan={7} className="p-0">
-                        <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-5">
+                      <td colSpan={8} className="p-0">
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-4 gap-5">
+                          {batch.clientName && (
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded bg-white border border-gray-200 text-[#D4AF37]"><User size={16}/></div>
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">Client</p>
+                                <p className="text-sm text-slate-900 font-semibold">{batch.clientName}</p>
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded bg-white border border-gray-200 text-[#F4C430]"><BarChart3 size={16}/></div>
                             <div>
