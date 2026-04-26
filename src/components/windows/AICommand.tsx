@@ -17,7 +17,7 @@ const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
     { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
   ],
   Gemini: [
-    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Fast)' },
+    { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Fast)' },
     { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Best)' },
     { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite' },
     { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
@@ -74,7 +74,7 @@ export const AICommand: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
     Claude: 'claude-sonnet-4-6',
-    Gemini: 'gemini-2.0-flash',
+    Gemini: 'gemini-2.5-flash',
     Ollama: apiConfig.ollamaModel || 'gemma3:4b',
   });
   const msgEndRef = useRef<HTMLDivElement>(null);

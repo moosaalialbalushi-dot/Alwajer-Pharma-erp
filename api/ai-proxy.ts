@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) return res.status(500).json({ error: 'GEMINI_API_KEY not configured in Vercel env vars. Add it in Vercel → Settings → Environment Variables.' });
 
-    const geminiModel = model ?? 'gemini-2.0-flash';
+    const geminiModel = model ?? 'gemini-2.5-flash';
     const contents = (messages as { role: string; content: string }[]).map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],

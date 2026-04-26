@@ -162,7 +162,11 @@ interface BrainstormSession {
 
 // --- API CONFIG TYPES ---
 interface ApiConfig {
+    geminiKey: string;
     claudeKey: string;
+    groqKey: string;
+    ollamaUrl: string;
+    ollamaModel: string;
     notebookLmSource: string;
     supabaseUrl: string;
     supabaseKey: string;
@@ -226,38 +230,48 @@ const App: React.FC = () => {
           
           const parsed = saved ? JSON.parse(saved) : {};
           
-          return { 
-              claudeKey: parsed.claudeKey || '', 
+          return {
+              geminiKey: localStorage.getItem('geminiKey') || '',
+              claudeKey: parsed.claudeKey || '',
+              groqKey: parsed.groqKey || '',
+              ollamaUrl: parsed.ollamaUrl || 'http://localhost:11434',
+              ollamaModel: parsed.ollamaModel || 'gemma3:4b',
               notebookLmSource: parsed.notebookLmSource || '',
               supabaseUrl: savedSbUrl || '',
               supabaseKey: savedSbKey || ''
           };
-      } catch (e) { return { claudeKey: '', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' }; }
+      } catch (e) { return { geminiKey: '', claudeKey: '', groqKey: '', ollamaUrl: 'http://localhost:11434', ollamaModel: 'gemma3:4b', notebookLmSource: '', supabaseUrl: '', supabaseKey: '' }; }
   });
-  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'Qwen' | 'NotebookLM'>('Gemini');
+  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'Groq' | 'Ollama'>('Gemini');
 
   // Per-provider model selection
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({
     Gemini: 'gemini-2.5-pro',
     Claude: 'claude-sonnet-4-6',
-    DeepSeek: 'deepseek-chat',
+    Groq: 'llama-3.3-70b-versatile',
+    Ollama: 'gemma3:4b',
   });
   const PROVIDER_MODELS: Record<string, { id: string; label: string; note: string }[]> = {
-  Gemini: [
-    { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro',   note: 'Fast — default' },
-    { id: 'gemini-2.5-pro',   label: 'Gemini 2.5 Pro',   note: 'Deep analysis'  },
-  ],
-  Claude: [
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku',  note: 'Fast'              },
-    { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet', note: 'Balanced — default' },
-    { id: 'claude-opus-4-6',           label: 'Claude Opus',   note: 'Highest quality'   },
-  ],
-  Qwen: [
-    { id: 'qwen-turbo', label: 'Qwen Turbo', note: 'Fast & free'     },
-    { id: 'qwen-plus',  label: 'Qwen Plus',  note: 'Balanced default' },
-    { id: 'qwen-max',   label: 'Qwen Max',   note: 'Highest quality'  },
-  ],
-};
+    Gemini: [
+      { id: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro',    note: 'Default — best quality' },
+      { id: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash',  note: 'Fast responses'         },
+    ],
+    Claude: [
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku',  note: 'Fast'              },
+      { id: 'claude-sonnet-4-6',         label: 'Claude Sonnet', note: 'Balanced — default' },
+      { id: 'claude-opus-4-7',           label: 'Claude Opus',   note: 'Highest quality'   },
+    ],
+    Groq: [
+      { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B',    note: 'Fast — default'  },
+      { id: 'llama-3.1-8b-instant',    label: 'Llama 3.1 8B',     note: 'Fastest'         },
+      { id: 'mixtral-8x7b-32768',      label: 'Mixtral 8x7B',     note: 'Long context'    },
+    ],
+    Ollama: [
+      { id: 'gemma3:4b',   label: 'Gemma 3 4B',   note: 'Default — fast local' },
+      { id: 'llama3.2:3b', label: 'Llama 3.2 3B', note: 'Lightweight'          },
+      { id: 'mistral',     label: 'Mistral 7B',    note: 'Balanced'             },
+    ],
+  };
 
   // ── Helper: safe localStorage write ──
   const saveToLocalStorage = (key: string, value: any) => {
@@ -1055,11 +1069,13 @@ const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, context:
       try {
           const { callAIProxy, extractText } = await import('./aiProxyService');
 
-          // Map UI provider → proxy provider
-          const providerMap: Record<string, 'anthropic' | 'gemini' | 'deepseek'> = {
-              Claude: 'anthropic',
-              Gemini: 'gemini',
-              DeepSeek: 'deepseek',
+          // Map UI provider → aiProxyService canonical names
+          const providerMap: Record<string, string> = {
+              Claude:     'anthropic',
+              Gemini:     'gemini',
+              Groq:       'groq',
+              Ollama:     'ollama',
+              DeepSeek:   'deepseek',
               NotebookLM: 'gemini',
           };
           const apiProvider = providerMap[activeProvider] ?? 'gemini';
@@ -1430,11 +1446,13 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
   const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
   const uiProvider = activeSkill ? activeSkill.provider : activeProvider; // e.g. 'Claude'
 
-  // Map UI display name → API provider name (edge function canonical names)
+  // Map UI display name → aiProxyService canonical names
   const apiProviderMap: Record<string, string> = {
-    Claude: 'anthropic',
-    Gemini: 'gemini',
-    DeepSeek: 'deepseek',
+    Claude:     'anthropic',
+    Gemini:     'gemini',
+    Groq:       'groq',
+    Ollama:     'ollama',
+    DeepSeek:   'deepseek',
     NotebookLM: 'gemini',
   };
   const apiProvider = apiProviderMap[uiProvider] || 'gemini';
@@ -1480,6 +1498,13 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
       systemPrompt =
         'You are Al Wajer Pharmaceuticals data intelligence engine. ' +
         'Analyse pharmaceutical data, formulations, and market data. Use numbers and specifics.';
+    } else if (uiProvider === 'Groq') {
+      systemPrompt =
+        'You are Al Wajer Pharmaceuticals fast-response AI assistant powered by Groq. ' +
+        'Provide quick, accurate operational insights for this Sohar, Oman pharmaceutical manufacturer. Be direct and precise.';
+    } else if (uiProvider === 'Ollama') {
+      systemPrompt =
+        'You are Al Wajer Pharmaceuticals local AI assistant for pharmaceutical operations in Sohar, Oman. Be concise and helpful.';
     } else if (uiProvider === 'DeepSeek') {
       systemPrompt =
         'You are Al Wajer Pharmaceuticals deep reasoning specialist. ' +
@@ -1775,11 +1800,13 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
   };
 
   const handleSaveSettings = () => {
-  localStorage.setItem('erp_api_config', JSON.stringify(apiConfig));
-  if (apiConfig.supabaseUrl)  localStorage.setItem('erp_supabase_url', apiConfig.supabaseUrl);
-  if (apiConfig.supabaseKey)  localStorage.setItem('erp_supabase_key', apiConfig.supabaseKey);
-  setIsSettingsOpen(false);
-};
+    localStorage.setItem('erp_api_config', JSON.stringify(apiConfig));
+    if (apiConfig.geminiKey)   localStorage.setItem('geminiKey', apiConfig.geminiKey);
+    if (apiConfig.supabaseUrl) localStorage.setItem('erp_supabase_url', apiConfig.supabaseUrl);
+    if (apiConfig.supabaseKey) localStorage.setItem('erp_supabase_key', apiConfig.supabaseKey);
+    setIsSettingsOpen(false);
+    window.location.reload();
+  };
 
   const renderSettingsModal = () => {
   if (!isSettingsOpen) return null;
@@ -1850,24 +1877,54 @@ ${aiReport.qualityParameters?.length ? `<div class="section-title">7. Quality Co
             </div>
           </div>
 
-          {/* ── NotebookLM ── */}
+          {/* ── Gemini API Key ── */}
           <div className="space-y-2 border-t border-white/5 pt-4">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <Database size={16} /> NotebookLM Source ID (optional)
+              <Zap size={16} className="text-blue-400" /> Gemini API Key
             </h4>
             <div className="relative">
-              <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                value={apiConfig.notebookLmSource}
-                onChange={(e) => setApiConfig({ ...apiConfig, notebookLmSource: e.target.value })}
-                placeholder="NotebookLM Knowledge Graph ID"
-                className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-[#D4AF37] focus:outline-none"
-              />
+              <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input type="password" value={apiConfig.geminiKey}
+                onChange={(e) => setApiConfig({ ...apiConfig, geminiKey: e.target.value })}
+                placeholder="AIza... (from aistudio.google.com)"
+                className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-blue-500/50 focus:outline-none" />
             </div>
-            <p className="text-[10px] text-slate-500">
-              Connect to your custom NotebookLM knowledge source for enhanced context.
-            </p>
+          </div>
+
+          {/* ── Groq API Key ── */}
+          <div className="space-y-2 border-t border-white/5 pt-4">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <Zap size={16} className="text-green-400" /> Groq API Key <span className="text-[9px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">FREE</span>
+            </h4>
+            <div className="relative">
+              <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input type="password" value={apiConfig.groqKey}
+                onChange={(e) => setApiConfig({ ...apiConfig, groqKey: e.target.value })}
+                placeholder="gsk_... (from console.groq.com)"
+                className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-green-500/50 focus:outline-none" />
+            </div>
+            <p className="text-[10px] text-slate-500">Free tier available — Llama 3.3 70B, fastest inference.</p>
+          </div>
+
+          {/* ── Ollama (Local) ── */}
+          <div className="space-y-2 border-t border-white/5 pt-4">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <Database size={16} className="text-purple-400" /> Ollama — Local AI <span className="text-[9px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded font-bold">NO CLOUD</span>
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input type="text" value={apiConfig.ollamaUrl}
+                  onChange={(e) => setApiConfig({ ...apiConfig, ollamaUrl: e.target.value })}
+                  placeholder="http://localhost:11434"
+                  className="w-full bg-slate-950 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-purple-500/50 focus:outline-none" />
+              </div>
+              <input type="text" value={apiConfig.ollamaModel}
+                onChange={(e) => setApiConfig({ ...apiConfig, ollamaModel: e.target.value })}
+                placeholder="gemma3:4b"
+                className="w-full bg-slate-950 border border-white/10 rounded-lg px-4 py-2 text-xs text-white focus:border-purple-500/50 focus:outline-none" />
+            </div>
+            <p className="text-[10px] text-slate-500 font-mono">ollama pull gemma3:4b &nbsp;→&nbsp; ollama serve</p>
           </div>
         </div>
 
@@ -3834,17 +3891,21 @@ const renderProcurement = () => {
   const renderAIOps = () => {
     const activeSkill = savedSkills.find((s: any) => s.id === activeSkillId);
     const providerColors: Record<string, string> = {
-  Claude:     'text-orange-400',
-  Gemini:     'text-blue-400',
-  Qwen:       'text-purple-400',
-  NotebookLM: 'text-emerald-400',
-};
+      Claude:     'text-orange-400',
+      Gemini:     'text-blue-400',
+      Groq:       'text-green-400',
+      Ollama:     'text-purple-400',
+      NotebookLM: 'text-emerald-400',
+      Qwen:       'text-purple-400',
+    };
     const providerBg: Record<string, string> = {
-  Claude:     'bg-orange-500/10 border-orange-500/30',
-  Gemini:     'bg-blue-500/10 border-blue-500/30',
-  Qwen:       'bg-purple-500/10 border-purple-500/30',
-  NotebookLM: 'bg-emerald-500/10 border-emerald-500/30',
-};
+      Claude:     'bg-orange-500/10 border-orange-500/30',
+      Gemini:     'bg-blue-500/10 border-blue-500/30',
+      Groq:       'bg-green-500/10 border-green-500/30',
+      Ollama:     'bg-purple-500/10 border-purple-500/30',
+      NotebookLM: 'bg-emerald-500/10 border-emerald-500/30',
+      Qwen:       'bg-purple-500/10 border-purple-500/30',
+    };
 
     return (
       <div className="flex flex-col animate-fadeIn pb-6 space-y-4">
@@ -3914,11 +3975,11 @@ const renderProcurement = () => {
             <div className="flex-1 flex flex-col gap-2 min-w-0">
               {/* Provider + Skills bar */}
               <div className="flex flex-wrap gap-1.5 items-center bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 shrink-0">
-                {(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
+                {(['Gemini','Claude','Groq','Ollama'] as const).map(p => (
   <button key={p} onClick={() => { setActiveProvider(p); setActiveSkillId(null); }}
     className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all
       ${activeProvider === p && !activeSkillId ? providerBg[p] + ' ' + providerColors[p] : 'border-transparent text-slate-500 hover:text-white'}`}>
-    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
+    {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Groq' ? '⚡ Groq' : '🖥️ Ollama'}
   </button>
 ))}
                 <div className="w-px h-4 bg-white/10"/>
@@ -3936,7 +3997,7 @@ const renderProcurement = () => {
                 </button>
               </div>
               {/* Model selector — shown when a real provider (not NotebookLM) is active */}
-              {!activeSkillId && activeProvider !== 'NotebookLM' && PROVIDER_MODELS[activeProvider] && (
+              {!activeSkillId && PROVIDER_MODELS[activeProvider] && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/30 border border-white/5 rounded-lg shrink-0">
                   <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Model:</span>
                   {PROVIDER_MODELS[activeProvider].map(m => (
@@ -4323,14 +4384,14 @@ const renderProcurement = () => {
                 <div>
                   <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">AI Provider *</label>
                   <div className="grid grid-cols-2 gap-2">
-{(['Claude','Gemini','Qwen','NotebookLM'] as const).map(p => (
+{(['Gemini','Claude','Groq','Ollama'] as const).map(p => (
                       <button key={p}
                         onClick={() => setNewSkillData((prev: any) => ({...prev, provider: p}))}
                         className={`py-2.5 text-xs font-bold rounded-lg border transition-all text-center
                           ${newSkillData.provider === p
                             ? providerBg[p] + ' ' + providerColors[p]
                             : 'border-white/10 text-slate-500 hover:text-white'}`}>
-                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Qwen' ? '🌟 Qwen' : '📚 NotebookLM'}
+                        {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : p === 'Groq' ? '⚡ Groq' : '🖥️ Ollama'}
                       </button>
                     ))}
                   </div>
