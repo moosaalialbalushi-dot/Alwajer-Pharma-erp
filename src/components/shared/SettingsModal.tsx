@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Key, Bot, Save, Image } from 'lucide-react';
+import { X, Key, Bot, Save, Image, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import type { ApiConfig } from '@/types';
 
 interface Props {
@@ -9,7 +9,36 @@ interface Props {
   onClose: () => void;
 }
 
+type HealthResult = {
+  ok: boolean;
+  timestamp: string;
+  env: Record<string, string>;
+  supabase: { status: string; error: string | null; tableCount: number };
+} | null;
+
 export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose }) => {
+  const [healthResult, setHealthResult] = useState<HealthResult>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+
+  const testConnection = async () => {
+    setHealthLoading(true);
+    setHealthResult(null);
+    try {
+      const r = await fetch('/api/health');
+      const data = await r.json();
+      setHealthResult(data as HealthResult);
+    } catch (err) {
+      setHealthResult({
+        ok: false,
+        timestamp: new Date().toISOString(),
+        env: {},
+        supabase: { status: 'error', error: String(err), tableCount: 0 },
+      });
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
   const [form, setForm] = useState<ApiConfig>({
     claudeKey: config.claudeKey ?? '',
     geminiKey: config.geminiKey ?? '',
@@ -52,15 +81,52 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Supabase Info */}
+          {/* Supabase / Server Health */}
           <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">
-              ✓ Database (Supabase)
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                Database (Supabase)
+              </p>
+              <button
+                onClick={testConnection}
+                disabled={healthLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 rounded-lg transition-all"
+              >
+                {healthLoading
+                  ? <><Loader2 size={11} className="animate-spin"/> Checking…</>
+                  : <><Wifi size={11}/> Test Connection</>}
+              </button>
+            </div>
             <p className="text-xs text-blue-600 leading-relaxed">
-              Supabase is now configured on <strong>Vercel</strong> as environment secrets. 
-              No longer editable here. Your data syncs automatically to the cloud.
+              Supabase is configured on <strong>Vercel</strong> as environment secrets.
+              Click <em>Test Connection</em> to verify all keys are properly set.
             </p>
+            {healthResult && (
+              <div className={`rounded-lg p-3 text-[11px] space-y-2 border ${healthResult.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                <div className="flex items-center gap-1.5 font-bold">
+                  {healthResult.ok
+                    ? <><Wifi size={12} className="text-emerald-600"/> Supabase Connected</>
+                    : <><WifiOff size={12} className="text-red-600"/> Connection Failed</>}
+                </div>
+                {/* Env var status */}
+                {Object.entries(healthResult.env).map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between font-mono">
+                    <span className="text-[10px] opacity-80">{k}</span>
+                    <span className={`text-[10px] font-bold ${v.startsWith('✓') ? 'text-emerald-700' : 'text-red-600'}`}>{v}</span>
+                  </div>
+                ))}
+                {healthResult.supabase.error && (
+                  <p className="text-[10px] text-red-700 bg-red-100 rounded p-1.5 font-mono break-all">
+                    {healthResult.supabase.error}
+                  </p>
+                )}
+                {!healthResult.ok && (
+                  <p className="text-[10px] text-red-700 leading-relaxed">
+                    Go to <strong>Vercel → Project → Settings → Environment Variables</strong> and add the missing keys, then redeploy.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Cloud AI keys */}
