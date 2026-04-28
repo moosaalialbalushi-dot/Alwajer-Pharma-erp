@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Truck, Plus, Edit2, Trash2, AlertTriangle, BadgeDollarSign, Globe, Star, UserPlus, X, Printer } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, AlertTriangle, BadgeDollarSign, Globe, Star, UserPlus, X, Printer, Package, RefreshCw, Clock } from 'lucide-react';
 import type { InventoryItem, Vendor, ModalState, ApiConfig } from '@/types';
 import { SmartImporter } from '@/components/shared/SmartImporter';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { DocPreview } from '@/components/shared/DocPreview';
+import { useVendorCatalog } from '@/hooks/useVendorCatalog';
+import { useCurrency } from '@/providers/CurrencyProvider';
 
 interface Props {
   inventory: InventoryItem[];
@@ -184,6 +186,12 @@ function buildPOHTML(form: POForm, vendor: string, logoUrl: string): string {
 export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, onOpenModal, onDelete, onImport }) => {
   const [isPOOpen, setIsPOOpen] = useState(false);
   const [preview, setPreview] = useState<{ title: string; html: string; filename: string } | null>(null);
+  const [selectedCatalogVendor, setSelectedCatalogVendor] = useState<string | null>(null);
+  const { vendors: catalogVendors, materialsForVendor, loading: catalogLoading, source: catalogSource, reload: reloadCatalog } = useVendorCatalog();
+  const { currency, fmt } = useCurrency();
+
+  const selectedCatalogMaterials = selectedCatalogVendor ? materialsForVendor(selectedCatalogVendor) : [];
+  const selectedCatalogVendorInfo = catalogVendors.find(v => v.id === selectedCatalogVendor);
   const [poForm, setPoForm] = useState<POForm>({
     poNumber: String(Date.now()).slice(-6),
     poDate: new Date().toISOString().split('T')[0],
@@ -235,6 +243,97 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
           <button onClick={() => onOpenModal('add', 'vendors', { id: `V-${Math.floor(Math.random()*900)+100}`, name:'', category:'API', rating:5, status:'Audit Pending', country:'' })} className="erp-btn-gold">
             <UserPlus size={15}/> Add Vendor
           </button>
+        </div>
+      </div>
+
+      {/* Vendor Catalog Panel */}
+      <div className="bg-white shadow-sm border border-[#D4AF37]/30 rounded-xl p-5 gold-glow">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Package className="text-[#F4C430]" size={16}/> Vendor Material Catalog
+            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ml-1 ${
+              catalogSource === 'supabase' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+            }`}>{catalogSource === 'supabase' ? '● Live' : '● Local'}</span>
+          </h3>
+          <button onClick={reloadCatalog} disabled={catalogLoading}
+            className="p-1.5 text-slate-400 hover:text-[#D4AF37] rounded-lg hover:bg-yellow-50 transition-all" title="Refresh from Supabase">
+            <RefreshCw size={14} className={catalogLoading ? 'animate-spin' : ''}/>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Vendor selector */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Select Vendor</p>
+            {catalogVendors.map(v => (
+              <button key={v.id} onClick={() => setSelectedCatalogVendor(selectedCatalogVendor === v.id ? null : v.id)}
+                className={`w-full text-left p-3 rounded-xl border transition-all ${
+                  selectedCatalogVendor === v.id
+                    ? 'border-[#D4AF37] bg-[#D4AF37]/10'
+                    : 'border-gray-200 hover:border-[#D4AF37]/40 bg-gray-50/50'
+                }`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{v.name}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{v.country} · {v.category}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-[#D4AF37]">
+                    <Star size={10} fill="#D4AF37"/>
+                    <span className="text-xs font-bold">{v.rating}</span>
+                  </div>
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1">{materialsForVendor(v.id).length} materials</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Material rates */}
+          <div>
+            {selectedCatalogVendor ? (
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  {selectedCatalogVendorInfo?.name} — Materials ({currency})
+                </p>
+                <div className="space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                  {selectedCatalogMaterials.map(m => (
+                    <div key={m.id}
+                      className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 hover:border-[#D4AF37]/30 transition-all group cursor-pointer"
+                      onClick={() => {
+                        const price = currency === 'SDG' ? m.price_sdg : currency === 'OMR' ? m.price_omr : m.price_usd;
+                        setPoForm(prev => ({ ...prev, itemDesc: m.material_name, unitPrice: String(m.price_usd) }));
+                        setIsPOOpen(true);
+                      }}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{m.material_name}</p>
+                          <p className="text-[9px] text-slate-400 mt-0.5">
+                            <span className={`px-1 rounded ${
+                              m.category === 'API' ? 'bg-blue-100 text-blue-700' :
+                              m.category === 'Excipient' ? 'bg-green-100 text-green-700' :
+                              'bg-purple-100 text-purple-700'
+                            }`}>{m.category}</span>
+                            {m.lead_time_days && <span className="ml-1 text-slate-400"><Clock size={8} className="inline"/> {m.lead_time_days}d</span>}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <p className="text-xs font-black text-[#D4AF37]">
+                            {fmt(m.price_usd)}/{m.unit}
+                          </p>
+                          {m.min_order_qty && <p className="text-[9px] text-slate-400">MOQ: {m.min_order_qty}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full py-10 text-slate-400">
+                <Package size={32} className="mb-2 opacity-30"/>
+                <p className="text-sm">Select a vendor to view materials</p>
+                <p className="text-[10px] mt-1">Click any row to pre-fill PO</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

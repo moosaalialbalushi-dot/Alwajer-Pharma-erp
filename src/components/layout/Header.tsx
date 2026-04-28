@@ -2,6 +2,7 @@ import React from 'react';
 import { Menu, X, Settings, Bell } from 'lucide-react';
 import type { TabId } from '@/types';
 import { NAV_ITEMS } from './Sidebar';
+import { CurrencyToggle } from '@/providers/CurrencyProvider';
 
 interface Props {
   activeTab: TabId;
@@ -47,6 +48,7 @@ export const Header: React.FC<Props> = ({
               </span>
             </div>
           )}
+          <CurrencyToggle />
           <button
             onClick={onSettings}
             className="p-2 text-slate-500 hover:text-slate-900 hover:bg-gray-100 rounded-lg transition-all"

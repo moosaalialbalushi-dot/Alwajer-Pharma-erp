@@ -6,6 +6,7 @@ import { DocPreview } from '@/components/shared/DocPreview';
 import { exportToCSV } from '@/services/export';
 import { SmartImporter } from '@/components/shared/SmartImporter';
 import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/providers/CurrencyProvider';
 
 interface Props {
   orders: Order[];
@@ -15,7 +16,7 @@ interface Props {
   onImport: (rows: Record<string, unknown>[]) => void;
 }
 
-const OMR_RATE = 0.3845;
+const OMR_RATE = 0.3845; // kept for legacy invoice HTML generation
 
 function numOrZero(v: unknown): number {
   const n = Number(v);
@@ -115,6 +116,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
   const [statusFilter, setStatusFilter] = useState('all');
   const [quotForm, setQuotForm] = useState({ quotNo: '', validUntil: '', incoterms: 'FOB SOHAR PORT, OMAN', paymentTerms: 'T/T IN ADVANCE' });
   const [showQuotForm, setShowQuotForm] = useState(false);
+  const { fmt, currency, rates } = useCurrency();
 
   const selectedOrder = orders.find(o => o.id === selectedId) ?? null;
   const invoiceGroup = selectedOrder?.invoiceNo
@@ -183,7 +185,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
         {[
           { label: 'Total Orders', value: orders.length },
           { label: 'Pending', value: pendingCount, color: 'text-yellow-500' },
-          { label: 'Pipeline (USD)', value: formatCurrency(totalPipeline, 'USD') },
+          { label: `Pipeline (${currency})`, value: fmt(totalPipeline) },
         ].map(s => (
           <div key={s.label} className="bg-white shadow-sm border border-[#D4AF37]/20 p-4 rounded-xl">
             <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">{s.label}</p>
@@ -257,13 +259,13 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="text-sm font-bold text-slate-900 font-mono">
-                          {formatCurrency(numOrZero(order.amountUSD), 'USD')}
+                          {fmt(numOrZero(order.amountUSD))}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right hidden xl:table-cell">
                         <div className="text-xs font-mono text-slate-600">
                           {(() => {
-                            const omr = numOrZero(order.amountOMR) || numOrZero(order.amountUSD) * OMR_RATE;
+                            const omr = numOrZero(order.amountOMR) || numOrZero(order.amountUSD) * rates.usdToOmr;
                             return omr > 0 ? `OMR ${omr.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}` : '—';
                           })()}
                         </div>
