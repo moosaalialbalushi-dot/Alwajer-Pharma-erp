@@ -74,10 +74,16 @@ function cleanRow<T>(row: T): T {
   ];
 
   for (const [key, val] of Object.entries(out)) {
-    // 1. Force numbers
+    // 1. Force numbers (strip units like 'USD', 'Kg', 'OMR')
     if (numFields.includes(key)) {
-      const n = Number(val);
-      out[key] = isNaN(n) ? 0 : n;
+      if (typeof val === 'string') {
+        const cleaned = val.replace(/[^\d.-]/g, '');
+        const n = parseFloat(cleaned);
+        out[key] = isNaN(n) ? 0 : n;
+      } else {
+        const n = Number(val);
+        out[key] = isNaN(n) ? 0 : n;
+      }
     }
     // 2. Standardize dates (YYYY-MM-DD or ISO)
     if (key.toLowerCase().includes('date') || key === 'timestamp') {
