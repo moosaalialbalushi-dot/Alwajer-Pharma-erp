@@ -27,6 +27,7 @@ export const Header: React.FC<Props> = ({
           <button
             onClick={onToggleMobile}
             className="lg:hidden text-slate-500 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-gray-100"
+            title={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -74,7 +75,7 @@ export const Header: React.FC<Props> = ({
                 <h1 className="text-slate-900 font-black text-sm">Al Wajer Pharma</h1>
                 <p className="text-slate-500 text-[10px]">ERP v2</p>
               </div>
-              <button onClick={onToggleMobile} className="text-slate-500 hover:text-slate-900 p-1.5"><X size={18}/></button>
+              <button onClick={onToggleMobile} className="text-slate-500 hover:text-slate-900 p-1.5" title="Close menu"><X size={18}/></button>
             </div>
             <nav className="flex-1 p-3 space-y-1">
               {NAV_ITEMS.map(item => {

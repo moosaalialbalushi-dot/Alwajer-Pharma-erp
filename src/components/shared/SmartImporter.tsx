@@ -5,105 +5,105 @@ import type { EntityType } from '@/types';
 // ── Field schemas per entity type ──────────────────────────────────────────
 const SCHEMAS: Record<string, { key: string; label: string; aliases: string[] }[]> = {
   sales: [
-    { key: 'invoiceNo', label: 'Invoice No', aliases: ['invoice','inv','pi no','invoice no','invoice number','pi','order no'] },
-    { key: 'date', label: 'Date', aliases: ['date','invoice date','order date','pi date'] },
-    { key: 'customer', label: 'Customer', aliases: ['customer','buyer','client','party','consignee','bill to'] },
-    { key: 'country', label: 'Country', aliases: ['country','destination','nation'] },
-    { key: 'product', label: 'Product', aliases: ['product','item','description','goods','material','commodity','product name'] },
-    { key: 'quantity', label: 'Qty (Kg)', aliases: ['quantity','qty','kg','net weight','weight','qnty'] },
-    { key: 'rateUSD', label: 'Rate (USD/Kg)', aliases: ['rate','price','unit price','usd','rate usd','rate/kg','price/kg','unit rate'] },
-    { key: 'amountUSD', label: 'Amount (USD)', aliases: ['amount','total','amount usd','value','total usd','total amount','gross'] },
-    { key: 'status', label: 'Status', aliases: ['status','order status'] },
-    { key: 'paymentTerms', label: 'Payment Terms', aliases: ['payment','terms','payment terms'] },
-    { key: 'lcNo', label: 'LC/PO No', aliases: ['lc','po','reference','lc no','po no','lc/po','ref no'] },
+    { key: 'invoiceNo', label: 'Invoice No', aliases: ['invoice','inv','pi no','invoice no','invoice number','pi','order no','order number','reference','ref #','doc no','proforma'] },
+    { key: 'date', label: 'Date', aliases: ['date','invoice date','order date','pi date','doc date','dated','billing date','shipment date'] },
+    { key: 'customer', label: 'Customer', aliases: ['customer','buyer','client','party','consignee','bill to','sold to','account name','client name'] },
+    { key: 'country', label: 'Country', aliases: ['country','destination','nation','region','territory','ship to country'] },
+    { key: 'product', label: 'Product', aliases: ['product','item','description','goods','material','commodity','product name','article','sku','particulars'] },
+    { key: 'quantity', label: 'Qty (Kg)', aliases: ['quantity','qty','kg','net weight','weight','qnty','total weight','amount kg'] },
+    { key: 'rateUSD', label: 'Rate (USD/Kg)', aliases: ['rate','price','unit price','usd','rate usd','rate/kg','price/kg','unit rate','usd rate','fob rate','cif rate'] },
+    { key: 'amountUSD', label: 'Amount (USD)', aliases: ['amount','total','amount usd','value','total usd','total amount','gross','invoice value','net value','total payable'] },
+    { key: 'status', label: 'Status', aliases: ['status','order status','state','progress'] },
+    { key: 'paymentTerms', label: 'Payment Terms', aliases: ['payment','terms','payment terms','payment mode','credit terms'] },
+    { key: 'lcNo', label: 'LC/PO No', aliases: ['lc','po','reference','lc no','po no','lc/po','ref no','po number','lc number'] },
   ],
   inventory: [
-    { key: 'sNo', label: 'S.No', aliases: ['s no','sno','serial','sr no','#'] },
-    { key: 'name', label: 'Material Name', aliases: ['name','material','item','description','raw material','material name'] },
-    { key: 'category', label: 'Category', aliases: ['category','type','cat','class'] },
-    { key: 'stock', label: 'Stock (Kg)', aliases: ['stock','present stock','qty','quantity','available','balance','on hand'] },
-    { key: 'unit', label: 'Unit', aliases: ['unit','uom','measure'] },
-    { key: 'requiredForOrders', label: 'Required for Orders', aliases: ['required','requirement','required for orders','order qty','needed'] },
-    { key: 'balanceToPurchase', label: 'Balance to Purchase', aliases: ['balance','to purchase','shortage','balance to purchase','pending'] },
+    { key: 'sNo', label: 'S.No', aliases: ['s no','sno','serial','sr no','#','index','pos'] },
+    { key: 'name', label: 'Material Name', aliases: ['name','material','item','description','raw material','material name','component','ingredient'] },
+    { key: 'category', label: 'Category', aliases: ['category','type','cat','class','group','sub-category'] },
+    { key: 'stock', label: 'Stock (Kg)', aliases: ['stock','present stock','qty','quantity','available','balance','on hand','closing stock','inventory'] },
+    { key: 'unit', label: 'Unit', aliases: ['unit','uom','measure','pack size'] },
+    { key: 'requiredForOrders', label: 'Required for Orders', aliases: ['required','requirement','required for orders','order qty','needed','pending orders'] },
+    { key: 'balanceToPurchase', label: 'Balance to Purchase', aliases: ['balance','to purchase','shortage','balance to purchase','pending','deficiency'] },
   ],
   production: [
-    { key: 'product', label: 'Product', aliases: ['product','item','batch product','material','product name'] },
-    { key: 'quantity', label: 'Quantity (Kg)', aliases: ['quantity','qty','batch size','kg','weight'] },
-    { key: 'actualYield', label: 'Actual Yield (%)', aliases: ['actual yield','yield','actual','yield %','achieved'] },
-    { key: 'expectedYield', label: 'Expected Yield (%)', aliases: ['expected yield','expected','target yield','target'] },
-    { key: 'status', label: 'Status', aliases: ['status','batch status'] },
-    { key: 'timestamp', label: 'Date', aliases: ['date','timestamp','production date','batch date','mfg date'] },
-    { key: 'dispatchDate', label: 'Dispatch Date', aliases: ['dispatch','dispatch date','ship date'] },
+    { key: 'product', label: 'Product', aliases: ['product','item','batch product','material','product name','formula name','fg name'] },
+    { key: 'quantity', label: 'Quantity (Kg)', aliases: ['quantity','qty','batch size','kg','weight','target qty','batch weight'] },
+    { key: 'actualYield', label: 'Actual Yield (%)', aliases: ['actual yield','yield','actual','yield %','achieved','final yield','output %'] },
+    { key: 'expectedYield', label: 'Expected Yield (%)', aliases: ['expected yield','expected','target yield','target','theoretical yield'] },
+    { key: 'status', label: 'Status', aliases: ['status','batch status','stage','current stage'] },
+    { key: 'timestamp', label: 'Date', aliases: ['date','timestamp','production date','batch date','mfg date','manufacturing date'] },
+    { key: 'dispatchDate', label: 'Dispatch Date', aliases: ['dispatch','dispatch date','ship date','expiry date','exp date'] },
   ],
   accounting: [
-    { key: 'description', label: 'Description', aliases: ['description','particulars','details','narration','item','bill for','expense'] },
-    { key: 'category', label: 'Category', aliases: ['category','type','head','expense type','account'] },
-    { key: 'amount', label: 'Amount (USD)', aliases: ['amount','value','total','usd','price','cost','sum'] },
-    { key: 'status', label: 'Status', aliases: ['status','payment status','paid','due'] },
-    { key: 'dueDate', label: 'Due Date', aliases: ['due date','date','payment date','due','bill date','invoice date'] },
+    { key: 'description', label: 'Description', aliases: ['description','particulars','details','narration','item','bill for','expense','reason'] },
+    { key: 'category', label: 'Category', aliases: ['category','type','head','expense type','account','ledger','cost center'] },
+    { key: 'amount', label: 'Amount (USD)', aliases: ['amount','value','total','usd','price','cost','sum','payment amount','invoice amount'] },
+    { key: 'status', label: 'Status', aliases: ['status','payment status','paid','due','paid status'] },
+    { key: 'dueDate', label: 'Due Date', aliases: ['due date','date','payment date','due','bill date','invoice date','expiry'] },
   ],
   hr: [
-    { key: 'name', label: 'Employee Name', aliases: ['name','employee name','staff name','full name','employee'] },
-    { key: 'role', label: 'Role', aliases: ['role','designation','position','title','job title'] },
-    { key: 'department', label: 'Department', aliases: ['department','dept','division','section'] },
-    { key: 'salary', label: 'Salary (USD)', aliases: ['salary','wage','pay','monthly salary','ctc','compensation'] },
-    { key: 'status', label: 'Status', aliases: ['status','employment status','active'] },
+    { key: 'name', label: 'Employee Name', aliases: ['name','employee name','staff name','full name','employee','member','staff'] },
+    { key: 'role', label: 'Role', aliases: ['role','designation','position','title','job title','rank'] },
+    { key: 'department', label: 'Department', aliases: ['department','dept','division','section','unit'] },
+    { key: 'salary', label: 'Salary (USD)', aliases: ['salary','wage','pay','monthly salary','ctc','compensation','allowance'] },
+    { key: 'status', label: 'Status', aliases: ['status','employment status','active','on duty'] },
     { key: 'joinDate', label: 'Join Date', aliases: ['join date','joining date','start date','doj','date of joining'] },
   ],
   vendors: [
-    { key: 'name', label: 'Vendor Name', aliases: ['name','vendor','supplier','company','manufacturer','party'] },
-    { key: 'category', label: 'Category', aliases: ['category','type','material type','supply type'] },
-    { key: 'country', label: 'Country', aliases: ['country','origin','location','nation'] },
-    { key: 'rating', label: 'Rating', aliases: ['rating','score','grade','quality'] },
-    { key: 'status', label: 'Status', aliases: ['status','vendor status','approval'] },
+    { key: 'name', label: 'Vendor Name', aliases: ['name','vendor','supplier','company','manufacturer','party','service provider'] },
+    { key: 'category', label: 'Category', aliases: ['category','type','material type','supply type','nature of business'] },
+    { key: 'country', label: 'Country', aliases: ['country','origin','location','nation','address','city'] },
+    { key: 'rating', label: 'Rating', aliases: ['rating','score','grade','quality','performance'] },
+    { key: 'status', label: 'Status', aliases: ['status','vendor status','approval','kyc status'] },
   ],
   procurement: [
     { key: 'name', label: 'Vendor/Supplier', aliases: ['name','vendor','supplier','company','manufacturer','party'] },
-    { key: 'category', label: 'Category', aliases: ['category','type','material type'] },
-    { key: 'country', label: 'Country', aliases: ['country','origin','location'] },
-    { key: 'rating', label: 'Rating', aliases: ['rating','score','grade'] },
-    { key: 'status', label: 'Status', aliases: ['status','approval','verified'] },
+    { key: 'category', label: 'Category', aliases: ['category','type','material type','service'] },
+    { key: 'country', label: 'Country', aliases: ['country','origin','location','source'] },
+    { key: 'rating', label: 'Rating', aliases: ['rating','score','grade','vendor rating'] },
+    { key: 'status', label: 'Status', aliases: ['status','approval','verified','active'] },
   ],
   rd: [
-    { key: 'name', label: 'Ingredient', aliases: ['ingredient','material','name','api','excipient','item','description','raw material','component'] },
-    { key: 'role', label: 'Role', aliases: ['role','function','type','purpose','category','class'] },
-    { key: 'quantity', label: 'Qty', aliases: ['quantity','qty','amount','weight','batch qty','quantity (kg)','qty (kg)'] },
-    { key: 'unit', label: 'Unit', aliases: ['unit','uom','measure'] },
+    { key: 'name', label: 'Ingredient', aliases: ['ingredient','material','name','api','excipient','item','description','raw material','component','chemical','substance'] },
+    { key: 'role', label: 'Role', aliases: ['role','function','type','purpose','category','class','use'] },
+    { key: 'quantity', label: 'Qty', aliases: ['quantity','qty','amount','weight','batch qty','quantity (kg)','qty (kg)','formula qty'] },
+    { key: 'unit', label: 'Unit', aliases: ['unit','uom','measure','units'] },
     { key: 'rateUSD', label: 'Rate (USD/Kg)', aliases: ['rate','price','unit price','rate usd','unit rate','cost/kg','rate/kg','rate (usd/kg)','rate (usd)'] },
-    { key: 'cost', label: 'Cost (USD)', aliases: ['cost','total','amount','total cost','total usd','extended cost','cost (usd)'] },
+    { key: 'cost', label: 'Cost (USD)', aliases: ['cost','total','amount','total cost','total usd','extended cost','cost (usd)','line cost'] },
   ],
   bd: [
-    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','company','buyer','customer','contact'] },
-    { key: 'targetMarket', label: 'Target Market', aliases: ['market','target market','region','country','territory'] },
-    { key: 'opportunity', label: 'Opportunity / Product', aliases: ['opportunity','deal','product','item','description'] },
-    { key: 'volume', label: 'Volume (Kg)', aliases: ['volume','qty','quantity','kg','amount'] },
-    { key: 'ratePerKg', label: 'Expected Rate (USD/Kg)', aliases: ['rate','rate/kg','price','unit price','rate per kg','expected rate','usd/kg'] },
-    { key: 'potentialValue', label: 'Potential Value (USD)', aliases: ['value','potential','amount','deal value','revenue','total value'] },
-    { key: 'status', label: 'Status', aliases: ['status','pipeline','stage'] },
-    { key: 'probability', label: 'Probability (%)', aliases: ['probability','chance','%','likelihood','conversion'] },
+    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','company','buyer','customer','contact','prospect','lead name'] },
+    { key: 'targetMarket', label: 'Target Market', aliases: ['market','target market','region','country','territory','destination'] },
+    { key: 'opportunity', label: 'Opportunity / Product', aliases: ['opportunity','deal','product','item','description','inquiry','rfq'] },
+    { key: 'volume', label: 'Volume (Kg)', aliases: ['volume','qty','quantity','kg','amount','est volume'] },
+    { key: 'ratePerKg', label: 'Expected Rate (USD/Kg)', aliases: ['rate','rate/kg','price','unit price','rate per kg','expected rate','usd/kg','target price'] },
+    { key: 'potentialValue', label: 'Potential Value (USD)', aliases: ['value','potential','amount','deal value','revenue','total value','est value'] },
+    { key: 'status', label: 'Status', aliases: ['status','pipeline','stage','lead stage'] },
+    { key: 'probability', label: 'Probability (%)', aliases: ['probability','chance','%','likelihood','conversion','prob %'] },
   ],
   samples: [
     { key: 'clientName', label: 'Client Name', aliases: ['client','client name','company','customer','buyer','consignee'] },
-    { key: 'product', label: 'Product', aliases: ['product','item','material','sample','name','sample name'] },
-    { key: 'destination', label: 'Destination / Country', aliases: ['destination','country','to','send to','ship to'] },
+    { key: 'product', label: 'Product', aliases: ['product','item','material','sample','name','sample name','sku'] },
+    { key: 'destination', label: 'Destination / Country', aliases: ['destination','country','to','send to','ship to','receiver country'] },
     { key: 'quantity', label: 'Quantity', aliases: ['quantity','qty','amount','weight','units','sample qty'] },
-    { key: 'requestDate', label: 'Request Date', aliases: ['date','request date','dispatch date','sent date'] },
-    { key: 'status', label: 'Status', aliases: ['status','sample status','dispatch status'] },
-    { key: 'trackingNumber', label: 'Tracking No', aliases: ['tracking','awb','tracking number','airway bill','waybill','courier no'] },
-    { key: 'remarks', label: 'Remarks', aliases: ['remarks','notes','comment','note'] },
+    { key: 'requestDate', label: 'Request Date', aliases: ['date','request date','dispatch date','sent date','order date'] },
+    { key: 'status', label: 'Status', aliases: ['status','sample status','dispatch status','tracking status'] },
+    { key: 'trackingNumber', label: 'Tracking No', aliases: ['tracking','awb','tracking number','airway bill','waybill','courier no','docket no'] },
+    { key: 'remarks', label: 'Remarks', aliases: ['remarks','notes','comment','note','instruction'] },
   ],
   logistics: [
-    { key: 'referenceNo', label: 'Reference No', aliases: ['reference','ref no','shipment no','bl no','awb','invoice no'] },
-    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','buyer','customer','consignee'] },
-    { key: 'direction', label: 'Export / Import', aliases: ['direction','export import','type','shipment type','export/import','trade type'] },
-    { key: 'product', label: 'Product', aliases: ['product','cargo','goods','item','description','material'] },
-    { key: 'quantity', label: 'Quantity (Kg)', aliases: ['quantity','qty','weight','kg','net weight'] },
-    { key: 'ratePerKg', label: 'Rate per Kg (USD)', aliases: ['rate','rate/kg','rate per kg','unit price','price/kg','usd/kg'] },
-    { key: 'totalInvoice', label: 'Total Invoice (USD)', aliases: ['total','invoice total','total invoice','amount','total amount','value','invoice value'] },
-    { key: 'origin', label: 'Origin', aliases: ['origin','from','port of loading','loading port','shipper'] },
-    { key: 'destination', label: 'Destination', aliases: ['destination','to','port of discharge','discharge port','consignee country'] },
-    { key: 'carrier', label: 'Carrier', aliases: ['carrier','airline','shipping line','courier','forwarder'] },
-    { key: 'status', label: 'Status', aliases: ['status','shipment status','cargo status'] },
+    { key: 'referenceNo', label: 'Reference No', aliases: ['reference','ref no','shipment no','bl no','awb','invoice no','hbl','mbl','container no'] },
+    { key: 'clientName', label: 'Client Name', aliases: ['client','client name','buyer','customer','consignee','shipper'] },
+    { key: 'direction', label: 'Export / Import', aliases: ['direction','export import','type','shipment type','export/import','trade type','movement'] },
+    { key: 'product', label: 'Product', aliases: ['product','cargo','goods','item','description','material','commodity'] },
+    { key: 'quantity', label: 'Quantity (Kg)', aliases: ['quantity','qty','weight','kg','net weight','gross weight'] },
+    { key: 'ratePerKg', label: 'Rate per Kg (USD)', aliases: ['rate','rate/kg','rate per kg','unit price','price/kg','usd/kg','freight rate'] },
+    { key: 'totalInvoice', label: 'Total Invoice (USD)', aliases: ['total','invoice total','total invoice','amount','total amount','value','invoice value','cif value','fob value'] },
+    { key: 'origin', label: 'Origin', aliases: ['origin','from','port of loading','loading port','shipper','pol'] },
+    { key: 'destination', label: 'Destination', aliases: ['destination','to','port of discharge','discharge port','consignee country','pod'] },
+    { key: 'carrier', label: 'Carrier', aliases: ['carrier','airline','shipping line','courier','forwarder','vessel','flight'] },
+    { key: 'status', label: 'Status', aliases: ['status','shipment status','cargo status','delivery status'] },
   ],
 };
 
@@ -480,7 +480,7 @@ export const SmartImporter: React.FC<Props> = ({ entityType, onImport, apiConfig
                 <h2 className="text-base font-bold text-slate-900">Smart Import — {entityType.charAt(0).toUpperCase() + entityType.slice(1)}</h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">Excel · CSV · Photo · PDF — bulk import all at once</p>
               </div>
-              <button onClick={close} className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-gray-100"><X size={18}/></button>
+              <button onClick={close} className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-gray-100" title="Close"><X size={18}/></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -550,6 +550,7 @@ export const SmartImporter: React.FC<Props> = ({ entityType, onImport, apiConfig
                       <div key={field.key}>
                         <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{field.label}</label>
                         <select value={colMap[field.key] || ''} onChange={e => setColMap(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          title={`Select column for ${field.label}`}
                           className={`w-full mt-0.5 text-xs border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-[#D4AF37]/50 ${colMap[field.key] ? 'border-green-400 bg-green-50' : 'border-gray-200'}`}>
                           <option value="">— skip —</option>
                           {headers.map(h => <option key={h} value={h}>{h}</option>)}
@@ -593,7 +594,7 @@ export const SmartImporter: React.FC<Props> = ({ entityType, onImport, apiConfig
                           {reviewRows.map((row, i) => (
                             <tr key={i} className={`hover:bg-gray-50 transition-colors ${selected.has(i) ? '' : 'opacity-40'}`}>
                               <td className="px-3 py-2">
-                                <input type="checkbox" checked={selected.has(i)} onChange={() => toggleRow(i)} className="rounded"/>
+                                <input type="checkbox" checked={selected.has(i)} onChange={() => toggleRow(i)} className="rounded" title="Select record"/>
                               </td>
                               {displayKeys.map(k => (
                                 <td key={k} className="px-3 py-2 max-w-[140px] truncate text-slate-700">
@@ -601,7 +602,7 @@ export const SmartImporter: React.FC<Props> = ({ entityType, onImport, apiConfig
                                 </td>
                               ))}
                               <td className="px-2 py-2">
-                                <button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-400 transition-colors"><Trash2 size={11}/></button>
+                                <button onClick={() => removeRow(i)} className="text-slate-300 hover:text-red-400 transition-colors" title="Remove record"><Trash2 size={11}/></button>
                               </td>
                             </tr>
                           ))}

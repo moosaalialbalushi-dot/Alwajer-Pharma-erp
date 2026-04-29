@@ -207,6 +207,7 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                 className="w-full pl-8 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#D4AF37]/50"/>
             </div>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              title="Filter by status"
               className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]/50">
               <option value="all">All Status</option>
               {statuses.map(s => <option key={s} value={s}>{s}</option>)}
@@ -278,11 +279,11 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                             <Eye size={13}/>
                           </button>
                           <button onClick={() => onOpenModal('edit', 'sales', order as unknown as Record<string, unknown>)}
-                            className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
+                            className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Edit order">
                             <Edit2 size={13}/>
                           </button>
                           <button onClick={() => onDelete('sales', order.id, `${order.invoiceNo} – ${order.product}`)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Delete order">
                             <Trash2 size={13}/>
                           </button>
                         </div>
@@ -306,11 +307,11 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
               </div>
               <div className="flex gap-1">
                 <button onClick={() => onOpenModal('edit', 'sales', selectedOrder as unknown as Record<string, unknown>)}
-                  className="p-1.5 text-slate-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
+                  className="p-1.5 text-slate-500 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Edit order">
                   <Edit2 size={13}/>
                 </button>
                 <button onClick={() => setSelectedId(null)}
-                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-gray-100 rounded-lg transition-all">
+                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-gray-100 rounded-lg transition-all" title="Close panel">
                   <X size={13}/>
                 </button>
               </div>
@@ -392,23 +393,23 @@ export const Sales: React.FC<Props> = ({ orders, apiConfig, onOpenModal, onDelet
                 <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-2">
                   <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">Quotation Details</p>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Quotation No.</label>
-                    <input value={quotForm.quotNo} onChange={e => setQuotForm(f => ({ ...f, quotNo: e.target.value }))}
+                    <label htmlFor="quotNo" className="text-[9px] font-bold text-slate-500 uppercase">Quotation No.</label>
+                    <input id="quotNo" value={quotForm.quotNo} onChange={e => setQuotForm(f => ({ ...f, quotNo: e.target.value }))}
                       className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mt-0.5 focus:outline-none focus:border-[#D4AF37]/50 bg-white"/>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Valid Until</label>
-                    <input type="date" value={quotForm.validUntil} onChange={e => setQuotForm(f => ({ ...f, validUntil: e.target.value }))}
+                    <label htmlFor="validUntil" className="text-[9px] font-bold text-slate-500 uppercase">Valid Until</label>
+                    <input id="validUntil" type="date" value={quotForm.validUntil} onChange={e => setQuotForm(f => ({ ...f, validUntil: e.target.value }))}
                       className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mt-0.5 focus:outline-none focus:border-[#D4AF37]/50 bg-white"/>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Incoterms</label>
-                    <input value={quotForm.incoterms} onChange={e => setQuotForm(f => ({ ...f, incoterms: e.target.value }))}
+                    <label htmlFor="incoterms" className="text-[9px] font-bold text-slate-500 uppercase">Incoterms</label>
+                    <input id="incoterms" value={quotForm.incoterms} onChange={e => setQuotForm(f => ({ ...f, incoterms: e.target.value }))}
                       className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mt-0.5 focus:outline-none focus:border-[#D4AF37]/50 bg-white"/>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Payment Terms</label>
-                    <input value={quotForm.paymentTerms} onChange={e => setQuotForm(f => ({ ...f, paymentTerms: e.target.value }))}
+                    <label htmlFor="paymentTerms" className="text-[9px] font-bold text-slate-500 uppercase">Payment Terms</label>
+                    <input id="paymentTerms" value={quotForm.paymentTerms} onChange={e => setQuotForm(f => ({ ...f, paymentTerms: e.target.value }))}
                       className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 mt-0.5 focus:outline-none focus:border-[#D4AF37]/50 bg-white"/>
                   </div>
                   <div className="flex gap-2 pt-1">

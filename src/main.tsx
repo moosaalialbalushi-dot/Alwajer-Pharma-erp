@@ -18,16 +18,16 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 32, fontFamily: 'monospace', background: '#fff', color: '#0f172a', minHeight: '100vh' }}>
-          <h2 style={{ color: '#dc2626', marginBottom: 16 }}>Application Error</h2>
-          <pre style={{ background: '#f1f5f9', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 13 }}>
+        <div className="p-8 font-mono bg-white text-slate-900 min-h-screen">
+          <h2 className="text-red-600 mb-4 text-xl font-bold">Application Error</h2>
+          <pre className="bg-slate-100 p-4 rounded-lg overflow-auto text-xs">
             {this.state.error.message}
             {'\n\n'}
             {this.state.error.stack}
           </pre>
           <button
             onClick={() => this.setState({ error: null })}
-            style={{ marginTop: 16, padding: '8px 16px', background: '#D4AF37', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700 }}
+            className="mt-4 px-4 py-2 bg-[#D4AF37] text-slate-950 border-none rounded-lg cursor-pointer font-bold"
           >
             Retry
           </button>

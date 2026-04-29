@@ -393,6 +393,7 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                   <input placeholder="Material name" value={newRate.name ?? ''} onChange={e => setNewRate(p => ({ ...p, name: e.target.value }))}
                     className="col-span-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#D4AF37]/50"/>
                   <select value={newRate.category ?? 'API'} onChange={e => setNewRate(p => ({ ...p, category: e.target.value as 'API' | 'Excipient' }))}
+                    title="Material Category"
                     className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none">
                     <option value="API">API</option>
                     <option value="Excipient">Excipient</option>
@@ -402,6 +403,7 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                   <input placeholder="Change (e.g. +1.5%)" value={newRate.change ?? ''} onChange={e => setNewRate(p => ({ ...p, change: e.target.value }))}
                     className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none"/>
                   <select value={newRate.up === null ? 'null' : String(newRate.up)} onChange={e => setNewRate(p => ({ ...p, up: e.target.value === 'null' ? null : e.target.value === 'true' }))}
+                    title="Price Trend"
                     className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none">
                     <option value="null">Stable</option>
                     <option value="true">Up</option>
@@ -439,7 +441,7 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                       {m.change}
                     </td>
                     <td className="py-2 text-right">
-                      <button onClick={() => handleDeleteRate(m.id)} className="p-1 text-slate-400 hover:text-red-400 rounded transition-all"><Trash2 size={10}/></button>
+                      <button onClick={() => handleDeleteRate(m.id)} className="p-1 text-slate-400 hover:text-red-400 rounded transition-all" title="Delete rate"><Trash2 size={10}/></button>
                     </td>
                   </tr>
                 ))}
@@ -468,8 +470,8 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                       <Star size={10} fill="#D4AF37"/> {v.rating}
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => onOpenModal('edit', 'vendors', v as unknown as Record<string, unknown>)} className="p-1 text-slate-500 hover:text-[#D4AF37]"><Edit2 size={11}/></button>
-                      <button onClick={() => onDelete('vendors', v.id, v.name)} className="p-1 text-slate-500 hover:text-red-400"><Trash2 size={11}/></button>
+                      <button onClick={() => onOpenModal('edit', 'vendors', v as unknown as Record<string, unknown>)} className="p-1 text-slate-500 hover:text-[#D4AF37]" title="Edit vendor"><Edit2 size={11}/></button>
+                      <button onClick={() => onDelete('vendors', v.id, v.name)} className="p-1 text-slate-500 hover:text-red-400" title="Delete vendor"><Trash2 size={11}/></button>
                     </div>
                   </div>
                 </div>
@@ -485,21 +487,21 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh]">
             <div className="flex items-center justify-between p-5 border-b border-gray-200 shrink-0">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2"><Printer size={16} className="text-[#D4AF37]"/> Purchase Order</h2>
-              <button onClick={() => setIsPOOpen(false)} className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-gray-100"><X size={18}/></button>
+              <button onClick={() => setIsPOOpen(false)} className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-gray-100" title="Close"><X size={18}/></button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">PO Number</label>
+                  <label htmlFor="poNumber" className="block text-xs font-bold text-slate-600 uppercase mb-1">PO Number</label>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-slate-500 whitespace-nowrap">AWP/PO/</span>
-                    <input value={poForm.poNumber} onChange={e => setPoField('poNumber', e.target.value)}
+                    <input id="poNumber" value={poForm.poNumber} onChange={e => setPoField('poNumber', e.target.value)}
                       className="flex-1 bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">PO Date</label>
-                  <input type="date" value={poForm.poDate} onChange={e => setPoField('poDate', e.target.value)}
+                  <label htmlFor="poDate" className="block text-xs font-bold text-slate-600 uppercase mb-1">PO Date</label>
+                  <input id="poDate" type="date" value={poForm.poDate} onChange={e => setPoField('poDate', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
               </div>
@@ -515,8 +517,8 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                   className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none resize-none"/>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Link to Vendor (optional)</label>
-                <select value={poVendor} onChange={e => setPoVendor(e.target.value)}
+                <label htmlFor="poVendor" className="block text-xs font-bold text-slate-600 uppercase mb-1">Link to Vendor (optional)</label>
+                <select id="poVendor" value={poVendor} onChange={e => setPoVendor(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none">
                   <option value="">Select vendor...</option>
                   {vendors.map(v => <option key={v.id} value={v.id}>{v.name} — {v.country}</option>)}
@@ -530,14 +532,14 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Quantity (Kg)</label>
-                  <input type="number" value={poForm.qty} onChange={e => setPoField('qty', e.target.value)}
+                  <label htmlFor="poQty" className="block text-xs font-bold text-slate-600 uppercase mb-1">Quantity (Kg)</label>
+                  <input id="poQty" type="number" value={poForm.qty} onChange={e => setPoField('qty', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Unit Price (USD/Kg)</label>
+                  <label htmlFor="poUnitPrice" className="block text-xs font-bold text-slate-600 uppercase mb-1">Unit Price (USD/Kg)</label>
                   <div className="flex gap-1">
-                    <input type="number" value={poForm.unitPrice} onChange={e => setPoField('unitPrice', e.target.value)}
+                    <input id="poUnitPrice" type="number" value={poForm.unitPrice} onChange={e => setPoField('unitPrice', e.target.value)}
                       className="flex-1 bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                     <select
                       onChange={e => e.target.value && setPoField('unitPrice', e.target.value)}
@@ -558,33 +560,33 @@ export const Procurement: React.FC<Props> = ({ inventory, vendors, apiConfig, on
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Country of Origin</label>
-                  <input value={poForm.countryOfOrigin} onChange={e => setPoField('countryOfOrigin', e.target.value)}
+                  <label htmlFor="poOrigin" className="block text-xs font-bold text-slate-600 uppercase mb-1">Country of Origin</label>
+                  <input id="poOrigin" value={poForm.countryOfOrigin} onChange={e => setPoField('countryOfOrigin', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">ETA</label>
-                  <input value={poForm.eta} onChange={e => setPoField('eta', e.target.value)}
+                  <label htmlFor="poEta" className="block text-xs font-bold text-slate-600 uppercase mb-1">ETA</label>
+                  <input id="poEta" value={poForm.eta} onChange={e => setPoField('eta', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Ship Via</label>
-                  <input value={poForm.shipVia} onChange={e => setPoField('shipVia', e.target.value)}
+                  <label htmlFor="poShipVia" className="block text-xs font-bold text-slate-600 uppercase mb-1">Ship Via</label>
+                  <input id="poShipVia" value={poForm.shipVia} onChange={e => setPoField('shipVia', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Payment Terms</label>
-                  <input value={poForm.paymentTerms} onChange={e => setPoField('paymentTerms', e.target.value)}
+                  <label htmlFor="poPaymentTerms" className="block text-xs font-bold text-slate-600 uppercase mb-1">Payment Terms</label>
+                  <input id="poPaymentTerms" value={poForm.paymentTerms} onChange={e => setPoField('paymentTerms', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Form of Payment</label>
-                  <input value={poForm.formOfPayment} onChange={e => setPoField('formOfPayment', e.target.value)}
+                  <label htmlFor="poFormOfPayment" className="block text-xs font-bold text-slate-600 uppercase mb-1">Form of Payment</label>
+                  <input id="poFormOfPayment" value={poForm.formOfPayment} onChange={e => setPoField('formOfPayment', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Requested By</label>
-                  <input value={poForm.requestedBy} onChange={e => setPoField('requestedBy', e.target.value)}
+                  <label htmlFor="poRequestedBy" className="block text-xs font-bold text-slate-600 uppercase mb-1">Requested By</label>
+                  <input id="poRequestedBy" value={poForm.requestedBy} onChange={e => setPoField('requestedBy', e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:border-[#D4AF37]/50 focus:outline-none"/>
                 </div>
               </div>
